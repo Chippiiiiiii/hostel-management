@@ -70,7 +70,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     
     private String getLimitMessage(RateLimitType type) {
         return switch (type) {
-            case CREATE -> "Rate limit exceeded. You can create 10 outpasses per hour. Please try again later.";
+            case CREATE -> "Rate limit exceeded. You can make 10 create requests per hour. Please try again later.";
             case UPDATE -> "Rate limit exceeded. You can make 20 updates per hour. Please try again later.";
             case READ -> "Rate limit exceeded. You can make 200 read requests per minute. Please try again later.";
         };

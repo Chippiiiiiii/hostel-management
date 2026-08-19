@@ -20,6 +20,6 @@ public class WebConfig implements WebMvcConfigurer {
         // You can customize the paths as needed
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns("/student/**", "/warden/**", "/security/**")
-                .excludePathPatterns("/auth/**"); // Exclude auth endpoints from rate limiting
+                .excludePathPatterns("/auth/**", "/warden/rooms/**");
     }
 }
