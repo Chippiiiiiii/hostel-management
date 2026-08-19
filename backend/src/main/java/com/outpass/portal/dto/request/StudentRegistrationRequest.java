@@ -47,5 +47,7 @@ public class StudentRegistrationRequest {
     private String parentNumber;
 
     private String profilePicture;
+
+    private String gender;
 }
 

@@ -49,6 +49,10 @@ public class Student {
     @Column(name = "profile_picture", columnDefinition = "LONGTEXT")
     private String profilePicture;
 
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private String gender = "BOY";
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

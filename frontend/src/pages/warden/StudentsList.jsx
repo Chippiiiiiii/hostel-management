@@ -33,6 +33,12 @@ const StudentsList = () => {
   const [editingBuildingId, setEditingBuildingId] = useState(null);
   const [editBuildingName, setEditBuildingName] = useState('');
 
+  // Add building state
+  const [showAddBuilding, setShowAddBuilding] = useState(false);
+  const [newBuildingName, setNewBuildingName] = useState('');
+  const [newBuildingType, setNewBuildingType] = useState('NORMAL');
+  const [newBuildingGender, setNewBuildingGender] = useState('BOY');
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -148,6 +154,47 @@ const StudentsList = () => {
       toast.success('Building renamed');
     } catch (error) {
       toast.error('Failed to rename building');
+    }
+  };
+
+  const handleAddBuilding = async () => {
+    if (!newBuildingName.trim()) {
+      toast.error('Building name is required');
+      return;
+    }
+    try {
+      await roomService.addBuilding(newBuildingName.trim(), newBuildingType, newBuildingGender);
+      toast.success('Building added');
+      setShowAddBuilding(false);
+      setNewBuildingName('');
+      setNewBuildingType('NORMAL');
+      setNewBuildingGender('BOY');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add building');
+    }
+  };
+
+  const handleRemoveBuilding = async (buildingId, buildingName) => {
+    if (!window.confirm(`Remove "${buildingName}" and all its rooms? This cannot be undone.`)) return;
+    try {
+      await roomService.removeBuilding(buildingId);
+      toast.success(`${buildingName} removed`);
+      if (activeBuilding === buildingId) setActiveBuilding(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to remove building');
+    }
+  };
+
+  const handleToggleBuildingGender = async (buildingId, currentGender) => {
+    const newGender = currentGender === 'BOY' ? 'GIRL' : 'BOY';
+    try {
+      await roomService.updateBuildingGender(buildingId, newGender);
+      fetchData();
+      toast.success(`Building set to ${newGender === 'BOY' ? 'Boys' : 'Girls'}`);
+    } catch (error) {
+      toast.error('Failed to update building gender');
     }
   };
 
@@ -437,66 +484,134 @@ const StudentsList = () => {
         <>
           <div className="row mb-3">
             <div className="col-12">
-              <ul className="nav nav-tabs">
-                {buildings.map(building => (
-                  <li className="nav-item d-flex align-items-center" key={building.id}>
-                    {editingBuildingId === building.id ? (
-                      <div className="d-flex align-items-center px-2 py-1">
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <ul className="nav nav-tabs flex-grow-1 mb-0">
+                  {buildings.map(building => (
+                    <li className="nav-item d-flex align-items-center" key={building.id}>
+                      {editingBuildingId === building.id ? (
+                        <div className="d-flex align-items-center px-2 py-1">
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            style={{ width: '140px' }}
+                            value={editBuildingName}
+                            onChange={(e) => setEditBuildingName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
+                            autoFocus
+                          />
+                          <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}>
+                            <FontAwesomeIcon icon={faCheck} />
+                          </button>
+                          <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}>
+                            <FontAwesomeIcon icon={faTimes} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            className={`nav-link ${activeBuilding === building.id ? 'active' : ''}`}
+                            onClick={() => setActiveBuilding(building.id)}
+                          >
+                            <FontAwesomeIcon icon={faBuilding} /> {building.name}
+                            <span className={`badge ms-1 ${building.type === 'NRI' ? 'bg-info' : 'bg-secondary'}`}
+                              style={{ fontSize: '0.55rem', verticalAlign: 'middle' }}>
+                              {building.type === 'NRI' ? 'NRI' : 'Regular'}
+                            </span>
+                            <span className={`badge ms-1 ${building.gender === 'GIRL' ? 'bg-danger' : 'bg-primary'}`}
+                              style={{ fontSize: '0.55rem', verticalAlign: 'middle' }}>
+                              {building.gender === 'GIRL' ? 'Girls' : 'Boys'}
+                            </span>
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className="btn btn-outline-success btn-sm ms-2"
+                  onClick={() => setShowAddBuilding(!showAddBuilding)}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Add Building
+                </button>
+              </div>
+
+              {/* Add Building Form */}
+              {showAddBuilding && (
+                <div className="card shadow-sm mb-3 border-success">
+                  <div className="card-body">
+                    <h6 className="fw-bold mb-3">Add New Building</h6>
+                    <div className="row g-2 align-items-end">
+                      <div className="col-md-3">
+                        <label className="form-label">Building Name *</label>
                         <input
                           type="text"
                           className="form-control form-control-sm"
-                          style={{ width: '140px' }}
-                          value={editBuildingName}
-                          onChange={(e) => setEditBuildingName(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
-                          autoFocus
+                          value={newBuildingName}
+                          onChange={(e) => setNewBuildingName(e.target.value)}
+                          placeholder="e.g. Hostel C"
                         />
-                        <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}>
-                          <FontAwesomeIcon icon={faCheck} />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Type</label>
+                        <select className="form-select form-select-sm" value={newBuildingType} onChange={(e) => setNewBuildingType(e.target.value)}>
+                          <option value="NORMAL">Regular</option>
+                          <option value="NRI">NRI</option>
+                        </select>
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Gender</label>
+                        <select className="form-select form-select-sm" value={newBuildingGender} onChange={(e) => setNewBuildingGender(e.target.value)}>
+                          <option value="BOY">Boys</option>
+                          <option value="GIRL">Girls</option>
+                        </select>
+                      </div>
+                      <div className="col-md-3 d-flex gap-2">
+                        <button className="btn btn-success btn-sm" onClick={handleAddBuilding}>
+                          <FontAwesomeIcon icon={faCheck} /> Add
                         </button>
-                        <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}>
-                          <FontAwesomeIcon icon={faTimes} />
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowAddBuilding(false)}>
+                          Cancel
                         </button>
                       </div>
-                    ) : (
-                      <>
-                        <button
-                          className={`nav-link ${activeBuilding === building.id ? 'active' : ''}`}
-                          onClick={() => setActiveBuilding(building.id)}
-                        >
-                          <FontAwesomeIcon icon={faBuilding} /> {building.name}
-                          {building.type && (
-                            <span className={`badge ms-1 ${building.type === 'NRI' ? 'bg-info' : 'bg-secondary'}`}
-                              style={{ fontSize: '0.6rem', verticalAlign: 'middle' }}>
-                              {building.type === 'NRI' ? 'NRI' : 'Regular'}
-                            </span>
-                          )}
-                        </button>
-                        {activeBuilding === building.id && (
-                          <div className="d-flex align-items-center ms-1 gap-1">
-                            <button
-                              className="btn btn-link btn-sm p-0"
-                              style={{ fontSize: '0.75rem' }}
-                              onClick={() => { setEditingBuildingId(building.id); setEditBuildingName(building.name); }}
-                              title="Rename building"
-                            >
-                              <FontAwesomeIcon icon={faEdit} />
-                            </button>
-                            <button
-                              className={`btn btn-sm ${building.type === 'NRI' ? 'btn-outline-info' : 'btn-outline-secondary'}`}
-                              style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}
-                              onClick={() => handleToggleBuildingType(building.id, building.type)}
-                              title={`Switch to ${building.type === 'NRI' ? 'Regular' : 'NRI'}`}
-                            >
-                              {building.type === 'NRI' ? '→ Regular' : '→ NRI'}
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Building Controls */}
+              {activeBuilding && currentBuilding && (
+                <div className="d-flex align-items-center gap-2 mb-2">
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => { setEditingBuildingId(currentBuilding.id); setEditBuildingName(currentBuilding.name); }}
+                    title="Rename building"
+                  >
+                    <FontAwesomeIcon icon={faEdit} /> Rename
+                  </button>
+                  <button
+                    className={`btn btn-sm ${currentBuilding.type === 'NRI' ? 'btn-outline-info' : 'btn-outline-secondary'}`}
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => handleToggleBuildingType(currentBuilding.id, currentBuilding.type)}
+                  >
+                    {currentBuilding.type === 'NRI' ? '→ Regular' : '→ NRI'}
+                  </button>
+                  <button
+                    className={`btn btn-sm ${currentBuilding.gender === 'GIRL' ? 'btn-outline-danger' : 'btn-outline-primary'}`}
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => handleToggleBuildingGender(currentBuilding.id, currentBuilding.gender)}
+                  >
+                    {currentBuilding.gender === 'GIRL' ? '→ Boys' : '→ Girls'}
+                  </button>
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                    onClick={() => handleRemoveBuilding(currentBuilding.id, currentBuilding.name)}
+                  >
+                    <FontAwesomeIcon icon={faTrash} /> Remove Building
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

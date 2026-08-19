@@ -44,6 +44,7 @@ public class AuthController {
                 .contactNumber(request.getContactNumber())
                 .parentNumber(request.getParentNumber())
                 .profilePicture(request.getProfilePicture())
+                .gender(request.getGender() != null ? request.getGender() : "BOY")
                 .build();
 
         Student registered = authService.registerStudent(student);

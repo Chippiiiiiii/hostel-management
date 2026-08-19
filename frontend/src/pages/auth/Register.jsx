@@ -22,6 +22,7 @@ const Register = () => {
     contactNumber: '',
     parentNumber: '',
     profilePicture: '',
+    gender: '',
   });
   const [studentType, setStudentType] = useState('');
   const [buildings, setBuildings] = useState([]);
@@ -47,7 +48,8 @@ const Register = () => {
   };
 
   const filteredBuildings = buildings.filter(b =>
-    studentType === 'NRI' ? b.type === 'NRI' : b.type === 'NORMAL'
+    b.gender === formData.gender &&
+    (studentType === 'NRI' ? b.type === 'NRI' : b.type === 'NORMAL')
   );
 
   const currentBuilding = buildings.find(b => b.id === selectedBuilding);
@@ -55,6 +57,13 @@ const Register = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleGenderChange = (gender) => {
+    setSelectedBuilding(null);
+    setSelectedFloor('');
+    setSelectedRoom('');
+    setFormData({ ...formData, gender, hostel: '', roomNumber: '' });
   };
 
   const handleStudentTypeChange = (type) => {
@@ -106,6 +115,10 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.gender) {
+      toast.error('Please select gender');
+      return;
+    }
     if (!studentType) {
       toast.error('Please select student type');
       return;
@@ -185,19 +198,34 @@ const Register = () => {
                   <small className="text-muted d-block mt-1">Click to upload (max 2MB)</small>
                 </div>
 
-                {/* Student Type Selection */}
-                <div className="mb-4">
-                  <label className="form-label">Student Type *</label>
-                  <select
-                    className="form-select"
-                    value={studentType}
-                    onChange={(e) => handleStudentTypeChange(e.target.value)}
-                    required
-                  >
-                    <option value="">Select student type</option>
-                    <option value="NRI">NRI Student</option>
-                    <option value="NORMAL">Regular Student</option>
-                  </select>
+                {/* Gender Selection */}
+                <div className="row">
+                  <div className="col-md-6 mb-4">
+                    <label className="form-label">Gender *</label>
+                    <select
+                      className="form-select"
+                      value={formData.gender}
+                      onChange={(e) => handleGenderChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Select gender</option>
+                      <option value="BOY">Male</option>
+                      <option value="GIRL">Female</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-4">
+                    <label className="form-label">Student Type *</label>
+                    <select
+                      className="form-select"
+                      value={studentType}
+                      onChange={(e) => handleStudentTypeChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Select student type</option>
+                      <option value="NRI">NRI Student</option>
+                      <option value="NORMAL">Regular Student</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Personal Details */}
@@ -235,7 +263,7 @@ const Register = () => {
                 </div>
 
                 {/* Building & Room Selection */}
-                {studentType && (
+                {formData.gender && studentType && (
                   <>
                     <hr className="my-4" />
                     <h5 className="fw-bold mb-3"><FontAwesomeIcon icon={faDoorOpen} /> Select Your Room</h5>
@@ -246,7 +274,7 @@ const Register = () => {
                       <div className="row g-2">
                         {filteredBuildings.length === 0 ? (
                           <div className="col-12">
-                            <p className="text-muted">No buildings available for {studentType === 'NRI' ? 'NRI' : 'Regular'} students</p>
+                            <p className="text-muted">No buildings available for {formData.gender === 'GIRL' ? 'Girls' : 'Boys'} ({studentType === 'NRI' ? 'NRI' : 'Regular'})</p>
                           </div>
                         ) : (
                           filteredBuildings.map(b => (

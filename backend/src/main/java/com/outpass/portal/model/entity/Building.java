@@ -25,6 +25,10 @@ public class Building {
     @Builder.Default
     private String type = "NORMAL";
 
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private String gender = "BOY";
+
     @OneToMany(mappedBy = "building", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("floorNumber ASC")
     private List<Room> rooms;
