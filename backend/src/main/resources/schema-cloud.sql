@@ -1,19 +1,10 @@
 -- =====================================================
--- Hostel Management Database Schema
+-- Hostel Management Database Schema (Cloud-safe)
 -- =====================================================
--- SAFE TO RE-RUN: Uses IF NOT EXISTS everywhere.
--- Will NOT destroy existing data.
+-- For Aiven / managed MySQL. No SUPER privilege needed.
+-- Uses the default database (defaultdb on Aiven).
 -- =====================================================
 
-CREATE DATABASE IF NOT EXISTS outpass_portal
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE outpass_portal;
-
--- =====================================================
--- TABLE: students
--- =====================================================
 CREATE TABLE IF NOT EXISTS students (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -36,9 +27,6 @@ CREATE TABLE IF NOT EXISTS students (
     CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: wardens
--- =====================================================
 CREATE TABLE IF NOT EXISTS wardens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -53,9 +41,6 @@ CREATE TABLE IF NOT EXISTS wardens (
     CONSTRAINT chk_warden_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: security_guards
--- =====================================================
 CREATE TABLE IF NOT EXISTS security_guards (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -70,9 +55,6 @@ CREATE TABLE IF NOT EXISTS security_guards (
     CONSTRAINT chk_security_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: outpasses
--- =====================================================
 CREATE TABLE IF NOT EXISTS outpasses (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     student_id BIGINT NOT NULL,
@@ -111,9 +93,6 @@ CREATE TABLE IF NOT EXISTS outpasses (
     CONSTRAINT chk_outpass_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: refresh_tokens
--- =====================================================
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(512) NOT NULL,
@@ -124,9 +103,6 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     CONSTRAINT uk_refresh_token UNIQUE (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: tokens (revoked JWT blacklist)
--- =====================================================
 CREATE TABLE IF NOT EXISTS tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     jid VARCHAR(255) NOT NULL,
@@ -135,9 +111,6 @@ CREATE TABLE IF NOT EXISTS tokens (
     CONSTRAINT uk_token_jid UNIQUE (jid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: access_logs
--- =====================================================
 CREATE TABLE IF NOT EXISTS access_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
@@ -152,9 +125,6 @@ CREATE TABLE IF NOT EXISTS access_logs (
     INDEX idx_access_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: buildings
--- =====================================================
 CREATE TABLE IF NOT EXISTS buildings (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -164,9 +134,6 @@ CREATE TABLE IF NOT EXISTS buildings (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: rooms
--- =====================================================
 CREATE TABLE IF NOT EXISTS rooms (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     building_id BIGINT NOT NULL,
@@ -180,9 +147,6 @@ CREATE TABLE IF NOT EXISTS rooms (
     CONSTRAINT uk_room_building_number UNIQUE (building_id, room_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: room_allocations
--- =====================================================
 CREATE TABLE IF NOT EXISTS room_allocations (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     room_id BIGINT NOT NULL,
@@ -200,9 +164,6 @@ CREATE TABLE IF NOT EXISTS room_allocations (
     CONSTRAINT uk_allocation_email UNIQUE (student_email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: attendance_sessions
--- =====================================================
 CREATE TABLE IF NOT EXISTS attendance_sessions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     started_by BIGINT NOT NULL,
@@ -214,9 +175,6 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
         REFERENCES wardens(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: attendance_records
--- =====================================================
 CREATE TABLE IF NOT EXISTS attendance_records (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     session_id BIGINT NOT NULL,
@@ -237,9 +195,6 @@ CREATE TABLE IF NOT EXISTS attendance_records (
     CONSTRAINT uk_record_student_date UNIQUE (student_id, date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- TABLE: room_config
--- =====================================================
 CREATE TABLE IF NOT EXISTS room_config (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     config_key VARCHAR(50) NOT NULL,
@@ -248,23 +203,5 @@ CREATE TABLE IF NOT EXISTS room_config (
     CONSTRAINT uk_config_key UNIQUE (config_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- CLEANUP EVENT
--- =====================================================
-DELIMITER //
-
-CREATE EVENT IF NOT EXISTS cleanup_expired_tokens
-ON SCHEDULE EVERY 1 DAY
-STARTS CURRENT_TIMESTAMP
-DO
-BEGIN
-    DELETE FROM refresh_tokens WHERE expiry_date < NOW();
-    DELETE FROM tokens WHERE expires_at < NOW();
-END//
-
-DELIMITER ;
-
-SET GLOBAL event_scheduler = ON;
-
-SELECT 'Schema ready (no data was deleted).' AS Status;
+SELECT 'Schema ready.' AS Status;
 SHOW TABLES;

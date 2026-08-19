@@ -151,6 +151,29 @@ public class WardenController {
         return ResponseEntity.ok(ApiResponse.success("Building type updated", building));
     }
 
+    @PutMapping("/rooms/buildings/{id}/gender")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateBuildingGender(
+            @PathVariable Long id, @RequestBody Map<String, String> request) {
+        Map<String, Object> building = roomService.updateBuildingGender(id, request.get("gender"));
+        return ResponseEntity.ok(ApiResponse.success("Building gender updated", building));
+    }
+
+    @PostMapping("/rooms/buildings")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> addBuilding(
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> building = roomService.addBuilding(
+                request.get("name"),
+                request.get("type"),
+                request.get("gender"));
+        return ResponseEntity.ok(ApiResponse.success("Building added", building));
+    }
+
+    @DeleteMapping("/rooms/buildings/{id}")
+    public ResponseEntity<ApiResponse<Void>> removeBuilding(@PathVariable Long id) {
+        roomService.removeBuilding(id);
+        return ResponseEntity.ok(ApiResponse.success("Building removed", null));
+    }
+
     @GetMapping("/rooms/config")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getConfig() {
         return ResponseEntity.ok(ApiResponse.success(roomService.getConfig()));

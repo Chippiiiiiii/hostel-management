@@ -251,6 +251,7 @@ public class RoomService {
             result.put("id", building.getId());
             result.put("name", building.getName());
             result.put("type", building.getType());
+            result.put("gender", building.getGender());
             result.put("floors", floors);
             return result;
         }).collect(Collectors.toList());
@@ -282,8 +283,40 @@ public class RoomService {
         result.put("id", building.getId());
         result.put("name", building.getName());
         result.put("type", building.getType());
+        result.put("gender", building.getGender());
         result.put("floors", floors);
         return result;
+    }
+
+    @Transactional
+    public Map<String, Object> addBuilding(String name, String type, String gender) {
+        Building building = Building.builder()
+                .name(name)
+                .type(type != null ? type : "NORMAL")
+                .gender(gender != null ? gender : "BOY")
+                .build();
+        buildingRepository.save(building);
+        return mapBuilding(building);
+    }
+
+    @Transactional
+    public void removeBuilding(Long buildingId) {
+        long allocations = allocationRepository.findAll().stream()
+                .filter(a -> a.getRoom().getBuilding().getId().equals(buildingId))
+                .count();
+        if (allocations > 0) {
+            throw new RuntimeException("Cannot remove building with allocated students. Remove all students first.");
+        }
+        buildingRepository.deleteById(buildingId);
+    }
+
+    @Transactional
+    public Map<String, Object> updateBuildingGender(Long buildingId, String gender) {
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+        building.setGender(gender);
+        buildingRepository.save(building);
+        return mapBuilding(building);
     }
 
     @Transactional

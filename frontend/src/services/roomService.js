@@ -80,6 +80,20 @@ const roomService = {
   removeAllocation: async (studentEmail) => {
     await api.delete(`/warden/rooms/allocations/${encodeURIComponent(studentEmail)}`);
   },
+
+  addBuilding: async (name, type, gender) => {
+    const response = await api.post('/warden/rooms/buildings', { name, type, gender });
+    return { data: response.data.data };
+  },
+
+  removeBuilding: async (buildingId) => {
+    await api.delete(`/warden/rooms/buildings/${buildingId}`);
+  },
+
+  updateBuildingGender: async (buildingId, gender) => {
+    const response = await api.put(`/warden/rooms/buildings/${buildingId}/gender`, { gender });
+    return { data: response.data.data };
+  },
 };
 
 export default roomService;
