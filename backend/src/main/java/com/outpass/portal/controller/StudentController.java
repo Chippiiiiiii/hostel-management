@@ -1,0 +1,171 @@
+package com.outpass.portal.controller;
+
+import com.outpass.portal.dto.request.OutpassRequest;
+import com.outpass.portal.dto.request.StudentProfileUpdateRequest;
+import com.outpass.portal.dto.response.ApiResponse;
+import com.outpass.portal.dto.response.OutpassResponse;
+import com.outpass.portal.dto.response.StudentProfileResponse;
+import com.outpass.portal.security.UserPrincipal;
+import com.outpass.portal.service.AttendanceService;
+import com.outpass.portal.service.OutpassService;
+import com.outpass.portal.service.RoomService;
+import com.outpass.portal.service.StudentService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/student")
+@RequiredArgsConstructor
+public class StudentController {
+
+    private final StudentService studentService;
+    private final OutpassService outpassService;
+    private final AttendanceService attendanceService;
+    private final RoomService roomService;
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<StudentProfileResponse>> getProfile(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(profile));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponse<StudentProfileResponse>> updateProfile(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody StudentProfileUpdateRequest updateRequest) {
+        StudentProfileResponse updated = studentService.updateProfile(userPrincipal.getId(), updateRequest);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+    }
+
+    @PostMapping("/outpass")
+    public ResponseEntity<ApiResponse<OutpassResponse>> createOutpass(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody OutpassRequest request) {
+        OutpassResponse outpass = outpassService.createOutpass(userPrincipal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Outpass created successfully", outpass));
+    }
+
+    @GetMapping("/outpass/history")
+    public ResponseEntity<ApiResponse<List<OutpassResponse>>> getOutpassHistory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        List<OutpassResponse> history = outpassService.getStudentOutpasses(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(history));
+    }
+
+    @GetMapping("/outpass/{id}")
+    public ResponseEntity<ApiResponse<OutpassResponse>> getOutpass(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long id) {
+        OutpassResponse outpass = outpassService.getOutpassById(id, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(outpass));
+    }
+
+    // ==================== Attendance ====================
+
+    @GetMapping("/attendance/location")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getHostelLocation() {
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.getHostelLocation()));
+    }
+
+    @GetMapping("/attendance/verify-wifi")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyWifi(
+            jakarta.servlet.http.HttpServletRequest request) {
+        String clientIp = getClientIp(request);
+        Map<String, Object> result = attendanceService.verifyWifi(clientIp);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/attendance/session")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getActiveSession() {
+        Map<String, Object> session = attendanceService.getActiveSession();
+        return ResponseEntity.ok(ApiResponse.success(session));
+    }
+
+    @PostMapping("/attendance/mark")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> markAttendance(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody Map<String, Object> request) {
+        String method = (String) request.get("method");
+        Double latitude = request.get("latitude") != null ? ((Number) request.get("latitude")).doubleValue() : null;
+        Double longitude = request.get("longitude") != null ? ((Number) request.get("longitude")).doubleValue() : null;
+        Integer distance = request.get("distance") != null ? ((Number) request.get("distance")).intValue() : null;
+
+        Map<String, Object> record = attendanceService.markAttendance(
+                userPrincipal.getId(), method, latitude, longitude, distance);
+        return ResponseEntity.ok(ApiResponse.success("Attendance marked successfully", record));
+    }
+
+    @GetMapping("/attendance/today")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTodayStatus(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> status = attendanceService.getTodayStatus(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(status));
+    }
+
+    @GetMapping("/attendance/history")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAttendanceHistory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        List<Map<String, Object>> history = attendanceService.getHistory(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(history));
+    }
+
+    @GetMapping("/attendance/stats")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAttendanceStats(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> stats = attendanceService.getStats(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    // ==================== Room ====================
+
+    @GetMapping("/rooms/buildings")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBuildings() {
+        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings()));
+    }
+
+    @GetMapping("/rooms/allocation")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyAllocation(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
+        Map<String, Object> allocation = roomService.getStudentAllocation(profile.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(allocation));
+    }
+
+    @PostMapping("/rooms/allocate")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> allocateRoom(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody Map<String, Object> request) {
+        StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
+        Long roomId = ((Number) request.get("roomId")).longValue();
+
+        Map<String, Object> allocation = roomService.allocateStudent(
+                roomId, profile.getName(), profile.getRollNo(),
+                profile.getDepartment(), profile.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Room allocated successfully", allocation));
+    }
+
+    @GetMapping("/rooms/allocations")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations() {
+        return ResponseEntity.ok(ApiResponse.success(roomService.getAllAllocations()));
+    }
+
+    private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isEmpty()) {
+            return xff.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isEmpty()) {
+            return realIp;
+        }
+        return request.getRemoteAddr();
+    }
+}
+
