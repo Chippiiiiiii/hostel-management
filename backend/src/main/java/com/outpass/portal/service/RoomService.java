@@ -170,20 +170,26 @@ public class RoomService {
             throw new RuntimeException("Room is full. Please select a different room.");
         }
 
-        // Remove existing allocation for this student if any
-        allocationRepository.findByStudentEmail(email)
-                .ifPresent(existing -> allocationRepository.delete(existing));
-
         Student student = studentRepository.findByEmail(email).orElse(null);
 
-        RoomAllocation allocation = RoomAllocation.builder()
-                .room(room)
-                .student(student)
-                .studentName(name)
-                .studentRollNo(rollNo)
-                .studentDepartment(department)
-                .studentEmail(email)
-                .build();
+        // Update existing allocation or create new one
+        RoomAllocation allocation = allocationRepository.findByStudentEmail(email).orElse(null);
+        if (allocation != null) {
+            allocation.setRoom(room);
+            allocation.setStudent(student);
+            allocation.setStudentName(name);
+            allocation.setStudentRollNo(rollNo);
+            allocation.setStudentDepartment(department);
+        } else {
+            allocation = RoomAllocation.builder()
+                    .room(room)
+                    .student(student)
+                    .studentName(name)
+                    .studentRollNo(rollNo)
+                    .studentDepartment(department)
+                    .studentEmail(email)
+                    .build();
+        }
 
         allocationRepository.save(allocation);
 
