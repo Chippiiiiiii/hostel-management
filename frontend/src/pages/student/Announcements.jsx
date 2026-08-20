@@ -54,7 +54,7 @@ const StudentAnnouncements = () => {
       {announcements.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-5">
-            <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '3rem', color: '#cbd5e0' }} />
+            <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '3rem', color: 'var(--color-text-muted)' }} />
             <h4 className="text-muted mt-3">No announcements</h4>
             <p>Check back later for updates from your warden</p>
           </div>

@@ -173,7 +173,7 @@ const Register = () => {
                   <div
                     style={{
                       width: '120px', height: '120px', borderRadius: '50%', margin: '0 auto',
-                      border: '3px dashed #cbd5e0', overflow: 'hidden', cursor: 'pointer',
+                      border: '3px dashed var(--color-accent)', overflow: 'hidden', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       backgroundColor: 'var(--color-bg-tertiary)', position: 'relative',
                     }}
@@ -379,7 +379,7 @@ const Register = () => {
                   )}
                 </button>
 
-                <div className="text-center pt-3" style={{ borderTop: '1px solid #e2e8f0' }}>
+                <div className="text-center pt-3" style={{ borderTop: '1px solid var(--color-accent)' }}>
                   <p className="mb-0 text-muted">
                     Already have an account?{' '}
                     <Link to="/login" className="text-decoration-none fw-bold" style={{ color: 'var(--color-primary)' }}>

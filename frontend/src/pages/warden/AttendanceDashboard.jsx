@@ -311,7 +311,7 @@ const WardenAttendanceDashboard = () => {
                 </div>
               ) : (
                 <div>
-                  <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '3rem', color: '#cbd5e0', marginBottom: '1rem' }} />
+                  <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '3rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
                   <h5 className="fw-bold text-muted">No Active Session</h5>
                   <p className="text-muted mb-3">Start attendance so students can mark their presence</p>
                   <button className="btn btn-primary btn-lg fw-semibold" onClick={handleStartAttendance}>

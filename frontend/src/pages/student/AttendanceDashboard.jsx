@@ -258,7 +258,7 @@ const AttendanceDashboard = () => {
                         icon={faWifi}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'wifi' ? '#4299e1' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : '#cbd5e0',
+                          color: markingStep === 'wifi' ? '#4299e1' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">WiFi</small>
@@ -268,7 +268,7 @@ const AttendanceDashboard = () => {
                         icon={faMapMarkerAlt}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'location' ? '#4299e1' : markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : '#cbd5e0',
+                          color: markingStep === 'location' ? '#4299e1' : markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">Location</small>
@@ -278,7 +278,7 @@ const AttendanceDashboard = () => {
                         icon={faFingerprint}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'biometric' ? '#4299e1' : markingStep === 'done' ? '#48bb78' : '#cbd5e0',
+                          color: markingStep === 'biometric' ? '#4299e1' : markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">Biometric</small>
@@ -305,7 +305,7 @@ const AttendanceDashboard = () => {
                 </div>
               ) : (
                 <div>
-                  <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '3rem', color: '#cbd5e0', marginBottom: '1rem' }} />
+                  <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '3rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
                   <h5 className="fw-bold text-muted">Attendance Not Active</h5>
                   <p className="text-muted mb-0">The warden has not started attendance yet. You will be able to mark attendance once it is opened.</p>
                 </div>
