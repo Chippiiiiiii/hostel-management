@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -24,6 +25,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AttendanceService {
+
+    private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     private final AttendanceSessionRepository sessionRepository;
     private final AttendanceRecordRepository recordRepository;
@@ -36,8 +39,7 @@ public class AttendanceService {
                 .map(c -> c.getConfigValue())
                 .orElse("");
 
-        boolean isLocal = "127.0.0.1".equals(clientIp) || "0:0:0:0:0:0:0:1".equals(clientIp);
-        boolean connected = isLocal || SubnetUtils.isInAnySubnet(clientIp, subnets);
+        boolean connected = SubnetUtils.isInAnySubnet(clientIp, subnets);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("connected", connected);
@@ -98,7 +100,7 @@ public class AttendanceService {
         // Close any existing active session
         sessionRepository.findByStatus(SessionStatus.ACTIVE).ifPresent(session -> {
             session.setStatus(SessionStatus.CLOSED);
-            session.setStoppedAt(java.time.LocalDateTime.now());
+            session.setStoppedAt(java.time.LocalDateTime.now(IST));
             sessionRepository.save(session);
         });
 
@@ -115,7 +117,7 @@ public class AttendanceService {
         AttendanceSession session = sessionRepository.findByStatus(SessionStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("No active session"));
         session.setStatus(SessionStatus.CLOSED);
-        session.setStoppedAt(java.time.LocalDateTime.now());
+        session.setStoppedAt(java.time.LocalDateTime.now(IST));
         sessionRepository.save(session);
     }
 
@@ -125,7 +127,7 @@ public class AttendanceService {
         AttendanceSession session = sessionRepository.findByStatus(SessionStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("No active attendance session"));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(IST);
         recordRepository.findByStudentIdAndDate(studentId, today).ifPresent(r -> {
             throw new RuntimeException("Attendance already marked for today");
         });
@@ -137,7 +139,7 @@ public class AttendanceService {
                 .session(session)
                 .student(student)
                 .date(today)
-                .time(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")))
+                .time(LocalTime.now(IST).format(DateTimeFormatter.ofPattern("HH:mm:ss")))
                 .method(AttendanceMethod.valueOf(method))
                 .status(AttendanceStatus.PRESENT)
                 .latitude(latitude)
@@ -151,7 +153,7 @@ public class AttendanceService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getTodayStatus(Long studentId) {
-        return recordRepository.findByStudentIdAndDate(studentId, LocalDate.now())
+        return recordRepository.findByStudentIdAndDate(studentId, LocalDate.now(IST))
                 .map(this::mapRecord)
                 .orElse(null);
     }

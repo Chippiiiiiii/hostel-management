@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "attendance_records", uniqueConstraints = {
@@ -59,6 +60,6 @@ public class AttendanceRecord {
 
     @PrePersist
     public void prePersist() {
-        this.markedAt = LocalDateTime.now();
+        this.markedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }
