@@ -2,6 +2,8 @@ package com.outpass.portal.repository;
 
 import com.outpass.portal.model.entity.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +15,8 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(Long buildingId, Integer floorNumber);
     Optional<Room> findByBuildingIdAndRoomNumber(Long buildingId, String roomNumber);
     long countByBuildingIdAndFloorNumber(Long buildingId, Integer floorNumber);
+
+    @Modifying
+    @Query("UPDATE Room r SET r.maxMembers = :maxMembers")
+    void updateAllMaxMembers(int maxMembers);
 }
