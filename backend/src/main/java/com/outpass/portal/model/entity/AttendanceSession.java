@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "attendance_sessions")
@@ -34,6 +35,6 @@ public class AttendanceSession {
 
     @PrePersist
     public void prePersist() {
-        this.startedAt = LocalDateTime.now();
+        this.startedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }
