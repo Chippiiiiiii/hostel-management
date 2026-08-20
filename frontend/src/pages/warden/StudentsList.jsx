@@ -493,93 +493,94 @@ const StudentsList = () => {
                 </button>
               </div>
 
-              {/* Boys Buildings */}
-              {buildings.filter(b => b.gender !== 'GIRL').length > 0 && (
-                <div className="mb-3">
-                  <div className="d-flex align-items-center mb-2">
-                    <span className="badge bg-primary me-2" style={{ fontSize: '0.7rem' }}>Boys</span>
-                    <hr className="flex-grow-1 m-0" style={{ opacity: 0.2 }} />
-                  </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    {buildings.filter(b => b.gender !== 'GIRL').sort((a, b) => a.name.localeCompare(b.name)).map(building => (
-                      editingBuildingId === building.id ? (
-                        <div className="d-flex align-items-center" key={building.id}>
-                          <input
-                            type="text"
-                            className="form-control form-control-sm"
-                            style={{ width: '140px' }}
-                            value={editBuildingName}
-                            onChange={(e) => setEditBuildingName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
-                            autoFocus
-                          />
-                          <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}>
-                            <FontAwesomeIcon icon={faCheck} />
-                          </button>
-                          <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}>
-                            <FontAwesomeIcon icon={faTimes} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          key={building.id}
-                          className={`btn btn-sm ${activeBuilding === building.id ? 'btn-primary' : 'btn-outline-primary'}`}
-                          style={{ fontWeight: 500 }}
-                          onClick={() => setActiveBuilding(building.id)}
-                        >
-                          <FontAwesomeIcon icon={faBuilding} className="me-1" />
-                          {building.name}
-                          {building.type === 'NRI' && <span className="badge bg-info ms-1" style={{ fontSize: '0.55rem' }}>NRI</span>}
-                        </button>
-                      )
-                    ))}
-                  </div>
+              {/* Buildings Table */}
+              <div className="card shadow-sm mb-3">
+                <div className="table-responsive">
+                  <table className="table table-hover mb-0" style={{ fontSize: '0.85rem' }}>
+                    <thead style={{ backgroundColor: '#f8f9fa' }}>
+                      <tr>
+                        <th style={{ width: '40%', paddingLeft: '1rem' }}>Boys Hostels</th>
+                        <th style={{ width: '10%', textAlign: 'center' }}>Type</th>
+                        <th style={{ width: '40%', paddingLeft: '1rem' }}>Girls Hostels</th>
+                        <th style={{ width: '10%', textAlign: 'center' }}>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const boys = buildings.filter(b => b.gender !== 'GIRL').sort((a, b) => a.name.localeCompare(b.name));
+                        const girls = buildings.filter(b => b.gender === 'GIRL').sort((a, b) => a.name.localeCompare(b.name));
+                        const rows = Math.max(boys.length, girls.length);
+                        return Array.from({ length: rows }, (_, i) => (
+                          <tr key={i}>
+                            <td style={{ paddingLeft: '1rem' }}>
+                              {boys[i] ? (
+                                editingBuildingId === boys[i].id ? (
+                                  <div className="d-flex align-items-center">
+                                    <input type="text" className="form-control form-control-sm" style={{ width: '140px' }}
+                                      value={editBuildingName} onChange={(e) => setEditBuildingName(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()} autoFocus />
+                                    <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}><FontAwesomeIcon icon={faCheck} /></button>
+                                    <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="btn btn-link text-decoration-none p-0 fw-semibold"
+                                    style={{ color: activeBuilding === boys[i].id ? '#2563eb' : '#1a202c' }}
+                                    onClick={() => setActiveBuilding(boys[i].id)}
+                                  >
+                                    <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: '#3b82f6' }} />
+                                    {boys[i].name}
+                                    {activeBuilding === boys[i].id && <span className="ms-2" style={{ color: '#3b82f6', fontSize: '0.7rem' }}>●</span>}
+                                  </button>
+                                )
+                              ) : null}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {boys[i] && (
+                                <span className={`badge ${boys[i].type === 'NRI' ? 'bg-warning text-dark' : 'bg-light text-muted border'}`}
+                                  style={{ fontSize: '0.65rem' }}>
+                                  {boys[i].type === 'NRI' ? 'NRI' : 'Regular'}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ paddingLeft: '1rem' }}>
+                              {girls[i] ? (
+                                editingBuildingId === girls[i].id ? (
+                                  <div className="d-flex align-items-center">
+                                    <input type="text" className="form-control form-control-sm" style={{ width: '140px' }}
+                                      value={editBuildingName} onChange={(e) => setEditBuildingName(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()} autoFocus />
+                                    <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}><FontAwesomeIcon icon={faCheck} /></button>
+                                    <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="btn btn-link text-decoration-none p-0 fw-semibold"
+                                    style={{ color: activeBuilding === girls[i].id ? '#dc2626' : '#1a202c' }}
+                                    onClick={() => setActiveBuilding(girls[i].id)}
+                                  >
+                                    <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: '#e11d48' }} />
+                                    {girls[i].name}
+                                    {activeBuilding === girls[i].id && <span className="ms-2" style={{ color: '#e11d48', fontSize: '0.7rem' }}>●</span>}
+                                  </button>
+                                )
+                              ) : null}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {girls[i] && (
+                                <span className={`badge ${girls[i].type === 'NRI' ? 'bg-warning text-dark' : 'bg-light text-muted border'}`}
+                                  style={{ fontSize: '0.65rem' }}>
+                                  {girls[i].type === 'NRI' ? 'NRI' : 'Regular'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-
-              {/* Girls Buildings */}
-              {buildings.filter(b => b.gender === 'GIRL').length > 0 && (
-                <div className="mb-3">
-                  <div className="d-flex align-items-center mb-2">
-                    <span className="badge bg-danger me-2" style={{ fontSize: '0.7rem' }}>Girls</span>
-                    <hr className="flex-grow-1 m-0" style={{ opacity: 0.2 }} />
-                  </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    {buildings.filter(b => b.gender === 'GIRL').sort((a, b) => a.name.localeCompare(b.name)).map(building => (
-                      editingBuildingId === building.id ? (
-                        <div className="d-flex align-items-center" key={building.id}>
-                          <input
-                            type="text"
-                            className="form-control form-control-sm"
-                            style={{ width: '140px' }}
-                            value={editBuildingName}
-                            onChange={(e) => setEditBuildingName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
-                            autoFocus
-                          />
-                          <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}>
-                            <FontAwesomeIcon icon={faCheck} />
-                          </button>
-                          <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}>
-                            <FontAwesomeIcon icon={faTimes} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          key={building.id}
-                          className={`btn btn-sm ${activeBuilding === building.id ? 'btn-danger' : 'btn-outline-danger'}`}
-                          style={{ fontWeight: 500 }}
-                          onClick={() => setActiveBuilding(building.id)}
-                        >
-                          <FontAwesomeIcon icon={faBuilding} className="me-1" />
-                          {building.name}
-                          {building.type === 'NRI' && <span className="badge bg-info ms-1" style={{ fontSize: '0.55rem' }}>NRI</span>}
-                        </button>
-                      )
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* Add Building Form */}
               {showAddBuilding && (
