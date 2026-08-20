@@ -53,6 +53,7 @@ public class RoomService {
     public void updateConfig(int maxRoomsPerFloor, int maxMembersPerRoom) {
         updateConfigValue("max_rooms_per_floor", String.valueOf(maxRoomsPerFloor));
         updateConfigValue("max_members_per_room", String.valueOf(maxMembersPerRoom));
+        roomRepository.updateAllMaxMembers(maxMembersPerRoom);
     }
 
     @Transactional
