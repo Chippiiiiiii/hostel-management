@@ -24,7 +24,35 @@
   --color-danger-light: #fc8181;
   --color-info: #4299e1;
   --color-info-light: #90cdf4;
-  
+
+  --accent-purple: #805ad5;
+  --accent-teal: #38b2ac;
+  --accent-teal-light: #4fd1c5;
+  --accent-yellow: #ecc94b;
+  --accent-red: #e53e3e;
+  --accent-pink: #e11d48;
+  --accent-pink-light: #ed64a6;
+  --accent-blue-vivid: #2563eb;
+  --accent-blue-mid: #3b82f6;
+  --bg-circle-blue: rgba(66, 153, 225, 0.1);
+  --bg-circle-red: rgba(229, 62, 62, 0.1);
+  --bg-circle-purple: rgba(128, 90, 213, 0.1);
+  --badge-boys-bg: #e0edff;
+  --badge-boys-text: #1d4ed8;
+  --badge-boys-border: #93c5fd;
+  --badge-girls-bg: #fce7f3;
+  --badge-girls-text: #be185d;
+  --badge-girls-border: #f9a8d4;
+  --badge-regular-bg: #f3f4f6;
+  --badge-regular-text: #374151;
+  --badge-regular-border: #d1d5db;
+  --badge-nri-bg: #fef3c7;
+  --badge-nri-text: #92400e;
+  --badge-nri-border: #fcd34d;
+  --row-highlight: #f0f7ff;
+  --room-full-bg: #fed7d7;
+  --room-occupied-bg: #c6f6d5;
+
   --border-radius-sm: 0.375rem;
   --border-radius-md: 0.5rem;
   --border-radius-lg: 0.75rem;
@@ -66,6 +94,34 @@
   --color-danger-light: #d99a9a;
   --color-info: #7ca8c4;
   --color-info-light: #a6c5d9;
+
+  --accent-purple: #9b82b8;
+  --accent-teal: #6da8a2;
+  --accent-teal-light: #6da8a2;
+  --accent-yellow: #c9a87c;
+  --accent-red: #c97070;
+  --accent-pink: #c97070;
+  --accent-pink-light: #c97070;
+  --accent-blue-vivid: #c9a87c;
+  --accent-blue-mid: #7ca8c4;
+  --bg-circle-blue: rgba(201, 168, 124, 0.12);
+  --bg-circle-red: rgba(201, 112, 112, 0.15);
+  --bg-circle-purple: rgba(201, 168, 124, 0.12);
+  --badge-boys-bg: rgba(124, 168, 196, 0.15);
+  --badge-boys-text: #7ca8c4;
+  --badge-boys-border: rgba(124, 168, 196, 0.4);
+  --badge-girls-bg: rgba(201, 112, 112, 0.15);
+  --badge-girls-text: #c97070;
+  --badge-girls-border: rgba(201, 112, 112, 0.4);
+  --badge-regular-bg: rgba(160, 174, 192, 0.15);
+  --badge-regular-text: #d5c4b0;
+  --badge-regular-border: #4d4039;
+  --badge-nri-bg: rgba(201, 168, 124, 0.15);
+  --badge-nri-text: #c9a87c;
+  --badge-nri-border: rgba(201, 168, 124, 0.4);
+  --row-highlight: rgba(201, 168, 124, 0.1);
+  --room-full-bg: rgba(245, 101, 101, 0.15);
+  --room-occupied-bg: rgba(72, 187, 120, 0.15);
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);

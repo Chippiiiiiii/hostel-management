@@ -95,7 +95,7 @@ const WardenOutpassDashboard = () => {
         <div className="col-md-3">
           <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <h1 className="display-2 fw-bold" style={{ color: 'var(--color-danger)', marginBottom: '1rem' }}>{stats.declined}</h1>
+              <h1 className="display-2 fw-bold" style={{ color: 'var(--accent-red)', marginBottom: '1rem' }}>{stats.declined}</h1>
               <h5 className="mb-0 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Declined</h5>
             </div>
           </div>

@@ -398,8 +398,8 @@ const StudentsList = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faUserGraduate} style={{ color: 'var(--color-primary)' }} /> Total Students</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)' }}>{totalStudents}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faUserGraduate} style={{ color: 'var(--accent-purple)' }} /> Total Students</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--accent-purple)' }}>{totalStudents}</h3>
             </div>
           </div>
         </div>
@@ -510,7 +510,7 @@ const StudentsList = () => {
                         if (a.gender !== b.gender) return a.gender === 'GIRL' ? 1 : -1;
                         return a.name.localeCompare(b.name);
                       }).map(b => (
-                        <tr key={b.id} style={{ backgroundColor: activeBuilding === b.id ? 'rgba(66,153,225,0.1)' : 'transparent' }}>
+                        <tr key={b.id} style={{ backgroundColor: activeBuilding === b.id ? 'var(--row-highlight)' : 'transparent' }}>
                           <td style={{ paddingLeft: '1rem' }}>
                             {editingBuildingId === b.id ? (
                               <div className="d-flex align-items-center">
@@ -523,10 +523,10 @@ const StudentsList = () => {
                             ) : (
                               <button
                                 className="btn btn-link text-decoration-none p-0 fw-semibold"
-                                style={{ color: activeBuilding === b.id ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
+                                style={{ color: activeBuilding === b.id ? 'var(--accent-blue-vivid)' : 'var(--color-text-primary)' }}
                                 onClick={() => setActiveBuilding(b.id)}
                               >
-                                <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: b.gender === 'GIRL' ? 'var(--color-danger)' : 'var(--color-info)' }} />
+                                <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: b.gender === 'GIRL' ? 'var(--accent-pink)' : 'var(--accent-blue-mid)' }} />
                                 {b.name}
                               </button>
                             )}
@@ -534,18 +534,18 @@ const StudentsList = () => {
                           <td style={{ textAlign: 'center' }}>
                             <div className="btn-group btn-group-sm" role="group" style={{ borderRadius: '12px', overflow: 'hidden' }}>
                               <button
-                                className={`btn btn-sm ${b.gender !== 'GIRL' ? 'active-badge-blue' : 'btn-outline-secondary'}`}
+                                className={`btn btn-sm ${b.gender !== 'GIRL' ? '' : 'btn-outline-secondary'}`}
                                 style={b.gender !== 'GIRL'
-                                  ? { backgroundColor: 'rgba(124,168,196,0.15)', color: 'var(--color-info)', border: '1px solid rgba(124,168,196,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'var(--badge-boys-bg)', color: 'var(--badge-boys-text)', border: '1px solid var(--badge-boys-border)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender === 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
                                 Boys
                               </button>
                               <button
-                                className={`btn btn-sm ${b.gender === 'GIRL' ? 'active-badge-pink' : 'btn-outline-secondary'}`}
+                                className={`btn btn-sm ${b.gender === 'GIRL' ? '' : 'btn-outline-secondary'}`}
                                 style={b.gender === 'GIRL'
-                                  ? { backgroundColor: 'rgba(201,112,112,0.15)', color: 'var(--color-danger)', border: '1px solid rgba(201,112,112,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'var(--badge-girls-bg)', color: 'var(--badge-girls-text)', border: '1px solid var(--badge-girls-border)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender !== 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
@@ -558,7 +558,7 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.type !== 'NRI' ? '' : 'btn-outline-secondary'}`}
                                 style={b.type !== 'NRI'
-                                  ? { backgroundColor: 'rgba(160,174,192,0.15)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-accent)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'var(--badge-regular-bg)', color: 'var(--badge-regular-text)', border: '1px solid var(--badge-regular-border)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.type === 'NRI' && handleToggleBuildingType(b.id, b.type)}
                               >
@@ -567,7 +567,7 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.type === 'NRI' ? '' : 'btn-outline-secondary'}`}
                                 style={b.type === 'NRI'
-                                  ? { backgroundColor: 'rgba(201,168,124,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(201,168,124,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'var(--badge-nri-bg)', color: 'var(--badge-nri-text)', border: '1px solid var(--badge-nri-border)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.type !== 'NRI' && handleToggleBuildingType(b.id, b.type)}
                               >
@@ -698,7 +698,7 @@ const StudentsList = () => {
                           return (
                             <div className="col-md-6 col-lg-4" key={room.roomNumber}>
                               <div className={`card h-100 ${isFull ? 'border-danger' : occupants.length > 0 ? 'border-success' : ''}`}>
-                                <div className="card-header d-flex justify-content-between align-items-center py-2" style={{ backgroundColor: isFull ? 'rgba(245,101,101,0.15)' : occupants.length > 0 ? 'rgba(72,187,120,0.15)' : 'var(--color-bg-tertiary)' }}>
+                                <div className="card-header d-flex justify-content-between align-items-center py-2" style={{ backgroundColor: isFull ? 'var(--room-full-bg)' : occupants.length > 0 ? 'var(--room-occupied-bg)' : 'var(--color-bg-tertiary)' }}>
                                   <span className="fw-semibold">
                                     <FontAwesomeIcon icon={faDoorOpen} /> Room {room.roomNumber}
                                   </span>

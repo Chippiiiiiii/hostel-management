@@ -212,16 +212,16 @@ const AttendanceDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faTimesCircle} style={{ color: 'var(--color-danger)' }} /> Absent</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-danger)' }}>{stats.absent}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faTimesCircle} style={{ color: 'var(--accent-red)' }} /> Absent</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--accent-red)' }}>{stats.absent}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: 'var(--color-primary)' }} /> Percentage</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)' }}>{stats.percentage}%</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: 'var(--accent-purple)' }} /> Percentage</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--accent-purple)' }}>{stats.percentage}%</h3>
             </div>
           </div>
         </div>

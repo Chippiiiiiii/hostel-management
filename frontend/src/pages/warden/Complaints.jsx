@@ -103,10 +103,10 @@ const WardenComplaints = () => {
       <div className="row mb-4 g-3">
         {[
           { label: 'Total', value: stats.total, color: 'var(--color-info)' },
-          { label: 'Pending', value: stats.pending, color: 'var(--color-warning)' },
-          { label: 'In Progress', value: stats.inProgress, color: 'var(--color-info)' },
+          { label: 'Pending', value: stats.pending, color: 'var(--accent-yellow)' },
+          { label: 'In Progress', value: stats.inProgress, color: 'var(--accent-teal-light)' },
           { label: 'Resolved', value: stats.resolved, color: 'var(--color-success)' },
-          { label: 'Rejected', value: stats.rejected, color: 'var(--color-danger)' },
+          { label: 'Rejected', value: stats.rejected, color: 'var(--accent-red)' },
         ].map(s => (
           <div className="col-6 col-md" key={s.label}>
             <div className="card shadow-sm">
