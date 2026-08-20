@@ -175,7 +175,7 @@ const Register = () => {
                       width: '120px', height: '120px', borderRadius: '50%', margin: '0 auto',
                       border: '3px dashed #cbd5e0', overflow: 'hidden', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      backgroundColor: '#f7fafc', position: 'relative',
+                      backgroundColor: 'var(--color-bg-tertiary)', position: 'relative',
                     }}
                     onClick={() => document.getElementById('photoInput').click()}
                   >

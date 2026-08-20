@@ -268,7 +268,7 @@ input[type="time"]:focus {
 /* ===== NAVBAR ===== */
 .navbar {
   box-shadow: var(--shadow-md);
-  background: var(--color-primary-dark) !important;
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%) !important;
   padding: 1rem 0;
 }
 
@@ -412,14 +412,70 @@ input[type="time"]:focus {
   .card-body {
     padding: 1rem;
   }
-  
+
   .btn {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
   }
-  
+
   input[type="datetime-local"],
   input[type="date"] {
     font-size: 0.9rem;
   }
+}
+
+/* ===== DARK MODE OVERRIDES ===== */
+[data-theme="dark"] .card {
+  border-color: #3a302a;
+}
+
+[data-theme="dark"] .card-header {
+  background: #1e1916 !important;
+  color: #d5c4b0 !important;
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+  border-color: #4d4039;
+}
+
+[data-theme="dark"] .table thead th {
+  background: #1e1916;
+  color: #d5c4b0;
+}
+
+[data-theme="dark"] .table tbody tr {
+  border-bottom-color: #2a2320;
+}
+
+[data-theme="dark"] .table-responsive {
+  background: transparent;
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: #3a302a;
+}
+
+[data-theme="dark"] .modal-footer {
+  border-top-color: #3a302a;
+}
+
+[data-theme="dark"] .alert-success {
+  background-color: rgba(72, 187, 120, 0.12);
+  color: #9ae6b4;
+}
+
+[data-theme="dark"] .alert-info {
+  background-color: rgba(66, 153, 225, 0.12);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .alert-warning {
+  background-color: rgba(201, 168, 124, 0.12);
+  color: #dfc4a0;
+}
+
+[data-theme="dark"] .alert-danger {
+  background-color: rgba(245, 101, 101, 0.12);
+  color: #fc8181;
 }
