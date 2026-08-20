@@ -14,6 +14,7 @@ const WardenAttendanceDashboard = () => {
   const [markedStudents, setMarkedStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const pollRef = useRef(null);
+  const sessionRef = useRef(null);
   const [showConfig, setShowConfig] = useState(false);
   const [configLoading, setConfigLoading] = useState(false);
   const [attendanceConfig, setAttendanceConfig] = useState({
@@ -24,8 +25,18 @@ const WardenAttendanceDashboard = () => {
   });
 
   useEffect(() => {
+    sessionRef.current = activeSession;
+  }, [activeSession]);
+
+  useEffect(() => {
     fetchData();
-    pollRef.current = setInterval(fetchRecords, 10000);
+    pollRef.current = setInterval(() => {
+      const session = sessionRef.current;
+      if (!session?.id) return;
+      attendanceService.getSessionRecords(session.id)
+        .then(res => setMarkedStudents(res.data))
+        .catch(() => {});
+    }, 10000);
     return () => clearInterval(pollRef.current);
   }, []);
 
@@ -92,16 +103,6 @@ const WardenAttendanceDashboard = () => {
       toast.error('Failed to save settings');
     } finally {
       setConfigLoading(false);
-    }
-  };
-
-  const fetchRecords = async () => {
-    if (!activeSession?.id) return;
-    try {
-      const recordsRes = await attendanceService.getSessionRecords(activeSession.id);
-      setMarkedStudents(recordsRes.data);
-    } catch (error) {
-      // ignore polling errors
     }
   };
 
