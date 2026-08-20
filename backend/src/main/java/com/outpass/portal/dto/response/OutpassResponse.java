@@ -24,6 +24,7 @@ public class OutpassResponse {
     private LocalDateTime date;
     private LocalDateTime returnDate;
     private Integer noOfDays;
+    private String reason;
     private String placeOfVisit;
     private String contactNumber;
     private String parentNumber;

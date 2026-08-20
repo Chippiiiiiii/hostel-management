@@ -7,7 +7,7 @@ import StudentStatsCard from '../../components/common/StudentStatsCard';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHourglass, faCheck, faCheckCircle, faChartBar, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faHourglass, faCheck, faCheckCircle, faChartBar, faArrowLeft, faTimes, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
 import { Link } from 'react-router-dom';
 
 const PendingOutpasses = () => {
@@ -18,6 +18,9 @@ const PendingOutpasses = () => {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedOutpass, setSelectedOutpass] = useState(null);
   const [viewingStatsFor, setViewingStatsFor] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [showBulkDeclineModal, setShowBulkDeclineModal] = useState(false);
 
   useEffect(() => {
     fetchPendingOutpasses();
@@ -35,6 +38,54 @@ const PendingOutpasses = () => {
     }
   };
 
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === outpasses.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(outpasses.map(o => o.id)));
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Approve ${selectedIds.size} outpass(es)?`)) return;
+    setBulkProcessing(true);
+    try {
+      const res = await outpassService.bulkApproveOutpasses([...selectedIds]);
+      toast.success(`${res.data.approved} outpass(es) approved`);
+      setOutpasses(prev => prev.filter(o => !selectedIds.has(o.id)));
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Bulk approve failed');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDeclineSubmit = async (data) => {
+    setBulkProcessing(true);
+    try {
+      const res = await outpassService.bulkDeclineOutpasses([...selectedIds], data.declineReason);
+      toast.success(`${res.data.declined} outpass(es) declined`);
+      setOutpasses(prev => prev.filter(o => !selectedIds.has(o.id)));
+      setSelectedIds(new Set());
+      setShowBulkDeclineModal(false);
+    } catch (error) {
+      toast.error('Bulk decline failed');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   const handleApprove = (outpass) => {
     setSelectedOutpass(outpass);
     setShowApproveModal(true);
@@ -46,6 +97,7 @@ const PendingOutpasses = () => {
       await outpassService.approveOutpass(selectedOutpass.id, data);
       toast.success('Outpass approved successfully!');
       setOutpasses(outpasses.filter(o => o.id !== selectedOutpass.id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(selectedOutpass.id); return n; });
       setShowApproveModal(false);
       setSelectedOutpass(null);
     } catch (error) {
@@ -67,6 +119,7 @@ const PendingOutpasses = () => {
       await outpassService.declineOutpass(selectedOutpass.id, data);
       toast.success('Outpass declined successfully!');
       setOutpasses(outpasses.filter(o => o.id !== selectedOutpass.id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(selectedOutpass.id); return n; });
       setShowDeclineModal(false);
       setSelectedOutpass(null);
     } catch (error) {
@@ -108,6 +161,57 @@ const PendingOutpasses = () => {
           />
         )}
 
+        {/* Bulk Action Bar */}
+        {outpasses.length > 0 && (
+          <div className="row mb-3">
+            <div className="col-12">
+              <div className="card shadow-sm">
+                <div className="card-body py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-3">
+                    <div className="form-check mb-0">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={selectedIds.size === outpasses.length && outpasses.length > 0}
+                        onChange={toggleSelectAll}
+                        id="selectAll"
+                      />
+                      <label className="form-check-label fw-semibold" htmlFor="selectAll">
+                        Select All
+                      </label>
+                    </div>
+                    {selectedIds.size > 0 && (
+                      <span className="badge bg-primary">{selectedIds.size} selected</span>
+                    )}
+                  </div>
+                  {selectedIds.size > 0 && (
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={handleBulkApprove}
+                        disabled={bulkProcessing}
+                      >
+                        {bulkProcessing ? (
+                          <span className="spinner-border spinner-border-sm"></span>
+                        ) : (
+                          <><FontAwesomeIcon icon={faCheckDouble} /> Approve ({selectedIds.size})</>
+                        )}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => setShowBulkDeclineModal(true)}
+                        disabled={bulkProcessing}
+                      >
+                        <FontAwesomeIcon icon={faTimes} /> Decline ({selectedIds.size})
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="row">
           <div className="col-12">
             {outpasses.length === 0 ? (
@@ -122,9 +226,17 @@ const PendingOutpasses = () => {
               <div className="row">
                 {outpasses.map((outpass) => (
                   <div key={outpass.id} className="col-md-6 col-lg-4 mb-4">
-                    <div className="card h-100 shadow-sm">
+                    <div className={`card h-100 shadow-sm ${selectedIds.has(outpass.id) ? 'border-primary border-2' : ''}`}>
                       <div className="card-header bg-warning d-flex justify-content-between align-items-center">
-                        <h6 className="mb-0">Request #{outpass.id}</h6>
+                        <div className="d-flex align-items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="form-check-input mt-0"
+                            checked={selectedIds.has(outpass.id)}
+                            onChange={() => toggleSelect(outpass.id)}
+                          />
+                          <h6 className="mb-0">Request #{outpass.id}</h6>
+                        </div>
                         <button
                           className="btn btn-sm btn-outline-dark"
                           onClick={() => handleViewStats(outpass.studentId)}
@@ -140,6 +252,7 @@ const PendingOutpasses = () => {
                         <p className="mb-1"><strong>Department:</strong> {outpass.department}</p>
                         <p className="mb-1"><strong>Hostel:</strong> {outpass.hostel} - {outpass.roomNumber}</p>
                         <hr />
+                        {outpass.reason && <p className="mb-1"><strong>Reason:</strong> {outpass.reason}</p>}
                         <p className="mb-1"><strong>Place:</strong> {outpass.placeOfVisit}</p>
                         <p className="mb-1"><strong>Departure:</strong> {format(new Date(outpass.date), 'dd/MM/yyyy HH:mm')}</p>
                         <p className="mb-1"><strong>Return:</strong> {format(new Date(outpass.returnDate), 'dd/MM/yyyy HH:mm')}</p>
@@ -203,6 +316,14 @@ const PendingOutpasses = () => {
         }}
         onSubmit={handleDeclineSubmit}
         processingId={processingId}
+      />
+
+      {/* Bulk Decline Modal */}
+      <DeclineReasonModal
+        show={showBulkDeclineModal}
+        onClose={() => setShowBulkDeclineModal(false)}
+        onSubmit={handleBulkDeclineSubmit}
+        processingId={bulkProcessing ? 'bulk' : null}
       />
     </>
   );

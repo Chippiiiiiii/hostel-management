@@ -6,9 +6,11 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHistory, faBook, faHourglass, faCheck, faTimes, faTimesCircle, faClock, faComment, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import useOutpassNotifications from '../../hooks/useOutpassNotifications';
 
 const OutpassHistory = () => {
   const [outpasses, setOutpasses] = useState([]);
+  useOutpassNotifications(outpasses);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -147,6 +149,23 @@ const OutpassHistory = () => {
                             </td>
                             <td>{format(new Date(outpass.createdAt), 'dd/MM/yyyy')}</td>
                             <td>
+                              {outpass.status === 'PENDING' && (
+                                <button
+                                  className="btn btn-sm btn-outline-danger me-1"
+                                  onClick={async () => {
+                                    if (!window.confirm('Cancel this outpass request?')) return;
+                                    try {
+                                      await outpassService.cancelOutpass(outpass.id);
+                                      toast.success('Outpass cancelled');
+                                      fetchOutpasses();
+                                    } catch (err) {
+                                      toast.error(err.response?.data?.message || 'Failed to cancel');
+                                    }
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faTimes} /> Cancel
+                                </button>
+                              )}
                               {(outpass.declineReason || outpass.wardenComments) && (
                                 <button
                                   className="btn btn-sm btn-outline-info"

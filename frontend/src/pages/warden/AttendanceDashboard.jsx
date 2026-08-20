@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarCheck, faArrowLeft, faPlay, faStop, faCheckCircle,
   faTimesCircle, faUsers, faClock, faCog, faWifi, faMapMarkerAlt,
-  faCheck, faSave, faPlus, faTrash,
+  faCheck, faSave, faPlus, faTrash, faDownload, faFileExport,
 } from '@fortawesome/free-solid-svg-icons';
 
 const WardenAttendanceDashboard = () => {
@@ -23,6 +23,11 @@ const WardenAttendanceDashboard = () => {
     hostelLongitude: '',
     hostelRadius: '50',
   });
+  const [showReport, setShowReport] = useState(false);
+  const [reportFrom, setReportFrom] = useState('');
+  const [reportTo, setReportTo] = useState('');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     sessionRef.current = activeSession;
@@ -126,6 +131,37 @@ const WardenAttendanceDashboard = () => {
     } catch (error) {
       toast.error('Failed to stop attendance session');
     }
+  };
+
+  const handleFetchReport = async () => {
+    if (!reportFrom || !reportTo) {
+      toast.error('Please select both dates');
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const res = await attendanceService.getAttendanceReport(reportFrom, reportTo);
+      setReportData(res.data);
+      if (res.data.length === 0) toast('No records found for selected dates');
+    } catch {
+      toast.error('Failed to fetch report');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (reportData.length === 0) return;
+    const headers = ['Date', 'Time', 'Student Name', 'Roll No', 'Department', 'Method', 'Status'];
+    const rows = reportData.map(r => [r.date, r.time, r.studentName, r.rollNo, r.department, r.method, r.status]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance_${reportFrom}_to_${reportTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -284,6 +320,75 @@ const WardenAttendanceDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Attendance Report */}
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card shadow-sm">
+            <div className="card-header d-flex justify-content-between align-items-center"
+              style={{ cursor: 'pointer' }} onClick={() => setShowReport(!showReport)}>
+              <h5 className="mb-0"><FontAwesomeIcon icon={faFileExport} /> Attendance Report</h5>
+              <span className="text-muted">{showReport ? '▲' : '▼'}</span>
+            </div>
+            {showReport && (
+              <div className="card-body">
+                <div className="row g-3 align-items-end mb-3">
+                  <div className="col-md-4">
+                    <label className="form-label fw-semibold">From Date</label>
+                    <input type="date" className="form-control" value={reportFrom}
+                      onChange={e => setReportFrom(e.target.value)} />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label fw-semibold">To Date</label>
+                    <input type="date" className="form-control" value={reportTo}
+                      onChange={e => setReportTo(e.target.value)} />
+                  </div>
+                  <div className="col-md-4 d-flex gap-2">
+                    <button className="btn btn-primary" onClick={handleFetchReport} disabled={reportLoading}>
+                      {reportLoading ? <span className="spinner-border spinner-border-sm" /> : 'Fetch'}
+                    </button>
+                    {reportData.length > 0 && (
+                      <button className="btn btn-success" onClick={handleDownloadCSV}>
+                        <FontAwesomeIcon icon={faDownload} /> CSV
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {reportData.length > 0 && (
+                  <div className="table-responsive">
+                    <table className="table table-hover table-sm">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Time</th>
+                          <th>Name</th>
+                          <th>Roll No</th>
+                          <th>Department</th>
+                          <th>Method</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportData.map((r, i) => (
+                          <tr key={i}>
+                            <td>{r.date}</td>
+                            <td>{r.time}</td>
+                            <td>{r.studentName}</td>
+                            <td>{r.rollNo}</td>
+                            <td>{r.department}</td>
+                            <td>{r.method === 'WIFI' ? 'WiFi' : 'Location'}</td>
+                            <td><span className="badge bg-success">{r.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

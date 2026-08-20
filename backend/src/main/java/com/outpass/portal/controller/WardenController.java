@@ -1,5 +1,8 @@
 package com.outpass.portal.controller;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +17,8 @@ import com.outpass.portal.dto.response.OutpassResponse;
 import com.outpass.portal.dto.response.StudentOutpassStatsResponse;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
+import com.outpass.portal.repository.AttendanceRecordRepository;
+import com.outpass.portal.repository.RoomAllocationRepository;
 import com.outpass.portal.repository.StudentRepository;
 import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.security.UserPrincipal;
@@ -21,6 +26,9 @@ import com.outpass.portal.service.AttendanceService;
 import com.outpass.portal.service.ComplaintService;
 import com.outpass.portal.service.OutpassService;
 import com.outpass.portal.service.RoomService;
+
+import com.outpass.portal.model.entity.Announcement;
+import com.outpass.portal.repository.AnnouncementRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +43,21 @@ public class WardenController {
     private final RoomService roomService;
     private final StudentRepository studentRepository;
     private final ComplaintService complaintService;
+    private final AttendanceRecordRepository attendanceRecordRepository;
+    private final RoomAllocationRepository roomAllocationRepository;
+    private final AnnouncementRepository announcementRepository;
+
+    @GetMapping("/dashboard/stats")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("totalStudents", studentRepository.count());
+        stats.put("allocatedStudents", roomAllocationRepository.count());
+        stats.put("todayAttendance", attendanceRecordRepository.countByDate(
+                LocalDate.now(ZoneId.of("Asia/Kolkata"))));
+        Map<String, Object> complaintStats = complaintService.getStats();
+        stats.put("pendingComplaints", complaintStats.getOrDefault("pending", 0));
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
 
     @GetMapping("/outpass/pending")
     public ResponseEntity<ApiResponse<List<OutpassResponse>>> getPendingOutpasses(
@@ -68,6 +91,49 @@ public class WardenController {
         
         OutpassResponse declined = outpassService.declineOutpass(id, warden.getHostel(), warden.getId(), request);
         return ResponseEntity.ok(ApiResponse.success("Outpass declined successfully", declined));
+    }
+
+    @PutMapping("/outpass/bulk-approve")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> bulkApprove(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        @SuppressWarnings("unchecked")
+        List<Number> ids = (List<Number>) request.get("ids");
+        int success = 0;
+        for (Number id : ids) {
+            try {
+                outpassService.approveOutpass(id.longValue(), warden.getHostel(), warden.getId(), null);
+                success++;
+            } catch (Exception ignored) {}
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+                success + " outpasses approved",
+                Map.of("approved", success, "total", ids.size())));
+    }
+
+    @PutMapping("/outpass/bulk-decline")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> bulkDecline(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        @SuppressWarnings("unchecked")
+        List<Number> ids = (List<Number>) request.get("ids");
+        String reason = (String) request.getOrDefault("reason", "Bulk declined");
+        com.outpass.portal.dto.request.DeclineOutpassRequest declineReq = new com.outpass.portal.dto.request.DeclineOutpassRequest();
+        declineReq.setDeclineReason(reason);
+        int success = 0;
+        for (Number id : ids) {
+            try {
+                outpassService.declineOutpass(id.longValue(), warden.getHostel(), warden.getId(), declineReq);
+                success++;
+            } catch (Exception ignored) {}
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+                success + " outpasses declined",
+                Map.of("declined", success, "total", ids.size())));
     }
 
     @GetMapping("/outpass/history")
@@ -130,6 +196,26 @@ public class WardenController {
                 request.getOrDefault("hostelLongitude", "0"),
                 request.getOrDefault("hostelRadius", "50"));
         return ResponseEntity.ok(ApiResponse.success("Attendance config updated", null));
+    }
+
+    @GetMapping("/attendance/report")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAttendanceReport(
+            @RequestParam String from, @RequestParam String to) {
+        LocalDate fromDate = LocalDate.parse(from);
+        LocalDate toDate = LocalDate.parse(to);
+        var records = attendanceRecordRepository.findByDateBetweenOrderByDateDescMarkedAtDesc(fromDate, toDate);
+        List<Map<String, Object>> result = records.stream().map(r -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", r.getDate().toString());
+            row.put("time", r.getTime());
+            row.put("studentName", r.getStudent().getName());
+            row.put("rollNo", r.getStudent().getRollNo());
+            row.put("department", r.getStudent().getDepartment());
+            row.put("method", r.getMethod().toString());
+            row.put("status", r.getStatus().toString());
+            return row;
+        }).collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     // ==================== Rooms ====================
@@ -282,6 +368,36 @@ public class WardenController {
         Map<String, Object> complaint = complaintService.updateComplaintStatus(
                 id, status, wardenResponse, userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success("Complaint updated", complaint));
+    }
+
+    // ==================== Announcements ====================
+
+    @GetMapping("/announcements")
+    public ResponseEntity<ApiResponse<List<Announcement>>> getAnnouncements() {
+        return ResponseEntity.ok(ApiResponse.success(announcementRepository.findAllByOrderByCreatedAtDesc()));
+    }
+
+    @PostMapping("/announcements")
+    public ResponseEntity<ApiResponse<Announcement>> createAnnouncement(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody Map<String, String> request) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        Announcement announcement = Announcement.builder()
+                .title(request.get("title"))
+                .content(request.get("content"))
+                .priority(request.getOrDefault("priority", "NORMAL"))
+                .postedBy(warden.getId())
+                .postedByName(warden.getName())
+                .build();
+        announcementRepository.save(announcement);
+        return ResponseEntity.ok(ApiResponse.success("Announcement posted", announcement));
+    }
+
+    @DeleteMapping("/announcements/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteAnnouncement(@PathVariable Long id) {
+        announcementRepository.deleteById(id);
+        return ResponseEntity.ok(ApiResponse.success("Announcement deleted", null));
     }
 }
 

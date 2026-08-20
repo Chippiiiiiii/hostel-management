@@ -83,6 +83,51 @@ const outpassService = {
     const response = await api.put(`/security/outpass/${id}/mark-return`);
     return response.data;
   },
+
+  cancelOutpass: async (id) => {
+    const response = await api.delete(`/student/outpass/${id}`);
+    return response.data;
+  },
+
+  getWardenDashboardStats: async () => {
+    const response = await api.get('/warden/dashboard/stats');
+    return response.data;
+  },
+
+  getRoommates: async () => {
+    const response = await api.get('/student/rooms/roommates');
+    return response.data;
+  },
+
+  getStudentAnnouncements: async () => {
+    const response = await api.get('/student/announcements');
+    return response.data;
+  },
+
+  getWardenAnnouncements: async () => {
+    const response = await api.get('/warden/announcements');
+    return response.data;
+  },
+
+  createAnnouncement: async (data) => {
+    const response = await api.post('/warden/announcements', data);
+    return response.data;
+  },
+
+  deleteAnnouncement: async (id) => {
+    const response = await api.delete(`/warden/announcements/${id}`);
+    return response.data;
+  },
+
+  bulkApproveOutpasses: async (ids) => {
+    const response = await api.put('/warden/outpass/bulk-approve', { ids });
+    return response.data;
+  },
+
+  bulkDeclineOutpasses: async (ids, reason) => {
+    const response = await api.put('/warden/outpass/bulk-decline', { ids, reason });
+    return response.data;
+  },
 };
 
 export default outpassService;

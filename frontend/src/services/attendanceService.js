@@ -116,6 +116,11 @@ const attendanceService = {
     });
   },
 
+  getAttendanceReport: async (from, to) => {
+    const response = await api.get(`/warden/attendance/report?from=${from}&to=${to}`);
+    return { data: response.data.data || [] };
+  },
+
   notifySessionStart: () => {
     const alert = { type: 'SESSION_STARTED', timestamp: Date.now() };
     localStorage.setItem(ALERT_KEY, JSON.stringify(alert));

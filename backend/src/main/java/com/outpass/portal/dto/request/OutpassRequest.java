@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class OutpassRequest {
 
+    private String reason;
+
     @NotBlank(message = "Place of visit is required")
     private String placeOfVisit;
 

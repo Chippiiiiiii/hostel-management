@@ -8,6 +8,7 @@ import { faFileAlt, faCalendarAlt, faMapMarkerAlt, faPhone, faUsers, faCheck, fa
 
 const CreateOutpass = () => {
   const [formData, setFormData] = useState({
+    reason: '',
     date: '',
     returnDate: '',
     noOfDays: 1,
@@ -98,6 +99,26 @@ const CreateOutpass = () => {
               </div>
 
               <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="form-label"><FontAwesomeIcon icon={faFileAlt} /> Reason for Outpass</label>
+                  <select
+                    className="form-select"
+                    name="reason"
+                    value={formData.reason}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select reason --</option>
+                    <option value="Home Visit">Home Visit</option>
+                    <option value="Medical">Medical</option>
+                    <option value="Family Emergency">Family Emergency</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
                 <div className="row">
                   <div className="col-md-6 mb-4">
                     <div className="date-input-group">

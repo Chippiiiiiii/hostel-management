@@ -124,11 +124,21 @@ const Login = () => {
                   )}
                 </button>
 
+                <div className="text-center mb-3">
+                  <Link
+                    to="/forgot-password"
+                    className="text-decoration-none"
+                    style={{ color: 'var(--color-primary)', fontSize: '0.9rem' }}
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+
                 <div className="text-center pt-3" style={{ borderTop: '1px solid #e2e8f0' }}>
                   <p className="mb-0 text-muted">
                     Don't have an account?{' '}
-                    <Link 
-                      to="/register" 
+                    <Link
+                      to="/register"
                       className="text-decoration-none fw-bold"
                       style={{ color: 'var(--color-primary)' }}
                     >

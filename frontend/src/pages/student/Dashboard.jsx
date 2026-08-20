@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import outpassService from '../../services/outpassService';
+import attendanceService from '../../services/attendanceService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChartBar, faUser, faPencilAlt, faArrowRight, faDoorOpen, faCalendarCheck, faClock, faCheckCircle, faTimesCircle, faHourglass, faClipboardList, faBell, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faChartBar, faUser, faPencilAlt, faArrowRight, faDoorOpen, faCalendarCheck, faClock, faCheckCircle, faTimesCircle, faHourglass, faClipboardList, faBell, faExclamationTriangle, faPercentage, faUsers, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import useAttendanceAlert from '../../hooks/useAttendanceAlert';
+import useOutpassNotifications from '../../hooks/useOutpassNotifications';
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
+  const [allOutpasses, setAllOutpasses] = useState([]);
   const [recentOutpasses, setRecentOutpasses] = useState([]);
+  const [attendanceStats, setAttendanceStats] = useState({ total: 0, present: 0, absent: 0, percentage: 0 });
+  const [roommates, setRoommates] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { showAlert, activeSession, dismissAlert } = useAttendanceAlert();
+  useOutpassNotifications(allOutpasses);
 
   useEffect(() => {
     fetchData();
@@ -20,12 +26,17 @@ const StudentDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [profileRes, outpassRes] = await Promise.all([
+      const [profileRes, outpassRes, attendanceRes, roommatesRes] = await Promise.all([
         outpassService.getStudentProfile(),
         outpassService.getOutpassHistory(),
+        attendanceService.getStats(),
+        outpassService.getRoommates().catch(() => ({ data: [] })),
       ]);
       setProfile(profileRes.data);
+      setAllOutpasses(outpassRes.data);
       setRecentOutpasses(outpassRes.data.slice(0, 3));
+      setAttendanceStats(attendanceRes.data);
+      setRoommates(roommatesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load dashboard data');
@@ -163,8 +174,8 @@ const StudentDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm h-100">
             <div className="card-body py-3">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faTimesCircle} style={{ color: '#e53e3e' }} /> Declined</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#e53e3e', fontSize: '1.75rem' }}>{recentOutpasses.filter(o => o.status === 'DECLINED').length}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: '#805ad5' }} /> Attendance</p>
+              <h3 className="mb-0 fw-bold" style={{ color: '#805ad5', fontSize: '1.75rem' }}>{attendanceStats.percentage}%</h3>
             </div>
           </div>
         </div>
@@ -206,7 +217,7 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* Complaints Card */}
+      {/* Complaints & Announcements */}
       <div className="row mb-4 g-4">
         <div className="col-md-6">
           <div className="card shadow-sm h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/student/complaints')}
@@ -224,7 +235,60 @@ const StudentDashboard = () => {
             </div>
           </div>
         </div>
+        <div className="col-md-6">
+          <div className="card shadow-sm h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/student/announcements')}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div className="card-body d-flex justify-content-between align-items-center" style={{ padding: '1.75rem' }}>
+              <div className="d-flex align-items-center">
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.75rem', color: '#805ad5', marginRight: '1.25rem' }} />
+                <div>
+                  <h4 className="mb-1 fw-bold" style={{ color: '#805ad5' }}>Announcements</h4>
+                  <p className="text-muted mb-0">View notices from warden</p>
+                </div>
+              </div>
+              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Roommates */}
+      {roommates.length > 0 && (
+        <div className="row mb-4">
+          <div className="col-12">
+            <div className="card shadow-sm">
+              <div className="card-header">
+                <h5 className="mb-0">
+                  <FontAwesomeIcon icon={faUsers} /> My Roommates
+                </h5>
+              </div>
+              <div className="card-body p-0">
+                <div className="table-responsive">
+                  <table className="table table-hover mb-0">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Roll No</th>
+                        <th>Department</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roommates.map((mate) => (
+                        <tr key={mate.id}>
+                          <td>{mate.name}</td>
+                          <td>{mate.rollNo}</td>
+                          <td>{mate.department}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Activity */}
       {recentOutpasses.length > 0 && (
