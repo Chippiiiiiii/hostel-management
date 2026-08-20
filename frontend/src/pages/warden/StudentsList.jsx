@@ -484,12 +484,26 @@ const StudentsList = () => {
         <>
           <div className="row mb-3">
             <div className="col-12">
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <ul className="nav nav-tabs flex-grow-1 mb-0">
-                  {buildings.map(building => (
-                    <li className="nav-item d-flex align-items-center" key={building.id}>
-                      {editingBuildingId === building.id ? (
-                        <div className="d-flex align-items-center px-2 py-1">
+              <div className="d-flex align-items-center justify-content-end mb-3">
+                <button
+                  className="btn btn-outline-success btn-sm"
+                  onClick={() => setShowAddBuilding(!showAddBuilding)}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Add Building
+                </button>
+              </div>
+
+              {/* Boys Buildings */}
+              {buildings.filter(b => b.gender !== 'GIRL').length > 0 && (
+                <div className="mb-3">
+                  <div className="d-flex align-items-center mb-2">
+                    <span className="badge bg-primary me-2" style={{ fontSize: '0.7rem' }}>Boys</span>
+                    <hr className="flex-grow-1 m-0" style={{ opacity: 0.2 }} />
+                  </div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {buildings.filter(b => b.gender !== 'GIRL').sort((a, b) => a.name.localeCompare(b.name)).map(building => (
+                      editingBuildingId === building.id ? (
+                        <div className="d-flex align-items-center" key={building.id}>
                           <input
                             type="text"
                             className="form-control form-control-sm"
@@ -507,33 +521,65 @@ const StudentsList = () => {
                           </button>
                         </div>
                       ) : (
-                        <>
-                          <button
-                            className={`nav-link ${activeBuilding === building.id ? 'active' : ''}`}
-                            onClick={() => setActiveBuilding(building.id)}
-                          >
-                            <FontAwesomeIcon icon={faBuilding} /> {building.name}
-                            <span className={`badge ms-1 ${building.type === 'NRI' ? 'bg-info' : 'bg-secondary'}`}
-                              style={{ fontSize: '0.55rem', verticalAlign: 'middle' }}>
-                              {building.type === 'NRI' ? 'NRI' : 'Regular'}
-                            </span>
-                            <span className={`badge ms-1 ${building.gender === 'GIRL' ? 'bg-danger' : 'bg-primary'}`}
-                              style={{ fontSize: '0.55rem', verticalAlign: 'middle' }}>
-                              {building.gender === 'GIRL' ? 'Girls' : 'Boys'}
-                            </span>
+                        <button
+                          key={building.id}
+                          className={`btn btn-sm ${activeBuilding === building.id ? 'btn-primary' : 'btn-outline-primary'}`}
+                          style={{ fontWeight: 500 }}
+                          onClick={() => setActiveBuilding(building.id)}
+                        >
+                          <FontAwesomeIcon icon={faBuilding} className="me-1" />
+                          {building.name}
+                          {building.type === 'NRI' && <span className="badge bg-info ms-1" style={{ fontSize: '0.55rem' }}>NRI</span>}
+                        </button>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Girls Buildings */}
+              {buildings.filter(b => b.gender === 'GIRL').length > 0 && (
+                <div className="mb-3">
+                  <div className="d-flex align-items-center mb-2">
+                    <span className="badge bg-danger me-2" style={{ fontSize: '0.7rem' }}>Girls</span>
+                    <hr className="flex-grow-1 m-0" style={{ opacity: 0.2 }} />
+                  </div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {buildings.filter(b => b.gender === 'GIRL').sort((a, b) => a.name.localeCompare(b.name)).map(building => (
+                      editingBuildingId === building.id ? (
+                        <div className="d-flex align-items-center" key={building.id}>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            style={{ width: '140px' }}
+                            value={editBuildingName}
+                            onChange={(e) => setEditBuildingName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
+                            autoFocus
+                          />
+                          <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}>
+                            <FontAwesomeIcon icon={faCheck} />
                           </button>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className="btn btn-outline-success btn-sm ms-2"
-                  onClick={() => setShowAddBuilding(!showAddBuilding)}
-                >
-                  <FontAwesomeIcon icon={faPlus} /> Add Building
-                </button>
-              </div>
+                          <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}>
+                            <FontAwesomeIcon icon={faTimes} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          key={building.id}
+                          className={`btn btn-sm ${activeBuilding === building.id ? 'btn-danger' : 'btn-outline-danger'}`}
+                          style={{ fontWeight: 500 }}
+                          onClick={() => setActiveBuilding(building.id)}
+                        >
+                          <FontAwesomeIcon icon={faBuilding} className="me-1" />
+                          {building.name}
+                          {building.type === 'NRI' && <span className="badge bg-info ms-1" style={{ fontSize: '0.55rem' }}>NRI</span>}
+                        </button>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Add Building Form */}
               {showAddBuilding && (
