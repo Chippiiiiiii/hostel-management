@@ -510,7 +510,7 @@ const StudentsList = () => {
                         if (a.gender !== b.gender) return a.gender === 'GIRL' ? 1 : -1;
                         return a.name.localeCompare(b.name);
                       }).map(b => (
-                        <tr key={b.id} style={{ backgroundColor: activeBuilding === b.id ? '#f0f7ff' : 'transparent' }}>
+                        <tr key={b.id} style={{ backgroundColor: activeBuilding === b.id ? 'rgba(66,153,225,0.1)' : 'transparent' }}>
                           <td style={{ paddingLeft: '1rem' }}>
                             {editingBuildingId === b.id ? (
                               <div className="d-flex align-items-center">
@@ -534,19 +534,19 @@ const StudentsList = () => {
                           <td style={{ textAlign: 'center' }}>
                             <div className="btn-group btn-group-sm" role="group" style={{ borderRadius: '12px', overflow: 'hidden' }}>
                               <button
-                                className={`btn btn-sm ${b.gender !== 'GIRL' ? '' : 'btn-outline-secondary'}`}
+                                className={`btn btn-sm ${b.gender !== 'GIRL' ? 'active-badge-blue' : 'btn-outline-secondary'}`}
                                 style={b.gender !== 'GIRL'
-                                  ? { backgroundColor: '#e0edff', color: '#1d4ed8', border: '1px solid #93c5fd', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: '#9ca3af' }}
+                                  ? { backgroundColor: 'rgba(66,153,225,0.15)', color: '#4299e1', border: '1px solid rgba(66,153,225,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender === 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
                                 Boys
                               </button>
                               <button
-                                className={`btn btn-sm ${b.gender === 'GIRL' ? '' : 'btn-outline-secondary'}`}
+                                className={`btn btn-sm ${b.gender === 'GIRL' ? 'active-badge-pink' : 'btn-outline-secondary'}`}
                                 style={b.gender === 'GIRL'
-                                  ? { backgroundColor: '#fce7f3', color: '#be185d', border: '1px solid #f9a8d4', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: '#9ca3af' }}
+                                  ? { backgroundColor: 'rgba(237,100,166,0.15)', color: '#ed64a6', border: '1px solid rgba(237,100,166,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender !== 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
                                 Girls
@@ -558,8 +558,8 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.type !== 'NRI' ? '' : 'btn-outline-secondary'}`}
                                 style={b.type !== 'NRI'
-                                  ? { backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: '#9ca3af' }}
+                                  ? { backgroundColor: 'rgba(160,174,192,0.15)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-accent)', fontSize: '0.7rem', fontWeight: 600 }
+                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.type === 'NRI' && handleToggleBuildingType(b.id, b.type)}
                               >
                                 Regular
@@ -567,8 +567,8 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.type === 'NRI' ? '' : 'btn-outline-secondary'}`}
                                 style={b.type === 'NRI'
-                                  ? { backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: '#9ca3af' }}
+                                  ? { backgroundColor: 'rgba(237,137,54,0.15)', color: '#ed8936', border: '1px solid rgba(237,137,54,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.type !== 'NRI' && handleToggleBuildingType(b.id, b.type)}
                               >
                                 NRI
@@ -698,7 +698,7 @@ const StudentsList = () => {
                           return (
                             <div className="col-md-6 col-lg-4" key={room.roomNumber}>
                               <div className={`card h-100 ${isFull ? 'border-danger' : occupants.length > 0 ? 'border-success' : ''}`}>
-                                <div className="card-header d-flex justify-content-between align-items-center py-2" style={{ backgroundColor: isFull ? '#fed7d7' : occupants.length > 0 ? '#c6f6d5' : '#f7fafc' }}>
+                                <div className="card-header d-flex justify-content-between align-items-center py-2" style={{ backgroundColor: isFull ? 'rgba(245,101,101,0.15)' : occupants.length > 0 ? 'rgba(72,187,120,0.15)' : 'var(--color-bg-tertiary)' }}>
                                   <span className="fw-semibold">
                                     <FontAwesomeIcon icon={faDoorOpen} /> Room {room.roomNumber}
                                   </span>

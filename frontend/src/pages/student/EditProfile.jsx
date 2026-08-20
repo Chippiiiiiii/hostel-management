@@ -195,7 +195,7 @@ const EditProfile = () => {
                 <div
                   style={{
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto',
-                    border: '3px dashed #cbd5e0', overflow: 'hidden', cursor: 'pointer',
+                    border: '3px dashed var(--color-accent)', overflow: 'hidden', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     backgroundColor: 'var(--color-bg-tertiary)',
                   }}

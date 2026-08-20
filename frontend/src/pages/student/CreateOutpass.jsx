@@ -214,7 +214,7 @@ const CreateOutpass = () => {
                   </div>
                 </div>
 
-                <div className="d-flex gap-3 mt-4 pt-3" style={{ borderTop: '1px solid #e2e8f0' }}>
+                <div className="d-flex gap-3 mt-4 pt-3" style={{ borderTop: '1px solid var(--color-accent)' }}>
                   <button
                     type="submit"
                     className="btn btn-primary btn-lg flex-grow-1"

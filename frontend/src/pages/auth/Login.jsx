@@ -134,7 +134,7 @@ const Login = () => {
                   </Link>
                 </div>
 
-                <div className="text-center pt-3" style={{ borderTop: '1px solid #e2e8f0' }}>
+                <div className="text-center pt-3" style={{ borderTop: '1px solid var(--color-accent)' }}>
                   <p className="mb-0 text-muted">
                     Don't have an account?{' '}
                     <Link
