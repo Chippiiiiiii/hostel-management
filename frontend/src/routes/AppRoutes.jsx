@@ -6,6 +6,7 @@ import Navbar from '../components/common/Navbar';
 // Auth Pages
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
+import ForgotPassword from '../pages/auth/ForgotPassword';
 
 // Student Pages
 import StudentDashboard from '../pages/student/Dashboard';
@@ -15,6 +16,7 @@ import EditProfile from '../pages/student/EditProfile';
 import OutpassDashboard from '../pages/student/OutpassDashboard';
 import AttendanceDashboard from '../pages/student/AttendanceDashboard';
 import StudentComplaints from '../pages/student/Complaints';
+import StudentAnnouncements from '../pages/student/Announcements';
 
 // Warden Pages
 import WardenDashboard from '../pages/warden/Dashboard';
@@ -23,6 +25,7 @@ import WardenOutpassDashboard from '../pages/warden/OutpassDashboard';
 import WardenAttendanceDashboard from '../pages/warden/AttendanceDashboard';
 import StudentsList from '../pages/warden/StudentsList';
 import WardenComplaints from '../pages/warden/Complaints';
+import WardenAnnouncements from '../pages/warden/Announcements';
 
 // Security Pages
 import SecurityDashboard from '../pages/security/Dashboard';
@@ -56,6 +59,7 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
 
         {/* Student Routes */}
@@ -108,6 +112,14 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/student/announcements"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
+              <StudentAnnouncements />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/student/edit-profile"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
@@ -154,6 +166,14 @@ const AppRoutes = () => {
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
               <WardenComplaints />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/warden/announcements"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
+              <WardenAnnouncements />
             </PrivateRoute>
           }
         />

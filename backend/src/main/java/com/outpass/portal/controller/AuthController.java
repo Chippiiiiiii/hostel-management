@@ -5,8 +5,15 @@ import com.outpass.portal.dto.request.RefreshTokenRequest;
 import com.outpass.portal.dto.request.StudentRegistrationRequest;
 import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.AuthResponse;
+import com.outpass.portal.model.entity.PasswordResetToken;
 import com.outpass.portal.model.entity.Student;
+import com.outpass.portal.model.entity.Warden;
+import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.enums.Role;
+import com.outpass.portal.repository.PasswordResetTokenRepository;
+import com.outpass.portal.repository.StudentRepository;
+import com.outpass.portal.repository.WardenRepository;
+import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.service.AuthService;
 import com.outpass.portal.service.RoomService;
@@ -14,7 +21,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
@@ -23,6 +37,11 @@ public class AuthController {
 
     private final AuthService authService;
     private final RoomService roomService;
+    private final PasswordResetTokenRepository resetTokenRepository;
+    private final StudentRepository studentRepository;
+    private final WardenRepository wardenRepository;
+    private final SecurityGuardRepository securityGuardRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/buildings")
     public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getPublicBuildings() {
@@ -115,6 +134,65 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         authService.logout(userPrincipal.getId(), userPrincipal.getRole().name());
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
+    }
+
+    @Transactional
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String role = request.getOrDefault("role", "STUDENT");
+
+        boolean exists = switch (role) {
+            case "WARDEN" -> wardenRepository.findByEmail(email).isPresent();
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email).isPresent();
+            default -> studentRepository.findByEmail(email).isPresent();
+        };
+
+        if (!exists) {
+            throw new RuntimeException("No account found with this email");
+        }
+
+        resetTokenRepository.deleteByEmail(email);
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .email(email)
+                .userType(role)
+                .expiresAt(LocalDateTime.now(ZoneId.of("Asia/Kolkata")).plusMinutes(15))
+                .build();
+        resetTokenRepository.save(resetToken);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Password reset token generated. Use it to reset your password.",
+                Map.of("token", token)));
+    }
+
+    @Transactional
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String newPassword = request.get("newPassword");
+
+        PasswordResetToken resetToken = resetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
+
+        if (resetToken.isExpired()) {
+            resetTokenRepository.delete(resetToken);
+            throw new RuntimeException("Reset token has expired. Please request a new one.");
+        }
+
+        String encoded = passwordEncoder.encode(newPassword);
+        switch (resetToken.getUserType()) {
+            case "WARDEN" -> wardenRepository.findByEmail(resetToken.getEmail())
+                    .ifPresent(w -> { w.setPasswordHash(encoded); wardenRepository.save(w); });
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(resetToken.getEmail())
+                    .ifPresent(s -> { s.setPasswordHash(encoded); securityGuardRepository.save(s); });
+            default -> studentRepository.findByEmail(resetToken.getEmail())
+                    .ifPresent(s -> { s.setPasswordHash(encoded); studentRepository.save(s); });
+        }
+
+        resetTokenRepository.delete(resetToken);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 }
 

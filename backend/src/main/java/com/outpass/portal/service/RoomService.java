@@ -160,6 +160,17 @@ public class RoomService {
                 .orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getRoommates(String studentEmail) {
+        return allocationRepository.findByStudentEmail(studentEmail)
+                .map(allocation -> allocationRepository.findByRoomId(allocation.getRoom().getId())
+                        .stream()
+                        .filter(a -> !a.getStudentEmail().equals(studentEmail))
+                        .map(this::mapAllocation)
+                        .collect(Collectors.toList()))
+                .orElse(List.of());
+    }
+
     @Transactional
     public Map<String, Object> allocateStudent(Long roomId, String name, String rollNo,
                                                 String department, String email) {

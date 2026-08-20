@@ -1,11 +1,23 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGraduationCap, faChartBar } from '@fortawesome/free-solid-svg-icons';
+import { faGraduationCap, faChartBar, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   const handleLogout = async () => {
     await logout();
@@ -27,7 +39,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark sticky-top" style={{ 
+    <nav className="navbar navbar-expand-lg navbar-dark sticky-top" style={{
       background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
     }}>
@@ -35,7 +47,7 @@ const Navbar = () => {
         <Link className="navbar-brand fw-bold" to={getDashboardLink()}>
           <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: '1.3rem', marginRight: '0.5rem' }} /> Hostel Management
         </Link>
-        
+
         <button
           className="navbar-toggler border-0"
           type="button"
@@ -55,17 +67,17 @@ const Navbar = () => {
                     <FontAwesomeIcon icon={faChartBar} style={{ marginRight: '0.5rem' }} /> Dashboard
                   </Link>
                 </li>
-                
-<li className="nav-item">
-                  <span className="nav-link" style={{ 
-                    background: 'rgba(255, 255, 255, 0.1)', 
+
+                <li className="nav-item">
+                  <span className="nav-link" style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
                     borderRadius: '0.375rem',
                     padding: '0.5rem 1rem'
                   }}>
                     <strong style={{ color: 'white' }}>{user.email}</strong>
-                    <span style={{ 
-                      marginLeft: '0.5rem', 
-                      padding: '0.2rem 0.5rem', 
+                    <span style={{
+                      marginLeft: '0.5rem',
+                      padding: '0.2rem 0.5rem',
                       background: 'rgba(255, 255, 255, 0.2)',
                       borderRadius: '0.25rem',
                       fontSize: '0.8rem',
@@ -75,10 +87,21 @@ const Navbar = () => {
                     </span>
                   </span>
                 </li>
-                
+
                 <li className="nav-item ms-2">
-                  <button 
-                    className="btn btn-outline-light btn-sm" 
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={() => setDarkMode(!darkMode)}
+                    title={darkMode ? 'Light mode' : 'Dark mode'}
+                    style={{ fontWeight: '600', minWidth: '36px' }}
+                  >
+                    <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+                  </button>
+                </li>
+
+                <li className="nav-item ms-2">
+                  <button
+                    className="btn btn-outline-light btn-sm"
                     onClick={handleLogout}
                     style={{ fontWeight: '600' }}
                   >
@@ -89,13 +112,23 @@ const Navbar = () => {
             ) : (
               <>
                 <li className="nav-item">
+                  <button
+                    className="btn btn-outline-light btn-sm me-2"
+                    onClick={() => setDarkMode(!darkMode)}
+                    title={darkMode ? 'Light mode' : 'Dark mode'}
+                    style={{ fontWeight: '600', minWidth: '36px' }}
+                  >
+                    <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+                  </button>
+                </li>
+                <li className="nav-item">
                   <Link className="nav-link" to="/login">
                     Login
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link 
-                    className="nav-link" 
+                  <Link
+                    className="nav-link"
                     to="/register"
                     style={{
                       background: 'rgba(255, 255, 255, 0.1)',

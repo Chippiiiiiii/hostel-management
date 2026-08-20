@@ -46,6 +46,7 @@ public class OutpassService {
                 .date(request.getDate())
                 .returnDate(request.getReturnDate())
                 .noOfDays(request.getNoOfDays())
+                .reason(request.getReason())
                 .placeOfVisit(request.getPlaceOfVisit())
                 .contactNumber(request.getContactNumber())
                 .parentNumber(request.getParentNumber())
@@ -54,6 +55,19 @@ public class OutpassService {
 
         Outpass saved = outpassRepository.save(outpass);
         return mapToResponse(saved);
+    }
+
+    @Transactional
+    public void cancelOutpass(Long outpassId, Long studentId) {
+        Outpass outpass = outpassRepository.findById(outpassId)
+                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        if (!outpass.getStudent().getId().equals(studentId)) {
+            throw new RuntimeException("Access denied");
+        }
+        if (outpass.getStatus() != OutpassStatus.PENDING) {
+            throw new RuntimeException("Only pending outpasses can be cancelled");
+        }
+        outpassRepository.delete(outpass);
     }
 
     @Transactional(readOnly = true)
@@ -211,6 +225,7 @@ public class OutpassService {
                 .date(outpass.getDate())
                 .returnDate(outpass.getReturnDate())
                 .noOfDays(outpass.getNoOfDays())
+                .reason(outpass.getReason())
                 .placeOfVisit(outpass.getPlaceOfVisit())
                 .contactNumber(outpass.getContactNumber())
                 .parentNumber(outpass.getParentNumber())

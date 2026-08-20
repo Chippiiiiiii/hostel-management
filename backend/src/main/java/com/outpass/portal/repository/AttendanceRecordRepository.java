@@ -16,4 +16,6 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findBySessionIdOrderByMarkedAtDesc(Long sessionId);
     long countByStudentId(Long studentId);
     long countByStudentIdAndStatus(Long studentId, AttendanceStatus status);
+    long countByDate(LocalDate date);
+    List<AttendanceRecord> findByDateBetweenOrderByDateDescMarkedAtDesc(LocalDate startDate, LocalDate endDate);
 }

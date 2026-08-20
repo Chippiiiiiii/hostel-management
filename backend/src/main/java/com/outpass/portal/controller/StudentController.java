@@ -6,6 +6,8 @@ import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.OutpassResponse;
 import com.outpass.portal.dto.response.StudentProfileResponse;
 import com.outpass.portal.security.UserPrincipal;
+import com.outpass.portal.model.entity.Announcement;
+import com.outpass.portal.repository.AnnouncementRepository;
 import com.outpass.portal.service.AttendanceService;
 import com.outpass.portal.service.ComplaintService;
 import com.outpass.portal.service.OutpassService;
@@ -30,6 +32,7 @@ public class StudentController {
     private final AttendanceService attendanceService;
     private final RoomService roomService;
     private final ComplaintService complaintService;
+    private final AnnouncementRepository announcementRepository;
 
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<StudentProfileResponse>> getProfile(
@@ -67,6 +70,14 @@ public class StudentController {
             @PathVariable Long id) {
         OutpassResponse outpass = outpassService.getOutpassById(id, userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(outpass));
+    }
+
+    @DeleteMapping("/outpass/{id}")
+    public ResponseEntity<ApiResponse<Void>> cancelOutpass(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long id) {
+        outpassService.cancelOutpass(id, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Outpass cancelled successfully", null));
     }
 
     // ==================== Attendance ====================
@@ -153,6 +164,14 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success("Room allocated successfully", allocation));
     }
 
+    @GetMapping("/rooms/roommates")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRoommates(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
+        List<Map<String, Object>> roommates = roomService.getRoommates(profile.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(roommates));
+    }
+
     @GetMapping("/rooms/allocations")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations() {
         return ResponseEntity.ok(ApiResponse.success(roomService.getAllAllocations()));
@@ -177,6 +196,13 @@ public class StudentController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         List<Map<String, Object>> complaints = complaintService.getStudentComplaints(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(complaints));
+    }
+
+    // ==================== Announcements ====================
+
+    @GetMapping("/announcements")
+    public ResponseEntity<ApiResponse<List<Announcement>>> getAnnouncements() {
+        return ResponseEntity.ok(ApiResponse.success(announcementRepository.findAllByOrderByCreatedAtDesc()));
     }
 
     private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {

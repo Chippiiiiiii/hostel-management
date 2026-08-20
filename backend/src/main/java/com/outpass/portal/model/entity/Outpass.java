@@ -76,6 +76,9 @@ public class Outpass {
     @Column(name = "num_of_days", nullable = false)
     private Integer noOfDays;
 
+    @Column(length = 50)
+    private String reason;
+
     @NotBlank(message = "Place of visit is required")
     @Column(name = "visit_place", nullable = false)
     private String placeOfVisit;
