@@ -3,7 +3,7 @@
 /* ===== CARDS ===== */
 .card {
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-accent);
+  border: 1px solid #e2e8f0;
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
@@ -108,7 +108,7 @@
 
 .form-control,
 .form-select {
-  border: 2px solid var(--color-accent);
+  border: 2px solid #e2e8f0;
   border-radius: var(--border-radius-md);
   padding: 0.65rem 1rem;
   transition: all var(--transition-fast);
@@ -240,7 +240,7 @@ input[type="time"]:focus {
 
 .table tbody tr {
   transition: background-color var(--transition-fast);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .table tbody tr:hover {
@@ -342,7 +342,7 @@ input[type="time"]:focus {
 }
 
 .modal-header {
-  border-bottom: 1px solid var(--color-accent);
+  border-bottom: 1px solid #e2e8f0;
   padding: 1.25rem 1.5rem;
 }
 
@@ -351,7 +351,7 @@ input[type="time"]:focus {
 }
 
 .modal-footer {
-  border-top: 1px solid var(--color-accent);
+  border-top: 1px solid #e2e8f0;
   padding: 1.25rem 1.5rem;
 }
 
