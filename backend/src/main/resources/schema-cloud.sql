@@ -203,5 +203,29 @@ CREATE TABLE IF NOT EXISTS room_config (
     CONSTRAINT uk_config_key UNIQUE (config_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS complaints (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    student_id BIGINT NOT NULL,
+    student_name VARCHAR(100) NOT NULL,
+    student_roll_no VARCHAR(20) NOT NULL,
+    hostel VARCHAR(100) NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    category ENUM('PLUMBING', 'ELECTRICAL', 'CLEANLINESS', 'FURNITURE', 'INTERNET', 'NOISE', 'OTHER') NOT NULL,
+    description VARCHAR(1000) NOT NULL,
+    photo LONGTEXT NULL,
+    status ENUM('PENDING', 'IN_PROGRESS', 'RESOLVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    warden_response VARCHAR(1000) NULL,
+    responded_by BIGINT NULL,
+    responded_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_complaint_student FOREIGN KEY (student_id)
+        REFERENCES students(id) ON DELETE CASCADE,
+
+    INDEX idx_complaint_student (student_id),
+    INDEX idx_complaint_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SELECT 'Schema ready.' AS Status;
 SHOW TABLES;

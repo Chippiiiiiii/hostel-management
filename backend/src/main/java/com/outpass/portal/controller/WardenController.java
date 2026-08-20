@@ -18,6 +18,7 @@ import com.outpass.portal.repository.StudentRepository;
 import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.service.AttendanceService;
+import com.outpass.portal.service.ComplaintService;
 import com.outpass.portal.service.OutpassService;
 import com.outpass.portal.service.RoomService;
 
@@ -33,6 +34,7 @@ public class WardenController {
     private final AttendanceService attendanceService;
     private final RoomService roomService;
     private final StudentRepository studentRepository;
+    private final ComplaintService complaintService;
 
     @GetMapping("/outpass/pending")
     public ResponseEntity<ApiResponse<List<OutpassResponse>>> getPendingOutpasses(
@@ -252,6 +254,34 @@ public class WardenController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         List<Student> students = studentRepository.findAll();
         return ResponseEntity.ok(ApiResponse.success(students));
+    }
+
+    // ==================== Complaints ====================
+
+    @GetMapping("/complaints")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllComplaints(
+            @RequestParam(required = false) String status) {
+        List<Map<String, Object>> complaints = status != null && !status.isEmpty()
+                ? complaintService.getComplaintsByStatus(status)
+                : complaintService.getAllComplaints();
+        return ResponseEntity.ok(ApiResponse.success(complaints));
+    }
+
+    @GetMapping("/complaints/stats")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getComplaintStats() {
+        return ResponseEntity.ok(ApiResponse.success(complaintService.getStats()));
+    }
+
+    @PutMapping("/complaints/{id}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateComplaint(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody Map<String, String> request) {
+        String status = request.get("status");
+        String wardenResponse = request.get("wardenResponse");
+        Map<String, Object> complaint = complaintService.updateComplaintStatus(
+                id, status, wardenResponse, userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("Complaint updated", complaint));
     }
 }
 

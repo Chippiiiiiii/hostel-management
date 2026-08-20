@@ -14,6 +14,7 @@ import OutpassHistory from '../pages/student/OutpassHistory';
 import EditProfile from '../pages/student/EditProfile';
 import OutpassDashboard from '../pages/student/OutpassDashboard';
 import AttendanceDashboard from '../pages/student/AttendanceDashboard';
+import StudentComplaints from '../pages/student/Complaints';
 
 // Warden Pages
 import WardenDashboard from '../pages/warden/Dashboard';
@@ -21,6 +22,7 @@ import PendingOutpasses from '../pages/warden/PendingOutpasses';
 import WardenOutpassDashboard from '../pages/warden/OutpassDashboard';
 import WardenAttendanceDashboard from '../pages/warden/AttendanceDashboard';
 import StudentsList from '../pages/warden/StudentsList';
+import WardenComplaints from '../pages/warden/Complaints';
 
 // Security Pages
 import SecurityDashboard from '../pages/security/Dashboard';
@@ -98,6 +100,14 @@ const AppRoutes = () => {
           }
         />
         <Route
+          path="/student/complaints"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
+              <StudentComplaints />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/student/edit-profile"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
@@ -136,6 +146,14 @@ const AppRoutes = () => {
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
               <StudentsList />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/warden/complaints"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
+              <WardenComplaints />
             </PrivateRoute>
           }
         />
