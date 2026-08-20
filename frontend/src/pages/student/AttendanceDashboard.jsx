@@ -19,20 +19,30 @@ const AttendanceDashboard = () => {
   const [stepMessage, setStepMessage] = useState('');
   const [sessionJustStarted, setSessionJustStarted] = useState(false);
   const pollRef = useRef(null);
+  const sessionRef = useRef(null);
+
+  useEffect(() => {
+    sessionRef.current = activeSession;
+  }, [activeSession]);
 
   useEffect(() => {
     fetchData();
     attendanceService.requestNotificationPermission();
 
     pollRef.current = setInterval(async () => {
-      const res = await attendanceService.getActiveSession();
-      if (res.data && !activeSession) {
-        setActiveSession(res.data);
-        setSessionJustStarted(true);
-        toast('Attendance is now open! Mark your presence.', { icon: '\u{1F514}' });
-      } else if (!res.data && activeSession) {
-        setActiveSession(null);
-        setSessionJustStarted(false);
+      try {
+        const res = await attendanceService.getActiveSession();
+        const prevSession = sessionRef.current;
+        if (res.data && !prevSession) {
+          setActiveSession(res.data);
+          setSessionJustStarted(true);
+          toast('Attendance is now open! Mark your presence.', { icon: '\u{1F514}' });
+        } else if (!res.data && prevSession) {
+          setActiveSession(null);
+          setSessionJustStarted(false);
+        }
+      } catch (e) {
+        // ignore polling errors
       }
     }, 5000);
 
