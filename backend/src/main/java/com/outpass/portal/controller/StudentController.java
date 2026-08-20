@@ -7,6 +7,7 @@ import com.outpass.portal.dto.response.OutpassResponse;
 import com.outpass.portal.dto.response.StudentProfileResponse;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.service.AttendanceService;
+import com.outpass.portal.service.ComplaintService;
 import com.outpass.portal.service.OutpassService;
 import com.outpass.portal.service.RoomService;
 import com.outpass.portal.service.StudentService;
@@ -28,6 +29,7 @@ public class StudentController {
     private final OutpassService outpassService;
     private final AttendanceService attendanceService;
     private final RoomService roomService;
+    private final ComplaintService complaintService;
 
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<StudentProfileResponse>> getProfile(
@@ -154,6 +156,27 @@ public class StudentController {
     @GetMapping("/rooms/allocations")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations() {
         return ResponseEntity.ok(ApiResponse.success(roomService.getAllAllocations()));
+    }
+
+    // ==================== Complaints ====================
+
+    @PostMapping("/complaints")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createComplaint(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody Map<String, Object> request) {
+        String category = (String) request.get("category");
+        String description = (String) request.get("description");
+        String photo = (String) request.get("photo");
+        Map<String, Object> complaint = complaintService.createComplaint(
+                userPrincipal.getId(), category, description, photo);
+        return ResponseEntity.ok(ApiResponse.success("Complaint submitted successfully", complaint));
+    }
+
+    @GetMapping("/complaints")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getMyComplaints(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        List<Map<String, Object>> complaints = complaintService.getStudentComplaints(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(complaints));
     }
 
     private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {

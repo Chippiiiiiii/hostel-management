@@ -4,7 +4,7 @@ import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChartBar, faUser, faPencilAlt, faArrowRight, faDoorOpen, faCalendarCheck, faClock, faCheckCircle, faTimesCircle, faHourglass, faClipboardList, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faChartBar, faUser, faPencilAlt, faArrowRight, faDoorOpen, faCalendarCheck, faClock, faCheckCircle, faTimesCircle, faHourglass, faClipboardList, faBell, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import useAttendanceAlert from '../../hooks/useAttendanceAlert';
 
 const StudentDashboard = () => {
@@ -198,6 +198,26 @@ const StudentDashboard = () => {
                 <div>
                   <h4 className="mb-1 fw-bold" style={{ color: 'var(--color-primary)' }}>Attendance</h4>
                   <p className="text-muted mb-0">View your attendance records</p>
+                </div>
+              </div>
+              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Complaints Card */}
+      <div className="row mb-4 g-4">
+        <div className="col-md-6">
+          <div className="card shadow-sm h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/student/complaints')}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+            <div className="card-body d-flex justify-content-between align-items-center" style={{ padding: '1.75rem' }}>
+              <div className="d-flex align-items-center">
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.75rem', color: '#e53e3e', marginRight: '1.25rem' }} />
+                <div>
+                  <h4 className="mb-1 fw-bold" style={{ color: '#e53e3e' }}>Complaints</h4>
+                  <p className="text-muted mb-0">File & track complaints</p>
                 </div>
               </div>
               <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
