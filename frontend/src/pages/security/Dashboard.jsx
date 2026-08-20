@@ -107,7 +107,7 @@ const SecurityDashboard = () => {
         <div className="col-md-4">
           <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
             <div className="card-body p-4">
-              <h1 className="display-3" style={{ color: '#48bb78', fontWeight: '700' }}>{approvedOutpasses.length}</h1>
+              <h1 className="display-3" style={{ color: 'var(--color-success)', fontWeight: '700' }}>{approvedOutpasses.length}</h1>
               <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Approved - Ready to Exit</h5>
               <p className="mb-0 text-muted">Awaiting departure verification</p>
             </div>
@@ -125,7 +125,7 @@ const SecurityDashboard = () => {
         <div className="col-md-4">
           <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
             <div className="card-body p-4">
-              <h1 className="display-3" style={{ color: '#4299e1', fontWeight: '700' }}>{todayOutpasses.length}</h1>
+              <h1 className="display-3" style={{ color: 'var(--color-info)', fontWeight: '700' }}>{todayOutpasses.length}</h1>
               <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Today's Schedule</h5>
               <p className="mb-0 text-muted">All outpasses for today</p>
             </div>

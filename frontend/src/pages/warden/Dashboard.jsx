@@ -58,36 +58,36 @@ const WardenDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faUserGraduate} style={{ fontSize: '2rem', color: '#805ad5', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faUserGraduate} style={{ fontSize: '2rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Total Students</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#805ad5', fontSize: '2.5rem' }}>{dashStats.totalStudents}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)', fontSize: '2.5rem' }}>{dashStats.totalStudents}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '2rem', color: '#38b2ac', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '2rem', color: 'var(--color-info)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Rooms Allocated</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#38b2ac', fontSize: '2.5rem' }}>{dashStats.allocatedStudents}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-info)', fontSize: '2.5rem' }}>{dashStats.allocatedStudents}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: '2rem', color: '#48bb78', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: '2rem', color: 'var(--color-success)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Today's Attendance</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#48bb78', fontSize: '2.5rem' }}>{dashStats.todayAttendance}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-success)', fontSize: '2.5rem' }}>{dashStats.todayAttendance}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faBell} style={{ fontSize: '2rem', color: '#e53e3e', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faBell} style={{ fontSize: '2rem', color: 'var(--color-danger)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Pending Complaints</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#e53e3e', fontSize: '2.5rem' }}>{dashStats.pendingComplaints}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-danger)', fontSize: '2.5rem' }}>{dashStats.pendingComplaints}</h2>
             </div>
           </div>
         </div>
@@ -98,36 +98,36 @@ const WardenDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '2rem', color: '#4299e1', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '2rem', color: 'var(--color-info)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Total Outpasses</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#4299e1', fontSize: '2.5rem' }}>{stats.total}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-info)', fontSize: '2.5rem' }}>{stats.total}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faHourglass} style={{ fontSize: '2rem', color: '#ecc94b', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faHourglass} style={{ fontSize: '2rem', color: 'var(--color-warning)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Pending</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#ecc94b', fontSize: '2.5rem' }}>{stats.pending}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-warning)', fontSize: '2.5rem' }}>{stats.pending}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '2rem', color: '#48bb78', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '2rem', color: 'var(--color-success)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Approved</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#48bb78', fontSize: '2.5rem' }}>{stats.approved}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-success)', fontSize: '2.5rem' }}>{stats.approved}</h2>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow h-100">
             <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '2rem', color: '#e53e3e', marginBottom: '0.75rem' }} />
+              <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '2rem', color: 'var(--color-danger)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Declined</p>
-              <h2 className="mb-0 fw-bold" style={{ color: '#e53e3e', fontSize: '2.5rem' }}>{stats.declined}</h2>
+              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-danger)', fontSize: '2.5rem' }}>{stats.declined}</h2>
             </div>
           </div>
         </div>
@@ -140,7 +140,7 @@ const WardenDashboard = () => {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(66,153,225,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(201,168,124,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                 <FontAwesomeIcon icon={faDoorOpen} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
               </div>
               <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Outpass</h3>
@@ -154,7 +154,7 @@ const WardenDashboard = () => {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(66,153,225,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(201,168,124,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                 <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
               </div>
               <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Attendance</h3>
@@ -168,7 +168,7 @@ const WardenDashboard = () => {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(66,153,225,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(201,168,124,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
                 <FontAwesomeIcon icon={faUsers} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
               </div>
               <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Students</h3>
@@ -182,10 +182,10 @@ const WardenDashboard = () => {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(229,62,62,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.5rem', color: '#e53e3e' }} />
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(201,112,112,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.5rem', color: 'var(--color-danger)' }} />
               </div>
-              <h3 className="fw-bold mb-2" style={{ color: '#e53e3e' }}>Complaints</h3>
+              <h3 className="fw-bold mb-2" style={{ color: 'var(--color-danger)' }}>Complaints</h3>
               <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Review & respond to complaints</p>
               <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
             </div>
@@ -196,10 +196,10 @@ const WardenDashboard = () => {
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(128,90,213,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.5rem', color: '#805ad5' }} />
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(201,168,124,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
               </div>
-              <h3 className="fw-bold mb-2" style={{ color: '#805ad5' }}>Announcements</h3>
+              <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Announcements</h3>
               <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Post notices for students</p>
               <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
             </div>

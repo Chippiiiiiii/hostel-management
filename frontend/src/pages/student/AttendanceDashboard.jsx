@@ -196,32 +196,32 @@ const AttendanceDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCalendarAlt} style={{ color: '#4299e1' }} /> Total Days</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#4299e1' }}>{stats.total}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCalendarAlt} style={{ color: 'var(--color-info)' }} /> Total Days</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-info)' }}>{stats.total}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCheckCircle} style={{ color: '#48bb78' }} /> Present</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#48bb78' }}>{stats.present}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCheckCircle} style={{ color: 'var(--color-success)' }} /> Present</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-success)' }}>{stats.present}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faTimesCircle} style={{ color: '#e53e3e' }} /> Absent</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#e53e3e' }}>{stats.absent}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faTimesCircle} style={{ color: 'var(--color-danger)' }} /> Absent</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-danger)' }}>{stats.absent}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: '#805ad5' }} /> Percentage</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#805ad5' }}>{stats.percentage}%</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: 'var(--color-primary)' }} /> Percentage</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)' }}>{stats.percentage}%</h3>
             </div>
           </div>
         </div>
@@ -237,8 +237,8 @@ const AttendanceDashboard = () => {
             <div className="card-body text-center py-4">
               {todayStatus ? (
                 <div>
-                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: '#48bb78', marginBottom: '1rem' }} />
-                  <h5 className="fw-bold" style={{ color: '#48bb78' }}>Attendance Marked</h5>
+                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: 'var(--color-success)', marginBottom: '1rem' }} />
+                  <h5 className="fw-bold" style={{ color: 'var(--color-success)' }}>Attendance Marked</h5>
                   <p className="text-muted mb-0">
                     Marked at {todayStatus.time} via {todayStatus.method === 'WIFI' ? 'WiFi' : 'Location + Biometric'}
                   </p>
@@ -246,7 +246,7 @@ const AttendanceDashboard = () => {
               ) : markingStep ? (
                 <div>
                   {markingStep === 'done' ? (
-                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: '#48bb78', marginBottom: '1rem' }} />
+                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: 'var(--color-success)', marginBottom: '1rem' }} />
                   ) : (
                     <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: '1rem' }} />
                   )}
@@ -258,7 +258,7 @@ const AttendanceDashboard = () => {
                         icon={faWifi}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'wifi' ? '#4299e1' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
+                          color: markingStep === 'wifi' ? 'var(--color-info)' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">WiFi</small>
@@ -268,7 +268,7 @@ const AttendanceDashboard = () => {
                         icon={faMapMarkerAlt}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'location' ? '#4299e1' : markingStep === 'biometric' || markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
+                          color: markingStep === 'location' ? 'var(--color-info)' : markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">Location</small>
@@ -278,7 +278,7 @@ const AttendanceDashboard = () => {
                         icon={faFingerprint}
                         style={{
                           fontSize: '1.5rem',
-                          color: markingStep === 'biometric' ? '#4299e1' : markingStep === 'done' ? '#48bb78' : 'var(--color-text-light)',
+                          color: markingStep === 'biometric' ? 'var(--color-info)' : markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
                         }}
                       />
                       <small className="d-block text-muted">Biometric</small>

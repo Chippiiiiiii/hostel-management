@@ -382,32 +382,32 @@ const StudentsList = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faBuilding} style={{ color: '#4299e1' }} /> Buildings</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#4299e1' }}>{buildings.length}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faBuilding} style={{ color: 'var(--color-info)' }} /> Buildings</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-info)' }}>{buildings.length}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faDoorOpen} style={{ color: '#48bb78' }} /> Total Rooms</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#48bb78' }}>{totalRooms}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faDoorOpen} style={{ color: 'var(--color-success)' }} /> Total Rooms</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-success)' }}>{totalRooms}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faUserGraduate} style={{ color: '#805ad5' }} /> Total Students</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#805ad5' }}>{totalStudents}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faUserGraduate} style={{ color: 'var(--color-primary)' }} /> Total Students</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)' }}>{totalStudents}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm">
             <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faLayerGroup} style={{ color: '#ed8936' }} /> Total Floors</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#ed8936' }}>{buildings.reduce((s, b) => s + b.floors.length, 0)}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faLayerGroup} style={{ color: 'var(--color-warning)' }} /> Total Floors</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-warning)' }}>{buildings.reduce((s, b) => s + b.floors.length, 0)}</h3>
             </div>
           </div>
         </div>
@@ -523,10 +523,10 @@ const StudentsList = () => {
                             ) : (
                               <button
                                 className="btn btn-link text-decoration-none p-0 fw-semibold"
-                                style={{ color: activeBuilding === b.id ? '#2563eb' : '#1a202c' }}
+                                style={{ color: activeBuilding === b.id ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
                                 onClick={() => setActiveBuilding(b.id)}
                               >
-                                <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: b.gender === 'GIRL' ? '#e11d48' : '#3b82f6' }} />
+                                <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: b.gender === 'GIRL' ? 'var(--color-danger)' : 'var(--color-info)' }} />
                                 {b.name}
                               </button>
                             )}
@@ -536,7 +536,7 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.gender !== 'GIRL' ? 'active-badge-blue' : 'btn-outline-secondary'}`}
                                 style={b.gender !== 'GIRL'
-                                  ? { backgroundColor: 'rgba(66,153,225,0.15)', color: '#4299e1', border: '1px solid rgba(66,153,225,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'rgba(124,168,196,0.15)', color: 'var(--color-info)', border: '1px solid rgba(124,168,196,0.4)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender === 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
@@ -545,7 +545,7 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.gender === 'GIRL' ? 'active-badge-pink' : 'btn-outline-secondary'}`}
                                 style={b.gender === 'GIRL'
-                                  ? { backgroundColor: 'rgba(237,100,166,0.15)', color: '#ed64a6', border: '1px solid rgba(237,100,166,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'rgba(201,112,112,0.15)', color: 'var(--color-danger)', border: '1px solid rgba(201,112,112,0.4)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.gender !== 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
                               >
@@ -567,7 +567,7 @@ const StudentsList = () => {
                               <button
                                 className={`btn btn-sm ${b.type === 'NRI' ? '' : 'btn-outline-secondary'}`}
                                 style={b.type === 'NRI'
-                                  ? { backgroundColor: 'rgba(237,137,54,0.15)', color: '#ed8936', border: '1px solid rgba(237,137,54,0.4)', fontSize: '0.7rem', fontWeight: 600 }
+                                  ? { backgroundColor: 'rgba(201,168,124,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(201,168,124,0.4)', fontSize: '0.7rem', fontWeight: 600 }
                                   : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
                                 onClick={() => b.type !== 'NRI' && handleToggleBuildingType(b.id, b.type)}
                               >

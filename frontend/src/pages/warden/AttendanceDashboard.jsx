@@ -302,8 +302,8 @@ const WardenAttendanceDashboard = () => {
             <div className="card-body text-center py-4">
               {activeSession ? (
                 <div>
-                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: '#48bb78', marginBottom: '1rem' }} />
-                  <h5 className="fw-bold" style={{ color: '#48bb78' }}>Attendance is Active</h5>
+                  <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: 'var(--color-success)', marginBottom: '1rem' }} />
+                  <h5 className="fw-bold" style={{ color: 'var(--color-success)' }}>Attendance is Active</h5>
                   <p className="text-muted mb-3">Started at {activeSession.startedAt}</p>
                   <button className="btn btn-danger btn-lg fw-semibold" onClick={handleStopAttendance}>
                     <FontAwesomeIcon icon={faStop} /> Stop Attendance
