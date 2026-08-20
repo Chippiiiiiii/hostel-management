@@ -150,32 +150,32 @@ const StudentDashboard = () => {
         <div className="col-6 col-md-3">
           <div className="card shadow-sm h-100">
             <div className="card-body py-3">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faClipboardList} style={{ color: '#4299e1' }} /> Total Outpasses</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#4299e1', fontSize: '1.75rem' }}>{recentOutpasses.length}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faClipboardList} style={{ color: 'var(--color-info)' }} /> Total Outpasses</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-info)', fontSize: '1.75rem' }}>{recentOutpasses.length}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm h-100">
             <div className="card-body py-3">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faHourglass} style={{ color: '#ecc94b' }} /> Pending</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#ecc94b', fontSize: '1.75rem' }}>{recentOutpasses.filter(o => o.status === 'PENDING').length}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faHourglass} style={{ color: 'var(--color-warning)' }} /> Pending</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-warning)', fontSize: '1.75rem' }}>{recentOutpasses.filter(o => o.status === 'PENDING').length}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm h-100">
             <div className="card-body py-3">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCheckCircle} style={{ color: '#48bb78' }} /> Approved</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#48bb78', fontSize: '1.75rem' }}>{recentOutpasses.filter(o => o.status === 'APPROVED' || o.status === 'COMPLETED').length}</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faCheckCircle} style={{ color: 'var(--color-success)' }} /> Approved</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-success)', fontSize: '1.75rem' }}>{recentOutpasses.filter(o => o.status === 'APPROVED' || o.status === 'COMPLETED').length}</h3>
             </div>
           </div>
         </div>
         <div className="col-6 col-md-3">
           <div className="card shadow-sm h-100">
             <div className="card-body py-3">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: '#805ad5' }} /> Attendance</p>
-              <h3 className="mb-0 fw-bold" style={{ color: '#805ad5', fontSize: '1.75rem' }}>{attendanceStats.percentage}%</h3>
+              <p className="text-muted mb-1"><FontAwesomeIcon icon={faPercentage} style={{ color: 'var(--color-primary)' }} /> Attendance</p>
+              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-primary)', fontSize: '1.75rem' }}>{attendanceStats.percentage}%</h3>
             </div>
           </div>
         </div>
@@ -225,9 +225,9 @@ const StudentDashboard = () => {
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body d-flex justify-content-between align-items-center" style={{ padding: '1.75rem' }}>
               <div className="d-flex align-items-center">
-                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.75rem', color: '#e53e3e', marginRight: '1.25rem' }} />
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.75rem', color: 'var(--color-danger)', marginRight: '1.25rem' }} />
                 <div>
-                  <h4 className="mb-1 fw-bold" style={{ color: '#e53e3e' }}>Complaints</h4>
+                  <h4 className="mb-1 fw-bold" style={{ color: 'var(--color-danger)' }}>Complaints</h4>
                   <p className="text-muted mb-0">File & track complaints</p>
                 </div>
               </div>
@@ -241,9 +241,9 @@ const StudentDashboard = () => {
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
             <div className="card-body d-flex justify-content-between align-items-center" style={{ padding: '1.75rem' }}>
               <div className="d-flex align-items-center">
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.75rem', color: '#805ad5', marginRight: '1.25rem' }} />
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.75rem', color: 'var(--color-primary)', marginRight: '1.25rem' }} />
                 <div>
-                  <h4 className="mb-1 fw-bold" style={{ color: '#805ad5' }}>Announcements</h4>
+                  <h4 className="mb-1 fw-bold" style={{ color: 'var(--color-primary)' }}>Announcements</h4>
                   <p className="text-muted mb-0">View notices from warden</p>
                 </div>
               </div>

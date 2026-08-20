@@ -59,8 +59,8 @@ const ForgotPassword = () => {
           <div className="col-md-6 col-lg-5">
             <div className="card shadow-lg card-fade-in">
               <div className="card-body p-5 text-center">
-                <FontAwesomeIcon icon={faCheck} style={{ fontSize: '3rem', color: '#48bb78' }} />
-                <h3 className="mt-3 fw-bold" style={{ color: '#48bb78' }}>Password Reset!</h3>
+                <FontAwesomeIcon icon={faCheck} style={{ fontSize: '3rem', color: 'var(--color-success)' }} />
+                <h3 className="mt-3 fw-bold" style={{ color: 'var(--color-success)' }}>Password Reset!</h3>
                 <p className="text-muted mb-4">Your password has been updated. You can now log in with your new password.</p>
                 <Link to="/login" className="btn btn-primary btn-lg fw-semibold">
                   Go to Login
