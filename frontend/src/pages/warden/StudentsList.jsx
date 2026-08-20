@@ -497,7 +497,7 @@ const StudentsList = () => {
               <div className="card shadow-sm mb-3">
                 <div className="table-responsive">
                   <table className="table table-hover mb-0" style={{ fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: '#f8f9fa' }}>
+                    <thead style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                       <tr>
                         <th style={{ paddingLeft: '1rem' }}>Building</th>
                         <th style={{ textAlign: 'center' }}>Gender</th>

@@ -39,10 +39,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark sticky-top" style={{
-      background: 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-    }}>
+    <nav className="navbar navbar-expand-lg navbar-dark sticky-top">
       <div className="container-fluid px-4">
         <Link className="navbar-brand fw-bold" to={getDashboardLink()}>
           <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: '1.3rem', marginRight: '0.5rem' }} /> Hostel Management

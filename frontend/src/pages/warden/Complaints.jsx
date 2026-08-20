@@ -175,7 +175,7 @@ const WardenComplaints = () => {
                 )}
 
                 {respondingTo === c.id ? (
-                  <div className="border rounded p-3 mt-2" style={{ backgroundColor: '#f8f9fa' }}>
+                  <div className="border rounded p-3 mt-2" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
                     <div className="mb-2">
                       <label className="form-label fw-semibold">Update Status</label>
                       <div className="d-flex gap-2 flex-wrap">

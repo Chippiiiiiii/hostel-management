@@ -197,7 +197,7 @@ const EditProfile = () => {
                     width: '100px', height: '100px', borderRadius: '50%', margin: '0 auto',
                     border: '3px dashed #cbd5e0', overflow: 'hidden', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: '#f7fafc',
+                    backgroundColor: 'var(--color-bg-tertiary)',
                   }}
                   onClick={() => document.getElementById('editPhotoInput').click()}
                 >
