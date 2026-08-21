@@ -1,93 +1,286 @@
-# 🎓 Outpass Portal
+# 🏨 Hostel Management System
 
-A comprehensive digital outpass management system for educational institutions, enabling students to request outpasses and administrators to manage them efficiently.
+A comprehensive hostel management platform for educational institutions — handling student outpasses, attendance tracking, room allocation, complaint management, and announcements with role-based access for Students, Wardens, and Security Guards.
+
+**🌐 Live:** [hostel-management-mit.vercel.app](https://hostel-management-mit.vercel.app)
 
 ## 📋 Overview
 
-The Outpass Portal is a full-stack web application that streamlines the process of requesting, approving, and tracking student outpasses. It provides role-based access control for Students, Wardens, and Security Guards with real-time notifications and approval workflows.
+The Hostel Management System digitizes day-to-day hostel operations. Students request outpasses, mark attendance via WiFi or geolocation + biometric verification, file complaints, and view announcements. Wardens manage approvals, monitor attendance, allocate rooms, and respond to complaints. Security guards verify departures and returns at hostel gates. The system provides real-time notifications, risk assessment for frequent outpass users, and exportable attendance reports.
 
 ## ✨ Features
 
 ### 👨‍🎓 Student Features
-- **Create Outpass Requests** - Submit outpass requests with reason, destination, and time details
-- **Track Status** - Real-time tracking of outpass approval status
-- **View History** - Complete history of all outpass requests with filtering options
-- **Profile Management** - Update personal information and contact details
-- **Dashboard Statistics** - View pending, approved, and rejected outpass counts
-- **Late Return Tracking** - Automatic flagging of late returns
+- **Outpass Requests** — Submit outpass requests with reason, destination, dates, and contact details
+- **Outpass Tracking** — Real-time status tracking (Pending → Approved/Declined → Departed → Completed)
+- **Cancel Pending Outpasses** — Cancel requests that haven't been reviewed yet
+- **Attendance Marking** — Mark attendance via hostel WiFi detection or geolocation + WebAuthn biometric verification
+- **Attendance History** — View attendance records, present/absent counts, and percentage
+- **Complaints** — File categorized complaints (Plumbing, Electrical, Cleanliness, Furniture, Internet, Noise, Other) with photo attachments
+- **Announcements** — View notices posted by wardens
+- **Roommate Info** — See who else is allocated to the same room
+- **Profile Management** — Update contact details and profile picture
+- **Dashboard** — Overview of outpass stats, attendance percentage, quick navigation
+- **Notifications** — Browser notifications for outpass status changes and attendance sessions
 
 ### 👔 Warden Features
-- **Approve/Reject Outpasses** - Review and process student outpass requests
-- **Add Comments** - Provide feedback or reasons for approval/rejection
-- **Dashboard Analytics** - View statistics of pending and processed outpasses
-- **Student Management** - View student profiles and outpass history
-- **Bulk Actions** - Efficiently manage multiple outpass requests
+- **Outpass Management** — Approve or decline student outpass requests with comments/reasons
+- **Bulk Actions** — Approve or decline multiple outpasses at once
+- **Student Risk Assessment** — Automatic risk level (Low/Medium/High) based on outpass frequency and on-time return rate
+- **Attendance System** — Start/stop attendance sessions, view real-time records, configure WiFi SSID/subnet and GPS coordinates
+- **Attendance Reports** — Date-range reports with CSV export
+- **Room Management** — Add/remove buildings, floors, rooms; allocate students; configure capacity; toggle building type (Regular/NRI) and gender (Boys/Girls)
+- **Student Directory** — View all registered students with search
+- **Complaint Management** — View all complaints, update status (Pending → In Progress → Resolved/Rejected), respond to students
+- **Announcements** — Post and manage notices for students
+- **Dashboard Analytics** — Total students, room occupancy, today's attendance, pending complaints, outpass stats
 
 ### 🔒 Security Guard Features
-- **Verify Outpasses** - Validate approved outpasses at exit/entry points
-- **Mark Exit/Entry** - Record actual exit and return times
-- **View Active Outpasses** - List of currently active approved outpasses
-- **Dashboard Overview** - Real-time status of students outside campus
+- **Departure Verification** — Verify and mark student departure for approved outpasses
+- **Return Verification** — Verify and mark student return, with automatic late-return detection
+- **Active Outpasses** — View all currently active outpasses for the hostel
+- **Today's Schedule** — List of all outpasses scheduled for today
+- **Dashboard** — Overview of approved (ready to exit), departed, and today's outpass counts
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **React 19.2.0** - Modern UI library
-- **React Router DOM 7.13.1** - Client-side routing
-- **Vite** - Fast build tool and dev server
-- **Bootstrap 5.3.8** - Responsive design framework
-- **Font Awesome 7.2.0** - Professional icon library
-- **Axios 1.13.6** - HTTP client
-- **React Hot Toast 2.6.0** - Toast notifications
-- **date-fns 4.1.0** - Date formatting and manipulation
+| Package | Version | Purpose |
+|---------|---------|---------|
+| React | 19.2.0 | UI framework |
+| React Router DOM | 7.13.1 | Client-side routing |
+| Vite | 7.3.1 | Build tool and dev server |
+| Bootstrap | 5.3.8 | Responsive CSS framework |
+| React Bootstrap | 2.10.10 | Bootstrap React components |
+| Font Awesome | 7.2.0 | Icon library |
+| Axios | 1.13.6 | HTTP client |
+| React Hot Toast | 2.6.0 | Toast notifications |
+| date-fns | 4.1.0 | Date formatting |
+| React Hook Form | 7.71.2 | Form handling |
+| Lucide React | 0.575.0 | Additional icons |
 
 ### Backend
-- **Spring Boot 4.0.3** - Java backend framework
-- **Spring Security** - Authentication and authorization
-- **Spring Data JPA** - Database ORM
-- **MySQL** - Relational database
-- **JWT (jjwt 0.12.6)** - Token-based authentication
-- **Lombok** - Reduce boilerplate code
-- **Java 21** - Latest LTS Java version
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Spring Boot | 4.0.3 | Java backend framework |
+| Spring Security | — | Authentication and authorization |
+| Spring Data JPA | — | Database ORM with Hibernate |
+| MySQL Connector/J | — | MySQL JDBC driver |
+| JJWT | 0.12.6 | JWT token generation and validation |
+| Lombok | — | Reduce boilerplate code |
+| dotenv-java | 3.0.0 | Load environment variables from .env |
+| Java | 21 | Runtime (LTS) |
 
 ## 🏗️ Architecture
 
 ```
-outpass-portal/
-├── frontend/                 # React frontend application
+hostel-management/
+├── frontend/                          # React frontend (Vite)
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   │   └── common/      # Shared components (Navbar, Modals, etc.)
-│   │   ├── context/         # React Context (AuthContext)
-│   │   ├── pages/           # Route-based page components
-│   │   │   ├── auth/        # Login, Register
-│   │   │   ├── student/     # Student dashboard, create outpass, history
-│   │   │   ├── warden/      # Warden dashboard, pending approvals
-│   │   │   └── security/    # Security guard dashboard
-│   │   ├── routes/          # Route definitions and PrivateRoute
-│   │   ├── services/        # API service layer (axios)
-│   │   └── utils/           # Constants and utilities
-│   └── vite.config.js       # Vite configuration
+│   │   ├── components/common/         # Shared components
+│   │   │   ├── Navbar.jsx             #   Navigation bar with dark mode toggle
+│   │   │   ├── LoadingSpinner.jsx     #   Loading state component
+│   │   │   ├── StudentStatsCard.jsx   #   Student stats + risk assessment card
+│   │   │   ├── ApproveCommentsModal.jsx
+│   │   │   └── DeclineReasonModal.jsx
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx        # Authentication context provider
+│   │   ├── hooks/
+│   │   │   ├── useAttendanceAlert.js  # Attendance session polling + notifications
+│   │   │   └── useOutpassNotifications.js # Outpass status change alerts
+│   │   ├── pages/
+│   │   │   ├── auth/                  # Login, Register, ForgotPassword
+│   │   │   ├── student/               # Student dashboard, outpass, attendance, complaints
+│   │   │   ├── warden/                # Warden dashboard, management pages
+│   │   │   └── security/              # Security guard dashboard
+│   │   ├── routes/
+│   │   │   ├── AppRoutes.jsx          # Route definitions
+│   │   │   └── PrivateRoute.jsx       # Role-based route protection
+│   │   ├── services/                  # API service layer (Axios)
+│   │   │   ├── api.js                 #   Axios instance + interceptors
+│   │   │   ├── authService.js         #   Authentication API calls
+│   │   │   ├── outpassService.js      #   Outpass + announcements API
+│   │   │   ├── attendanceService.js   #   Attendance + WiFi/geo/biometric
+│   │   │   ├── complaintService.js    #   Complaints API
+│   │   │   └── roomService.js         #   Room/building management API
+│   │   ├── utils/constants.js         # API URL, roles, status enums
+│   │   ├── App.css                    # Global component styles
+│   │   └── index.css                  # Theme variables, dark mode
+│   ├── vercel.json                    # Vercel SPA rewrite config
+│   └── vite.config.js                 # Vite config with API proxy
 │
-└── backend/                 # Spring Boot backend
-    ├── src/main/java/com/outpass/portal/
-    │   ├── config/          # Security, CORS configuration
-    │   ├── controller/      # REST API endpoints
-    │   ├── dto/             # Data Transfer Objects
-    │   ├── model/           # JPA entities
-    │   ├── repository/      # Database repositories
-    │   ├── security/        # JWT filters, authentication
-    │   ├── service/         # Business logic layer
-    │   └── util/            # Utility classes
-    └── src/main/resources/
-        ├── application.properties
-        └── schema.sql       # Database schema
+├── backend/                           # Spring Boot backend
+│   ├── src/main/java/com/outpass/portal/
+│   │   ├── config/                    # Security, CORS, JWT, rate limit config
+│   │   │   ├── SecurityConfig.java
+│   │   │   ├── JwtConfig.java
+│   │   │   ├── WebConfig.java
+│   │   │   └── EnvConfig.java
+│   │   ├── controller/                # REST API endpoints
+│   │   │   ├── AuthController.java
+│   │   │   ├── StudentController.java
+│   │   │   ├── WardenController.java
+│   │   │   ├── SecurityGuardController.java
+│   │   │   └── HealthController.java
+│   │   ├── dto/                       # Request/Response DTOs
+│   │   │   ├── request/
+│   │   │   └── response/
+│   │   ├── model/
+│   │   │   ├── entity/                # JPA entities (15 tables)
+│   │   │   └── enums/                 # Role, OutpassStatus, ComplaintCategory, etc.
+│   │   ├── repository/                # Spring Data JPA repositories
+│   │   ├── security/                  # JWT provider, auth filter, UserPrincipal
+│   │   ├── service/                   # Business logic layer
+│   │   ├── interceptor/               # Rate limit interceptor
+│   │   ├── exception/                 # Global exception handler
+│   │   └── util/                      # Rate limiter, subnet utils
+│   ├── src/main/resources/
+│   │   ├── application.properties     # App config with env-var overrides
+│   │   ├── schema.sql                 # Full local schema
+│   │   ├── schema-cloud.sql           # Cloud-safe schema (no events)
+│   │   ├── seed-data.sql              # Sample data (local)
+│   │   └── seed-cloud.sql             # Sample data (cloud)
+│   ├── db/
+│   │   └── schema-managed.sql         # Managed MySQL schema with indexes
+│   └── Dockerfile                     # Multi-stage Docker build
+│
+├── render.yaml                        # Render deployment blueprint
+└── README.md
 ```
+
+## 📊 Database Schema
+
+### Entity Relationship
+
+| Entity | Table | Description |
+|--------|-------|-------------|
+| **Student** | `students` | Student accounts with profile, hostel, room details |
+| **Warden** | `wardens` | Warden accounts assigned to specific hostels |
+| **SecurityGuard** | `security_guards` | Security guard accounts assigned to hostels |
+| **Outpass** | `outpasses` | Outpass requests with full lifecycle tracking |
+| **Building** | `buildings` | Hostel buildings (type: Regular/NRI, gender: Boy/Girl) |
+| **Room** | `rooms` | Individual rooms within buildings |
+| **RoomAllocation** | `room_allocations` | Student-to-room assignments |
+| **RoomConfig** | `room_config` | Key-value settings for room management |
+| **AttendanceSession** | `attendance_sessions` | Warden-initiated attendance windows |
+| **AttendanceRecord** | `attendance_records` | Individual attendance marks |
+| **Complaint** | `complaints` | Student complaints with category and status |
+| **Announcement** | `announcements` | Warden-posted notices |
+| **RefreshToken** | `refresh_tokens` | JWT refresh token storage |
+| **Token** | `tokens` | Revoked JWT blacklist |
+| **PasswordResetToken** | `password_reset_tokens` | Password reset flow tokens |
+| **AccessLog** | `access_logs` | API access audit trail |
+
+### Key Enums
+
+| Enum | Values |
+|------|--------|
+| Role | `STUDENT`, `WARDEN`, `SECURITY_GUARD` |
+| OutpassStatus | `PENDING`, `APPROVED`, `DECLINED`, `DEPARTED`, `COMPLETED`, `OVERDUE` |
+| ComplaintCategory | `PLUMBING`, `ELECTRICAL`, `CLEANLINESS`, `FURNITURE`, `INTERNET`, `NOISE`, `OTHER` |
+| ComplaintStatus | `PENDING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED` |
+| AttendanceMethod | `WIFI`, `GEO_BIOMETRIC` |
+
+## 📡 API Endpoints
+
+All endpoints are prefixed with `/api`.
+
+### Authentication (`/auth`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/student/register` | Register a student account |
+| POST | `/auth/student/login` | Student login |
+| POST | `/auth/warden/login` | Warden login |
+| POST | `/auth/security/login` | Security guard login |
+| POST | `/auth/refresh` | Refresh JWT access token |
+| POST | `/auth/logout` | Invalidate refresh tokens |
+| POST | `/auth/forgot-password` | Request password reset |
+| POST | `/auth/reset-password` | Reset password with token |
+| GET | `/auth/buildings` | Public building list (for registration) |
+
+### Student (`/student`) — requires `ROLE_STUDENT`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/student/profile` | Get student profile |
+| PUT | `/student/profile` | Update profile |
+| POST | `/student/outpass` | Create outpass request |
+| GET | `/student/outpass/history` | Get outpass history |
+| GET | `/student/outpass/{id}` | Get specific outpass |
+| DELETE | `/student/outpass/{id}` | Cancel pending outpass |
+| GET | `/student/attendance/session` | Get active attendance session |
+| POST | `/student/attendance/mark` | Mark attendance |
+| GET | `/student/attendance/today` | Today's attendance status |
+| GET | `/student/attendance/history` | Attendance history |
+| GET | `/student/attendance/stats` | Attendance statistics |
+| GET | `/student/attendance/verify-wifi` | Verify hostel WiFi connection |
+| GET | `/student/attendance/location` | Get hostel GPS coordinates |
+| GET | `/student/rooms/buildings` | Get buildings for room selection |
+| GET | `/student/rooms/allocation` | Get own room allocation |
+| POST | `/student/rooms/allocate` | Self-allocate to a room |
+| GET | `/student/rooms/roommates` | Get roommates |
+| POST | `/student/complaints` | Submit a complaint |
+| GET | `/student/complaints` | Get own complaints |
+| GET | `/student/announcements` | Get announcements |
+
+### Warden (`/warden`) — requires `ROLE_WARDEN`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/warden/dashboard/stats` | Dashboard statistics |
+| GET | `/warden/outpass/pending` | Pending outpasses (hostel-scoped) |
+| PUT | `/warden/outpass/{id}/approve` | Approve outpass |
+| PUT | `/warden/outpass/{id}/decline` | Decline outpass |
+| PUT | `/warden/outpass/bulk-approve` | Bulk approve outpasses |
+| PUT | `/warden/outpass/bulk-decline` | Bulk decline outpasses |
+| GET | `/warden/outpass/history` | All outpasses for hostel |
+| GET | `/warden/student/{id}/stats` | Student stats + risk assessment |
+| POST | `/warden/attendance/start` | Start attendance session |
+| POST | `/warden/attendance/stop` | Stop attendance session |
+| GET | `/warden/attendance/session` | Get active session |
+| GET | `/warden/attendance/session/{id}/records` | Session attendance records |
+| GET | `/warden/attendance/config` | Get attendance config |
+| PUT | `/warden/attendance/config` | Update WiFi/GPS config |
+| GET | `/warden/attendance/report` | Attendance report (date range) |
+| GET | `/warden/rooms/buildings` | Get buildings |
+| POST | `/warden/rooms/buildings` | Add building |
+| DELETE | `/warden/rooms/buildings/{id}` | Remove building |
+| PUT | `/warden/rooms/buildings/{id}/rename` | Rename building |
+| PUT | `/warden/rooms/buildings/{id}/type` | Set building type (Regular/NRI) |
+| PUT | `/warden/rooms/buildings/{id}/gender` | Set building gender (Boy/Girl) |
+| PUT | `/warden/rooms/{roomId}/max-members` | Update room capacity |
+| POST | `/warden/rooms/buildings/{id}/floors` | Add floor |
+| DELETE | `/warden/rooms/buildings/{id}/floors/{floor}` | Remove floor |
+| POST | `/warden/rooms/buildings/{id}/floors/{floor}/rooms` | Add room |
+| DELETE | `/warden/rooms/buildings/{id}/floors/{floor}/rooms/last` | Remove last room |
+| GET | `/warden/rooms/allocations` | All room allocations |
+| POST | `/warden/rooms/{roomId}/allocate` | Allocate student to room |
+| DELETE | `/warden/rooms/allocations/{email}` | Remove allocation |
+| GET | `/warden/students` | List all students |
+| GET | `/warden/complaints` | Get complaints (optional status filter) |
+| GET | `/warden/complaints/stats` | Complaint statistics |
+| PUT | `/warden/complaints/{id}` | Update complaint status/response |
+| GET | `/warden/announcements` | Get announcements |
+| POST | `/warden/announcements` | Create announcement |
+| DELETE | `/warden/announcements/{id}` | Delete announcement |
+
+### Security Guard (`/security`) — requires `ROLE_SECURITY_GUARD`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/security/outpass/active` | Active outpasses for hostel |
+| GET | `/security/outpass/{id}` | Get specific outpass |
+| GET | `/security/outpass/today` | Today's outpasses |
+| GET | `/security/outpass/departed` | Departed outpasses |
+| PUT | `/security/outpass/{id}/mark-departure` | Verify student departure |
+| PUT | `/security/outpass/{id}/mark-return` | Verify student return |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Java 21 or higher
+
+- Java 21+
 - Node.js 18+ and npm
 - MySQL 8.0+
 - Maven 3.8+
@@ -95,179 +288,214 @@ outpass-portal/
 ### Backend Setup
 
 1. **Clone the repository**
-```bash
-git clone <https://github.com/yuvii-b/outpass-portal>
-cd outpass-portal/backend
-```
+   ```bash
+   git clone https://github.com/Chippiiiiiii/hostel-management.git
+   cd hostel-management/backend
+   ```
 
-2. **Configure MySQL Database**
-```bash
-mysql -u root -p
-CREATE DATABASE outpass_db;
-```
+2. **Create the database**
+   ```bash
+   mysql -u root -p
+   ```
+   ```sql
+   CREATE DATABASE outpass_portal;
+   ```
 
-3. **Update application.properties**
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/outpass_db
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-```
+3. **Apply the schema**
+   ```bash
+   mysql -u root -p outpass_portal < src/main/resources/schema.sql
+   ```
 
-4. **Run the backend**
-```bash
-./mvnw spring-boot:run
-```
-Backend will start on `http://localhost:8080`
+4. **Seed sample data** (optional)
+   ```bash
+   mysql -u root -p outpass_portal < src/main/resources/seed-data.sql
+   ```
+
+5. **Create a `.env` file** in `backend/`
+   ```env
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_NAME=outpass_portal
+   DB_USERNAME=root
+   DB_PASSWORD=your_password
+   JWT_SECRET=your-secret-key-at-least-32-characters-long
+   CORS_ALLOWED_ORIGINS=http://localhost:5173
+   ```
+
+6. **Run the backend**
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+   Backend starts on `http://localhost:8080`
 
 ### Frontend Setup
 
 1. **Navigate to frontend directory**
-```bash
-cd outpass-portal/frontend
-```
+   ```bash
+   cd hostel-management/frontend
+   ```
 
 2. **Install dependencies**
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
-3. **Configure environment variables**
-Create a `.env` file:
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-```
+3. **Start the dev server**
+   ```bash
+   npm run dev
+   ```
+   Frontend starts on `http://localhost:5173` — the Vite config proxies `/api` requests to `localhost:8080`.
 
-4. **Run development server**
-```bash
-npm run dev
-```
-Frontend will start on `http://localhost:5173`
+### Default Seed Accounts
+
+If you ran the seed data:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Warden | warden1@mit.edu | warden123 |
+| Security Guard | security1@mit.edu | security123 |
+| Student | student1@mit.edu | student123 |
 
 ## 🔐 Authentication
 
-The application uses JWT-based authentication with the following roles:
+The app uses JWT-based authentication with access + refresh token flow:
 
-- **STUDENT** - Students can create and manage their outpass requests
-- **WARDEN** - Wardens can approve/reject outpass requests
-- **SECURITY_GUARD** - Security guards can verify and mark exit/entry
+- **Access Token** — 24-hour expiry, sent as `Authorization: Bearer <token>` header
+- **Refresh Token** — 7-day expiry, stored in localStorage, auto-refreshed on 401 responses
+- **Role-based Access** — Routes and API endpoints are protected by role (`STUDENT`, `WARDEN`, `SECURITY_GUARD`)
+- **Password Reset** — Token-based password reset flow via email
 
-### Default Credentials for Testing
-Create users via the registration page or use SQL:
-```sql
--- Password should be bcrypt-encoded
-INSERT INTO users (email, password, role, name, phone, department)
-VALUES ('student@college.edu', '$2a$10$...', 'STUDENT', 'John Doe', '1234567890', 'CSE');
-```
+## 📲 Attendance System
 
-## 📡 API Endpoints
+The attendance system supports two verification methods:
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login and get JWT token
+1. **WiFi Detection** — Checks if the student is connected to the configured hostel WiFi network (SSID + subnet match)
+2. **Geolocation + Biometric** — Falls back to GPS location verification (must be within 50m of hostel) followed by WebAuthn/FIDO2 biometric authentication
 
-### Student APIs
-- `GET /api/student/profile` - Get student profile
-- `PUT /api/student/profile` - Update profile
-- `POST /api/student/outpass` - Create outpass request
-- `GET /api/student/outpass/history` - Get outpass history
-- `GET /api/student/outpass/stats` - Get statistics
+Wardens start and stop attendance sessions. Students are notified in real-time via BroadcastChannel API, localStorage events, and browser Notification API.
 
-### Warden APIs
-- `GET /api/warden/outpasses/pending` - Get pending outpasses
-- `PUT /api/warden/outpasses/{id}/approve` - Approve outpass
-- `PUT /api/warden/outpasses/{id}/reject` - Reject outpass
+## ⚡ Rate Limiting
 
-### Security APIs
-- `GET /api/security/outpasses/active` - Get active outpasses
-- `PUT /api/security/outpasses/{id}/mark-exit` - Mark exit time
-- `PUT /api/security/outpasses/{id}/mark-entry` - Mark entry time
+The backend enforces per-user rate limits:
 
-## 🎨 UI/UX Features
+| Tier | Limit | Applies to |
+|------|-------|------------|
+| CREATE | 10/hour | POST requests (outpass creation, complaints, etc.) |
+| UPDATE | 20/hour | PUT requests (approvals, profile updates, etc.) |
+| READ | 200/minute | GET requests |
 
-- **Monotone Theme** - Professional dark slate color scheme (#1a202c, #2d3748)
-- **Responsive Design** - Mobile-first approach with Bootstrap
-- **Font Awesome Icons** - Consistent, scalable icon system
-- **Enhanced Date Picker** - User-friendly date/time selection
-- **Toast Notifications** - Real-time feedback for user actions
-- **Loading States** - Clear feedback during async operations
-- **Card-based Layout** - Organized information presentation
+Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Type`) are included in responses.
+
+## 🎨 UI/UX
+
+- **Monotone Theme** — Professional dark slate color scheme with accent colors
+- **Dark Mode** — Mocha palette (espresso brown + gold-tan accents) with toggle in navbar, persisted to localStorage
+- **Responsive Design** — Mobile-first with Bootstrap 5
+- **Toast Notifications** — Real-time feedback via React Hot Toast
+- **Card-based Layout** — Clean information hierarchy
+- **Loading States** — Spinners during async operations
+- **Role-based Navigation** — Navbar links adapt to user role
 
 ## 🌐 Deployment
 
-The app is deployed as three independent pieces:
+The app deploys as three independent services:
 
-| Piece | Host | How |
-|-------|------|-----|
-| Frontend (React) | **Vercel** | Static Vite build, SPA rewrite ([frontend/vercel.json](frontend/vercel.json)) |
-| Backend (Spring Boot) | **Render** | Docker web service ([backend/Dockerfile](backend/Dockerfile)) |
-| Database (MySQL) | **External managed MySQL** | Aiven / Railway / Clever Cloud |
+| Service | Host | Method |
+|---------|------|--------|
+| Frontend (React) | **Vercel** | Static Vite build, SPA rewrite via `vercel.json` |
+| Backend (Spring Boot) | **Render** | Docker web service via `render.yaml` |
+| Database (MySQL) | **Aiven** | Managed MySQL with SSL |
 
 ### Frontend (Vercel)
-Vercel runs `npm run build` and serves `frontend/dist/`. Set the backend URL in the
-Vercel project's environment variables and redeploy:
+
+Vercel runs `npm run build` and serves `frontend/dist/`. Set the environment variable:
+
 ```env
 VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api
 ```
 
-### Database (external managed MySQL)
-Render has no managed MySQL, so the database lives on a managed provider.
+### Database (Managed MySQL)
 
-1. Create a MySQL instance and an empty database in the provider console.
-2. Apply the managed-friendly schema **once** (it omits `CREATE DATABASE`, `SET GLOBAL`,
-   and the events/procedures/views a managed DB can't run):
-   ```bash
-   mysql -h <host> -P <port> -u <user> -p<pass> --ssl-mode=REQUIRED <db_name> \
-     < backend/db/schema-managed.sql
-   ```
-   The app runs with `spring.jpa.hibernate.ddl-auto=validate`, so the tables must exist
-   and match the entities before the backend will start.
+Create a managed MySQL instance (Aiven, Railway, PlanetScale, etc.) and apply the schema:
 
-### Backend (Render, Docker)
-Deploy via the [render.yaml](render.yaml) blueprint (or create a Docker web service pointing
-at `backend/Dockerfile`). Set these environment variables in the Render dashboard:
+```bash
+mysql -h <host> -P <port> -u <user> -p<password> --ssl-mode=REQUIRED <db_name> \
+  < backend/db/schema-managed.sql
+```
 
-| Variable | Notes |
-|----------|-------|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` | from the managed MySQL console |
-| `DB_SSL_MODE` | `REQUIRED` (managed MySQL enforces TLS) |
-| `JWT_SECRET` | signing secret for JWTs |
-| `CORS_ALLOWED_ORIGINS` | comma-separated, e.g. `https://outpass-portal.vercel.app` |
+The app uses `spring.jpa.hibernate.ddl-auto=update`, but tables should exist before first boot.
 
-`PORT` is injected by Render automatically; the app binds to it. The health check path is
-`/api/health`.
+### Backend (Render)
 
-> **Note:** Render's free web service sleeps after inactivity, so the first request after an
-> idle period cold-starts in ~30–50s.
+Deploy via the `render.yaml` blueprint or create a Docker web service. Set these environment variables:
 
-### Local build (self-hosted alternative)
+| Variable | Description |
+|----------|-------------|
+| `DB_HOST` | MySQL host |
+| `DB_PORT` | MySQL port |
+| `DB_NAME` | Database name |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password |
+| `DB_SSL_MODE` | `REQUIRED` for managed MySQL |
+| `JWT_SECRET` | JWT signing secret |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated frontend URLs |
+
+`PORT` is injected by Render automatically. Health check path is `/api/health`.
+
+> Render's free tier sleeps after inactivity — first request after idle cold-starts in ~30–50 seconds.
+
+### Local Build (Self-hosted)
+
 ```bash
 cd backend
 ./mvnw clean package
 java -jar target/portal-0.0.1-SNAPSHOT.jar
 ```
 
-## 📊 Database Schema
+## ⚙️ Configuration
 
-### Main Tables
-- **users** - User accounts (students, wardens, security guards)
-- **outpasses** - Outpass requests and their status
-- **outpass_history** - Audit trail of status changes
+### Backend (`application.properties`)
 
-For complete schema, see [schema.sql](backend/src/main/resources/schema.sql)
+| Property | Default | Description |
+|----------|---------|-------------|
+| `server.port` | `8080` | Server port (overridden by `PORT` env var) |
+| `spring.jpa.hibernate.ddl-auto` | `update` | Schema update strategy |
+| `jwt.accessTokenExpiration` | `86400000` (24h) | Access token TTL |
+| `jwt.refreshTokenExpiration` | `604800000` (7d) | Refresh token TTL |
+| `rate.limit.create` | `10` | POST requests per hour |
+| `rate.limit.update` | `20` | PUT requests per hour |
+| `rate.limit.read` | `200` | GET requests per minute |
+| Timezone | `Asia/Kolkata` | Server timezone |
 
-## 📝 Configuration Files
+### Frontend (`vite.config.js`)
 
-- `frontend/vite.config.js` - Vite build configuration with base path
-- `frontend/.env` - Environment variables for API URL
-- `backend/application.properties` - Spring Boot configuration
-- `backend/pom.xml` - Maven dependencies and build settings
+- Dev server on port 5173
+- API proxy: `/api` → `http://localhost:8080`
 
-## 📄 License
+## 📄 SQL Files Reference
+
+| File | Purpose |
+|------|---------|
+| `backend/src/main/resources/schema.sql` | Full local schema (17 tables + events) |
+| `backend/src/main/resources/schema-cloud.sql` | Cloud-safe schema (no events/procedures) |
+| `backend/db/schema-managed.sql` | Managed MySQL with indexes + seed data |
+| `backend/src/main/resources/seed-data.sql` | Sample data for local development |
+| `backend/src/main/resources/seed-cloud.sql` | Sample data for cloud |
+| `backend/src/main/resources/quick-start.sql` | Drop and recreate database (destructive) |
+| `backend/src/main/resources/reset.sql` | Drop database entirely (destructive) |
+
+## 📝 License
 
 This project is created for educational purposes.
 
-## 👥 Authors
+## 👥 Author
 
-- **Yuvaraj B** - Initial work and full-stack development
+**Yuvaraj B** 
+**Tharun P**
+**Fathima Fahmiya S**
+**Bharath**
+**Nivriti Muthuvairan**
+**Kaushal N**
 
-**Built with ❤️ using React and Spring Boot**
+
+
