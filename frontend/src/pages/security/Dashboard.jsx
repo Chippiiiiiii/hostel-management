@@ -105,7 +105,7 @@ const SecurityDashboard = () => {
       {/* Statistics Cards */}
       <div className="row mb-4 g-4">
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
+          <div className="card text-center h-100 shadow-sm">
             <div className="card-body p-4">
               <h1 className="display-3" style={{ color: 'var(--color-success)', fontWeight: '700' }}>{approvedOutpasses.length}</h1>
               <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Approved - Ready to Exit</h5>
@@ -114,7 +114,7 @@ const SecurityDashboard = () => {
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
+          <div className="card text-center h-100 shadow-sm">
             <div className="card-body p-4">
               <h1 className="display-3" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>{departedOutpasses.length}</h1>
               <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Departed - Outside</h5>
@@ -123,7 +123,7 @@ const SecurityDashboard = () => {
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)' }}>
+          <div className="card text-center h-100 shadow-sm">
             <div className="card-body p-4">
               <h1 className="display-3" style={{ color: 'var(--color-info)', fontWeight: '700' }}>{todayOutpasses.length}</h1>
               <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Today's Schedule</h5>
