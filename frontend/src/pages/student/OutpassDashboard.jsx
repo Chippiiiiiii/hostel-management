@@ -73,7 +73,7 @@ const OutpassDashboard = () => {
       {/* Quick Actions */}
       <div className="row mb-4 g-4">
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)', transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
               <FontAwesomeIcon icon={faFileAlt} style={{ fontSize: '3.5rem', color: 'var(--color-text-primary)', marginBottom: '1rem' }} />
               <h5 className="mb-3 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Create New Outpass</h5>
@@ -84,7 +84,7 @@ const OutpassDashboard = () => {
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)', transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
               <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '3.5rem', color: 'var(--color-text-primary)', marginBottom: '1rem' }} />
               <h5 className="mb-3 fw-bold" style={{ color: 'var(--color-text-primary)' }}>View All History</h5>
@@ -95,7 +95,7 @@ const OutpassDashboard = () => {
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: '1px solid var(--color-accent)', transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
               <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '3.5rem', color: 'var(--color-text-primary)', marginBottom: '1rem' }} />
               <h5 className="mb-3 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Outpass Statistics</h5>
