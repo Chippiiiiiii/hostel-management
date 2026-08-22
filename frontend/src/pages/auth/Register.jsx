@@ -31,6 +31,8 @@ const Register = () => {
   const [selectedRoom, setSelectedRoom] = useState('');
   const [loading, setLoading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [registered, setRegistered] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -144,14 +146,32 @@ const Register = () => {
     try {
       const { confirmPassword, ...registerData } = formData;
       await register(registerData);
-      toast.success('Registration successful! Please login.');
-      navigate('/login');
+      setRegisteredEmail(formData.email);
+      setRegistered(true);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (registered) {
+    return (
+      <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+        <div className="card shadow-sm text-center p-5" style={{ maxWidth: 460, width: '100%' }}>
+          <div className="mb-3" style={{ fontSize: '3.5rem' }}>📧</div>
+          <h4 className="fw-bold mb-2">Check Your Email</h4>
+          <p className="text-muted mb-1">
+            We sent a verification link to <strong>{registeredEmail}</strong>.
+          </p>
+          <p className="text-muted mb-4" style={{ fontSize: '0.9rem' }}>
+            Click the link in the email to activate your account. It expires in 24 hours.
+          </p>
+          <Link to="/login" className="btn btn-warning fw-semibold">Go to Login</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5 mb-5">

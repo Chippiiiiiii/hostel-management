@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGraduationCap, faUserGraduate, faUserTie, faShieldAlt, faArrowRight } from '@fortawesome/free-solid-svg-icons';
@@ -12,6 +13,8 @@ const Login = () => {
     role: 'STUDENT',
   });
   const [loading, setLoading] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resending, setResending] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -45,9 +48,26 @@ const Login = () => {
           navigate('/');
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
+      const msg = error.response?.data?.message || '';
+      if (msg === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(formData.email);
+      } else {
+        toast.error(msg || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    try {
+      await api.post('/auth/resend-verification', { email: unverifiedEmail });
+      toast.success('Verification email sent! Check your inbox.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to resend. Please try again.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -122,6 +142,21 @@ const Login = () => {
                     <><FontAwesomeIcon icon={faArrowRight} /> Login</>
                   )}
                 </button>
+
+                {unverifiedEmail && (
+                  <div className="alert alert-warning py-2 mb-3">
+                    <strong>Email not verified.</strong> Please check your inbox for a verification link.
+                    <button
+                      type="button"
+                      className="btn btn-link p-0 ms-2"
+                      style={{ fontSize: '0.875rem', verticalAlign: 'baseline' }}
+                      onClick={handleResendVerification}
+                      disabled={resending}
+                    >
+                      {resending ? 'Sending…' : 'Resend email'}
+                    </button>
+                  </div>
+                )}
 
                 <div className="text-center mb-3">
                   <Link
