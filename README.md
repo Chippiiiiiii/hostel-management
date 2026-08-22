@@ -11,6 +11,7 @@ The Hostel Management System digitizes day-to-day hostel operations. Students re
 ## ✨ Features
 
 ### 👨‍🎓 Student Features
+- **Email Verification** — Self-registration requires clicking a link emailed on signup before login is allowed; unverified accounts can request a new link from the login screen
 - **Outpass Requests** — Submit outpass requests with reason, destination, dates, and contact details
 - **Outpass Tracking** — Real-time status tracking (Pending → Approved/Declined → Departed → Completed)
 - **Cancel Pending Outpasses** — Cancel requests that haven't been reviewed yet
@@ -89,7 +90,7 @@ hostel-management/
 │   │   │   ├── useAttendanceAlert.js  # Attendance session polling + notifications
 │   │   │   └── useOutpassNotifications.js # Outpass status change alerts
 │   │   ├── pages/
-│   │   │   ├── auth/                  # Login, Register, ForgotPassword
+│   │   │   ├── auth/                  # Login, Register, ForgotPassword, VerifyEmail
 │   │   │   ├── student/               # Student dashboard, outpass, attendance, complaints
 │   │   │   ├── warden/                # Warden dashboard, management pages
 │   │   │   └── security/              # Security guard dashboard
@@ -126,7 +127,7 @@ hostel-management/
 │   │   │   ├── request/
 │   │   │   └── response/
 │   │   ├── model/
-│   │   │   ├── entity/                # JPA entities (15 tables)
+│   │   │   ├── entity/                # JPA entities (17 tables)
 │   │   │   └── enums/                 # Role, OutpassStatus, ComplaintCategory, etc.
 │   │   ├── repository/                # Spring Data JPA repositories
 │   │   ├── security/                  # JWT provider, auth filter, UserPrincipal
@@ -167,8 +168,9 @@ hostel-management/
 | **Complaint** | `complaints` | Student complaints with category and status |
 | **Announcement** | `announcements` | Warden-posted notices |
 | **RefreshToken** | `refresh_tokens` | JWT refresh token storage |
-| **Token** | `tokens` | Revoked JWT blacklist |
-| **PasswordResetToken** | `password_reset_tokens` | Password reset flow tokens |
+| **Token** | `tokens` | Revoked JWT blacklist (schema/repository exist but are not currently wired into request auth — see Authentication section) |
+| **PasswordResetToken** | `password_reset_tokens` | Password reset flow tokens (15-minute expiry, single-use) |
+| **EmailVerificationToken** | `email_verification_tokens` | Registration email-verification tokens (24-hour expiry, single-use) |
 | **AccessLog** | `access_logs` | API access audit trail |
 
 ### Key Enums
@@ -180,6 +182,8 @@ hostel-management/
 | ComplaintCategory | `PLUMBING`, `ELECTRICAL`, `CLEANLINESS`, `FURNITURE`, `INTERNET`, `NOISE`, `OTHER` |
 | ComplaintStatus | `PENDING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED` |
 | AttendanceMethod | `WIFI`, `GEO_BIOMETRIC` |
+| AttendanceStatus | `PRESENT`, `ABSENT` |
+| SessionStatus | `ACTIVE`, `CLOSED` |
 
 ## 📡 API Endpoints
 
@@ -195,9 +199,13 @@ All endpoints are prefixed with `/api`.
 | POST | `/auth/security/login` | Security guard login |
 | POST | `/auth/refresh` | Refresh JWT access token |
 | POST | `/auth/logout` | Invalidate refresh tokens |
-| POST | `/auth/forgot-password` | Request password reset |
-| POST | `/auth/reset-password` | Reset password with token |
+| GET | `/auth/verify-email` | Verify a student's email via the token from the registration email |
+| POST | `/auth/resend-verification` | Resend the verification email (generic response either way — does not reveal if the email exists) |
+| POST | `/auth/forgot-password` | Request password reset (generic response either way — does not reveal if the email exists) |
+| POST | `/auth/reset-password` | Reset password with token — also revokes all of that account's refresh tokens |
 | GET | `/auth/buildings` | Public building list (for registration) |
+
+Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verification`, `verify-email`) are rate-limited by client IP (and IP+email where applicable) — see the Rate Limiting section below.
 
 ### Student (`/student`) — requires `ROLE_STUDENT`
 
@@ -220,6 +228,7 @@ All endpoints are prefixed with `/api`.
 | GET | `/student/rooms/allocation` | Get own room allocation |
 | POST | `/student/rooms/allocate` | Self-allocate to a room |
 | GET | `/student/rooms/roommates` | Get roommates |
+| GET | `/student/rooms/allocations` | Get all room allocations |
 | POST | `/student/complaints` | Submit a complaint |
 | GET | `/student/complaints` | Get own complaints |
 | GET | `/student/announcements` | Get announcements |
@@ -249,6 +258,8 @@ All endpoints are prefixed with `/api`.
 | PUT | `/warden/rooms/buildings/{id}/rename` | Rename building |
 | PUT | `/warden/rooms/buildings/{id}/type` | Set building type (Regular/NRI) |
 | PUT | `/warden/rooms/buildings/{id}/gender` | Set building gender (Boy/Girl) |
+| GET | `/warden/rooms/config` | Get room-management config (max rooms/floor, max members/room, WiFi subnets) |
+| PUT | `/warden/rooms/config` | Update room-management config |
 | PUT | `/warden/rooms/{roomId}/max-members` | Update room capacity |
 | POST | `/warden/rooms/buildings/{id}/floors` | Add floor |
 | DELETE | `/warden/rooms/buildings/{id}/floors/{floor}` | Remove floor |
@@ -370,10 +381,12 @@ If you ran the seed data:
 
 The app uses JWT-based authentication with access + refresh token flow:
 
-- **Access Token** — 24-hour expiry, sent as `Authorization: Bearer <token>` header
+- **Access Token** — 24-hour expiry, sent as `Authorization: Bearer <token>` header. Stateless — not revocable before natural expiry (see note below)
 - **Refresh Token** — 7-day expiry, stored in localStorage, auto-refreshed on 401 responses
 - **Role-based Access** — Routes and API endpoints are protected by role (`STUDENT`, `WARDEN`, `SECURITY_GUARD`)
-- **Password Reset** — Token-based password reset flow via email
+- **Email Verification** — New student registrations must verify via an emailed link (24h expiry, single-use) before they can log in; pre-existing/seeded accounts are treated as already verified
+- **Password Reset** — Token-based password reset flow via email (15-minute expiry, single-use); a successful reset revokes all of that account's refresh tokens immediately, so any other logged-in session is forced to re-authenticate once its current access token expires
+- **Session revocation limits** — Because access tokens are stateless JWTs with no server-side revocation check, an access token issued *before* a password reset remains valid for up to its remaining ≤24h lifetime even after the reset. Only the ability to mint *new* access tokens (via refresh) is cut off immediately.
 
 ## 📲 Attendance System
 
@@ -386,7 +399,9 @@ Wardens start and stop attendance sessions. Students are notified in real-time v
 
 ## ⚡ Rate Limiting
 
-The backend enforces per-user rate limits:
+### Authenticated endpoints (per logged-in user)
+
+`/student/**`, `/warden/**`, `/security/**` (excluding `/warden/rooms/**`) are rate-limited per authenticated user by `RateLimitInterceptor`. These limits are hardcoded constants in `RateLimiterService`, not environment-configurable:
 
 | Tier | Limit | Applies to |
 |------|-------|------------|
@@ -395,6 +410,19 @@ The backend enforces per-user rate limits:
 | READ | 200/minute | GET requests |
 
 Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Type`) are included in responses.
+
+### Unauthenticated auth/email endpoints (per client IP, or IP + normalized email)
+
+`/auth/**` is excluded from the interceptor above (there's no logged-in user yet) and instead rate-limited directly in `AuthController`/`AuthService`. These limits *are* configurable via `application.properties` / env vars:
+
+| Endpoint | Limit | Keyed by | Property |
+|----------|-------|----------|----------|
+| `POST /auth/student/register` | 5/hour | IP | `rate.limit.auth.register` (`RATE_LIMIT_REGISTER`) |
+| `POST /auth/forgot-password` | 3/hour | IP + email | `rate.limit.auth.forgot-password` (`RATE_LIMIT_FORGOT_PASSWORD`) |
+| `POST /auth/resend-verification` | 3/hour | IP + email | `rate.limit.auth.resend-verification` (`RATE_LIMIT_RESEND_VERIFICATION`) |
+| `GET /auth/verify-email` | 20/hour | IP | `rate.limit.auth.verify-email` (`RATE_LIMIT_VERIFY_EMAIL`) |
+
+Window length for all four is `rate.limit.auth.window-seconds` (`RATE_LIMIT_AUTH_WINDOW_SECONDS`, default 3600). Exceeding a limit returns HTTP 429. Client IP is resolved via `server.forward-headers-strategy=native` (trusts Render's edge as the sole proxy in front of the service).
 
 ## 🎨 UI/UX
 
@@ -474,13 +502,20 @@ java -jar target/portal-0.0.1-SNAPSHOT.jar
 | Property | Default | Description |
 |----------|---------|-------------|
 | `server.port` | `8080` | Server port (overridden by `PORT` env var) |
+| `server.forward-headers-strategy` | `native` | Resolves real client IP from `X-Forwarded-For` via the container's trusted-proxy handling (for auth-endpoint rate limiting) |
 | `spring.jpa.hibernate.ddl-auto` | `update` | Schema update strategy |
-| `jwt.accessTokenExpiration` | `86400000` (24h) | Access token TTL |
-| `jwt.refreshTokenExpiration` | `604800000` (7d) | Refresh token TTL |
-| `rate.limit.create` | `10` | POST requests per hour |
-| `rate.limit.update` | `20` | PUT requests per hour |
-| `rate.limit.read` | `200` | GET requests per minute |
+| `jwt.access-token-expiration` | `86400000` (24h) | Access token TTL |
+| `jwt.refresh-token-expiration` | `604800000` (7d) | Refresh token TTL |
+| `app.frontend.url` | `http://localhost:5173` | Base URL used to build links in verification/reset emails (`FRONTEND_URL`) — **must** be overridden in production |
+| `rate.limit.auth.forgot-password` | `3` | Forgot-password requests per window, per IP+email (`RATE_LIMIT_FORGOT_PASSWORD`) |
+| `rate.limit.auth.resend-verification` | `3` | Resend-verification requests per window, per IP+email (`RATE_LIMIT_RESEND_VERIFICATION`) |
+| `rate.limit.auth.register` | `5` | Registrations per window, per IP (`RATE_LIMIT_REGISTER`) |
+| `rate.limit.auth.verify-email` | `20` | Verify-email requests per window, per IP (`RATE_LIMIT_VERIFY_EMAIL`) |
+| `rate.limit.auth.window-seconds` | `3600` | Window length for the four properties above (`RATE_LIMIT_AUTH_WINDOW_SECONDS`) |
+| `token.cleanup.cron` | `0 0 3 * * *` | Daily cron for purging expired email-verification/password-reset/refresh tokens (`TOKEN_CLEANUP_CRON`) |
 | Timezone | `Asia/Kolkata` | Server timezone |
+
+> Note: the authenticated-user CREATE/UPDATE/READ limits in the Rate Limiting section above are hardcoded constants in `RateLimiterService`, **not** properties — there is no `rate.limit.create`/`update`/`read` property to override.
 
 ### Frontend (`vite.config.js`)
 
@@ -491,7 +526,7 @@ java -jar target/portal-0.0.1-SNAPSHOT.jar
 
 | File | Purpose |
 |------|---------|
-| `backend/src/main/resources/schema.sql` | Full local schema (17 tables + events) |
+| `backend/src/main/resources/schema.sql` | Full local schema (16 tables + a daily `cleanup_expired_tokens` MySQL EVENT for `refresh_tokens`/`tokens`; the newer `password_reset_tokens`/`email_verification_tokens` are cleaned up in application code instead — see `TokenCleanupScheduler`) |
 | `backend/src/main/resources/schema-cloud.sql` | Cloud-safe schema (no events/procedures) |
 | `backend/db/schema-managed.sql` | Managed MySQL with indexes + seed data |
 | `backend/src/main/resources/seed-data.sql` | Sample data for local development |
