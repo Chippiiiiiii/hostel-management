@@ -6,21 +6,27 @@ import com.outpass.portal.dto.request.StudentRegistrationRequest;
 import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.AuthResponse;
 import com.outpass.portal.dto.response.StudentSummaryResponse;
+import com.outpass.portal.exception.RateLimitExceededException;
 import com.outpass.portal.model.entity.PasswordResetToken;
+import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
-import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.enums.Role;
 import com.outpass.portal.repository.PasswordResetTokenRepository;
+import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.repository.StudentRepository;
 import com.outpass.portal.repository.WardenRepository;
-import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.service.AuthService;
 import com.outpass.portal.service.EmailService;
+import com.outpass.portal.service.RefreshTokenService;
 import com.outpass.portal.service.RoomService;
+import com.outpass.portal.util.RateLimiterService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +41,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -45,6 +52,37 @@ public class AuthController {
     private final WardenRepository wardenRepository;
     private final SecurityGuardRepository securityGuardRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
+    private final RateLimiterService rateLimiterService;
+
+    @Value("${rate.limit.auth.forgot-password:3}")
+    private int forgotPasswordLimit;
+
+    @Value("${rate.limit.auth.resend-verification:3}")
+    private int resendVerificationLimit;
+
+    @Value("${rate.limit.auth.register:5}")
+    private int registerLimit;
+
+    @Value("${rate.limit.auth.verify-email:20}")
+    private int verifyEmailLimit;
+
+    @Value("${rate.limit.auth.window-seconds:3600}")
+    private long authRateLimitWindowSeconds;
+
+    private static final String GENERIC_RESET_MESSAGE =
+            "If an account exists for that email, a password reset link has been sent.";
+
+    private String clientIp(HttpServletRequest request) {
+        return request.getRemoteAddr();
+    }
+
+    private void enforceRateLimit(String key, int maxRequests) {
+        if (!rateLimiterService.isAllowed(key, maxRequests, authRateLimitWindowSeconds)) {
+            throw new RateLimitExceededException(
+                    "Too many requests. Please try again later.");
+        }
+    }
 
     @GetMapping("/buildings")
     public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getPublicBuildings() {
@@ -53,7 +91,9 @@ public class AuthController {
 
     @PostMapping("/student/register")
     public ResponseEntity<ApiResponse<StudentSummaryResponse>> registerStudent(
-            @Valid @RequestBody StudentRegistrationRequest request) {
+            @Valid @RequestBody StudentRegistrationRequest request, HttpServletRequest httpRequest) {
+
+        enforceRateLimit("authrl:register:" + clientIp(httpRequest), registerLimit);
 
         Student student = Student.builder()
                 .name(request.getName())
@@ -140,46 +180,62 @@ public class AuthController {
     }
 
     @GetMapping("/verify-email")
-    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token, HttpServletRequest httpRequest) {
+        enforceRateLimit("authrl:verify-email:" + clientIp(httpRequest), verifyEmailLimit);
         authService.verifyEmail(token);
         return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now log in.", null));
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<ApiResponse<Void>> resendVerification(@RequestBody Map<String, String> request) {
-        authService.resendVerification(request.get("email"));
-        return ResponseEntity.ok(ApiResponse.success("Verification email sent. Please check your inbox.", null));
+    public ResponseEntity<ApiResponse<Void>> resendVerification(
+            @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
+        String email = normalizeEmail(request.get("email"));
+        enforceRateLimit("authrl:resend-verification:" + clientIp(httpRequest) + ":" + email,
+                resendVerificationLimit);
+        authService.resendVerification(email);
+        return ResponseEntity.ok(ApiResponse.success(
+                "If an account with that email exists and isn't verified yet, a verification link has been sent.", null));
     }
 
     @Transactional
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
+        String email = normalizeEmail(request.get("email"));
         String role = request.getOrDefault("role", "STUDENT");
 
+        enforceRateLimit("authrl:forgot-password:" + clientIp(httpRequest) + ":" + email, forgotPasswordLimit);
+
         String name = switch (role) {
-            case "WARDEN" -> wardenRepository.findByEmail(email)
-                    .map(w -> w.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
-            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email)
-                    .map(s -> s.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
-            default -> studentRepository.findByEmail(email)
-                    .map(s -> s.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
+            case "WARDEN" -> wardenRepository.findByEmail(email).map(Warden::getName).orElse(null);
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email).map(SecurityGuard::getName).orElse(null);
+            default -> studentRepository.findByEmail(email).map(Student::getName).orElse(null);
         };
 
-        resetTokenRepository.deleteByEmail(email);
-        String token = UUID.randomUUID().toString();
-        PasswordResetToken resetToken = PasswordResetToken.builder()
-                .token(token)
-                .email(email)
-                .userType(role)
-                .expiresAt(LocalDateTime.now(ZoneId.of("Asia/Kolkata")).plusMinutes(15))
-                .build();
-        resetTokenRepository.save(resetToken);
+        // Deliberately do not reveal whether the account exists: only issue a token
+        // and attempt delivery when a match is found, but always return the same
+        // response either way.
+        if (name != null) {
+            resetTokenRepository.deleteByEmail(email);
+            String token = UUID.randomUUID().toString();
+            PasswordResetToken resetToken = PasswordResetToken.builder()
+                    .token(token)
+                    .email(email)
+                    .userType(role)
+                    .expiresAt(LocalDateTime.now(ZoneId.of("Asia/Kolkata")).plusMinutes(15))
+                    .build();
+            resetTokenRepository.save(resetToken);
 
-        emailService.sendPasswordResetEmail(email, name, token);
+            try {
+                emailService.sendPasswordResetEmail(email, name, token);
+            } catch (Exception e) {
+                log.warn("Password reset email failed for {}: {}", email, e.getMessage());
+            }
+        } else {
+            log.info("Password reset requested for unregistered email/role combination");
+        }
 
-        return ResponseEntity.ok(ApiResponse.success(
-                "Password reset link sent to your email.", null));
+        return ResponseEntity.ok(ApiResponse.success(GENERIC_RESET_MESSAGE, null));
     }
 
     @Transactional
@@ -199,15 +255,31 @@ public class AuthController {
         String encoded = passwordEncoder.encode(newPassword);
         switch (resetToken.getUserType()) {
             case "WARDEN" -> wardenRepository.findByEmail(resetToken.getEmail())
-                    .ifPresent(w -> { w.setPasswordHash(encoded); wardenRepository.save(w); });
+                    .ifPresent(w -> {
+                        w.setPasswordHash(encoded);
+                        wardenRepository.save(w);
+                        refreshTokenService.deleteByUserIdAndUserType(w.getId(), "WARDEN");
+                    });
             case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(resetToken.getEmail())
-                    .ifPresent(s -> { s.setPasswordHash(encoded); securityGuardRepository.save(s); });
+                    .ifPresent(s -> {
+                        s.setPasswordHash(encoded);
+                        securityGuardRepository.save(s);
+                        refreshTokenService.deleteByUserIdAndUserType(s.getId(), "SECURITY_GUARD");
+                    });
             default -> studentRepository.findByEmail(resetToken.getEmail())
-                    .ifPresent(s -> { s.setPasswordHash(encoded); studentRepository.save(s); });
+                    .ifPresent(s -> {
+                        s.setPasswordHash(encoded);
+                        studentRepository.save(s);
+                        refreshTokenService.deleteByUserIdAndUserType(s.getId(), "STUDENT");
+                    });
         }
 
         resetTokenRepository.delete(resetToken);
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
     }
 }
 

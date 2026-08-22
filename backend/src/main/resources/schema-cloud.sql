@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS students (
     parent_number VARCHAR(15) NOT NULL,
     profile_picture LONGTEXT NULL,
     gender VARCHAR(10) NOT NULL DEFAULT 'BOY',
+    email_verified BOOLEAN NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_student_email UNIQUE (email),
@@ -26,6 +27,9 @@ CREATE TABLE IF NOT EXISTS students (
     CONSTRAINT chk_student_contact CHECK (contact_number REGEXP '^[0-9]{10}$'),
     CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfills the column for an already-existing `students` table. Requires MySQL 8.0.29+.
+ALTER TABLE students ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NULL;
 
 CREATE TABLE IF NOT EXISTS wardens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -109,6 +113,29 @@ CREATE TABLE IF NOT EXISTS tokens (
     expires_at TIMESTAMP NOT NULL,
 
     CONSTRAINT uk_token_jid UNIQUE (jid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    user_type VARCHAR(20) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_password_reset_token UNIQUE (token),
+    INDEX idx_password_reset_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_email_verification_token UNIQUE (token),
+    INDEX idx_email_verification_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS access_logs (

@@ -320,6 +320,16 @@ All endpoints are prefixed with `/api`.
    DB_PASSWORD=your_password
    JWT_SECRET=your-secret-key-at-least-32-characters-long
    CORS_ALLOWED_ORIGINS=http://localhost:5173
+
+   # Used to build links in verification/password-reset emails.
+   FRONTEND_URL=http://localhost:5173
+
+   # Optional — email features degrade gracefully if left unset (see EmailService).
+   # Leave blank locally to skip sending real emails during development.
+   MAIL_HOST=
+   MAIL_PORT=587
+   MAIL_USERNAME=
+   MAIL_PASSWORD=
    ```
 
 6. **Run the backend**
@@ -439,8 +449,13 @@ Deploy via the `render.yaml` blueprint or create a Docker web service. Set these
 | `DB_SSL_MODE` | `REQUIRED` for managed MySQL |
 | `JWT_SECRET` | JWT signing secret |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated frontend URLs |
+| `FRONTEND_URL` | Deployed frontend origin (e.g. `https://hostel-management-mit.vercel.app`) — used to build verification/reset email links. **Must be set in production**; it defaults to `http://localhost:5173` otherwise, which breaks emailed links. |
+| `MAIL_HOST` | SMTP host (optional — omit to disable email sending) |
+| `MAIL_PORT` | SMTP port, e.g. `587` |
+| `MAIL_USERNAME` | SMTP username / from-address |
+| `MAIL_PASSWORD` | SMTP password / app password |
 
-`PORT` is injected by Render automatically. Health check path is `/api/health`.
+`PORT` is injected by Render automatically. Health check path is `/api/health`. If `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD` are left unset, registration/password-reset still work but no emails are sent (a warning is logged on startup); if mail *is* configured but `FRONTEND_URL` is left at its default, a startup error is logged since emailed links would point to `localhost`.
 
 > Render's free tier sleeps after inactivity — first request after idle cold-starts in ~30–50 seconds.
 

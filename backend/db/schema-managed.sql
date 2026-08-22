@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS students (
     contact_number VARCHAR(15) NOT NULL,
     parent_number VARCHAR(15) NOT NULL,
     profile_picture LONGTEXT NULL,
+    email_verified BOOLEAN NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_student_email UNIQUE (email),
@@ -158,6 +159,39 @@ CREATE TABLE IF NOT EXISTS tokens (
 
 CREATE INDEX idx_revoked_jid ON tokens(jid);
 CREATE INDEX idx_revoked_expires ON tokens(expires_at);
+
+-- =====================================================
+-- TABLE: password_reset_tokens
+-- Pre-existing entity that was missing from this file (schema drift relied on
+-- ddl-auto=update). Added here for consistency; no application logic changed.
+-- =====================================================
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    user_type VARCHAR(20) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_password_reset_token UNIQUE (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_password_reset_email ON password_reset_tokens(email);
+
+-- =====================================================
+-- TABLE: email_verification_tokens
+-- =====================================================
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_email_verification_token UNIQUE (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_email_verification_email ON email_verification_tokens(email);
 
 -- =====================================================
 -- TABLE: access_logs

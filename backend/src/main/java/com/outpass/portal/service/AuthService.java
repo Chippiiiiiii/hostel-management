@@ -137,14 +137,18 @@ public class AuthService {
 
     @Transactional
     public void resendVerification(String email) {
-        Student student = studentRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("No account found with this email"));
-
-        if (!Boolean.FALSE.equals(student.getEmailVerified())) {
-            throw new RuntimeException("Email is already verified");
-        }
-
-        dispatchVerificationEmail(email, student.getName());
+        // Deliberately does not throw when the account doesn't exist or is already
+        // verified — the caller always returns the same generic response so this
+        // endpoint can't be used to enumerate registered emails.
+        studentRepository.findByEmail(email).ifPresent(student -> {
+            if (Boolean.FALSE.equals(student.getEmailVerified())) {
+                try {
+                    dispatchVerificationEmail(email, student.getName());
+                } catch (Exception e) {
+                    log.warn("Verification email resend failed for {}: {}", email, e.getMessage());
+                }
+            }
+        });
     }
 
     private void dispatchVerificationEmail(String email, String name) {
