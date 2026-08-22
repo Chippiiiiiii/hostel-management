@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuth } from '../context/AuthContext';
 import PrivateRoute from './PrivateRoute';
 import Navbar from '../components/common/Navbar';
+import Layout from '../components/common/Layout';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -39,7 +40,7 @@ const AppRoutes = () => {
 
   const getDefaultRoute = () => {
     if (!isAuthenticated) return '/login';
-    
+
     switch (user?.role) {
       case ROLES.STUDENT:
         return '/student/dashboard';
@@ -54,20 +55,19 @@ const AppRoutes = () => {
 
   return (
     <Router>
-      <Navbar />
       <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+        {/* Public Routes — navbar only, no sidebar */}
+        <Route path="/login" element={<><Navbar /><Login /></>} />
+        <Route path="/register" element={<><Navbar /><Register /></>} />
+        <Route path="/forgot-password" element={<><Navbar /><ForgotPassword /></>} />
+        <Route path="/unauthorized" element={<><Navbar /><Unauthorized /></>} />
 
-        {/* Student Routes */}
+        {/* Student Routes — with sidebar layout */}
         <Route
           path="/student/dashboard"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <StudentDashboard />
+              <Layout><StudentDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -75,7 +75,7 @@ const AppRoutes = () => {
           path="/student/outpass"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <OutpassDashboard />
+              <Layout><OutpassDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -83,7 +83,7 @@ const AppRoutes = () => {
           path="/student/attendance"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <AttendanceDashboard />
+              <Layout><AttendanceDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -91,7 +91,7 @@ const AppRoutes = () => {
           path="/student/create-outpass"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <CreateOutpass />
+              <Layout><CreateOutpass /></Layout>
             </PrivateRoute>
           }
         />
@@ -99,7 +99,7 @@ const AppRoutes = () => {
           path="/student/history"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <OutpassHistory />
+              <Layout><OutpassHistory /></Layout>
             </PrivateRoute>
           }
         />
@@ -107,7 +107,7 @@ const AppRoutes = () => {
           path="/student/complaints"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <StudentComplaints />
+              <Layout><StudentComplaints /></Layout>
             </PrivateRoute>
           }
         />
@@ -115,7 +115,7 @@ const AppRoutes = () => {
           path="/student/announcements"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <StudentAnnouncements />
+              <Layout><StudentAnnouncements /></Layout>
             </PrivateRoute>
           }
         />
@@ -123,7 +123,7 @@ const AppRoutes = () => {
           path="/student/edit-profile"
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
-              <EditProfile />
+              <Layout><EditProfile /></Layout>
             </PrivateRoute>
           }
         />
@@ -133,7 +133,7 @@ const AppRoutes = () => {
           path="/warden/dashboard"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <WardenDashboard />
+              <Layout><WardenDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -141,7 +141,7 @@ const AppRoutes = () => {
           path="/warden/outpass"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <WardenOutpassDashboard />
+              <Layout><WardenOutpassDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -149,7 +149,7 @@ const AppRoutes = () => {
           path="/warden/attendance"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <WardenAttendanceDashboard />
+              <Layout><WardenAttendanceDashboard /></Layout>
             </PrivateRoute>
           }
         />
@@ -157,7 +157,7 @@ const AppRoutes = () => {
           path="/warden/students"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <StudentsList />
+              <Layout><StudentsList /></Layout>
             </PrivateRoute>
           }
         />
@@ -165,7 +165,7 @@ const AppRoutes = () => {
           path="/warden/complaints"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <WardenComplaints />
+              <Layout><WardenComplaints /></Layout>
             </PrivateRoute>
           }
         />
@@ -173,7 +173,7 @@ const AppRoutes = () => {
           path="/warden/announcements"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <WardenAnnouncements />
+              <Layout><WardenAnnouncements /></Layout>
             </PrivateRoute>
           }
         />
@@ -181,7 +181,7 @@ const AppRoutes = () => {
           path="/warden/pending"
           element={
             <PrivateRoute allowedRoles={[ROLES.WARDEN]}>
-              <PendingOutpasses />
+              <Layout><PendingOutpasses /></Layout>
             </PrivateRoute>
           }
         />
@@ -191,14 +191,14 @@ const AppRoutes = () => {
           path="/security/dashboard"
           element={
             <PrivateRoute allowedRoles={[ROLES.SECURITY_GUARD]}>
-              <SecurityDashboard />
+              <Layout><SecurityDashboard /></Layout>
             </PrivateRoute>
           }
         />
 
         {/* Default Route */}
         <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
-        
+
         {/* 404 - Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

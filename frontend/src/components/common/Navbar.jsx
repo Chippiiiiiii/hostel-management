@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import outpassService from '../../services/outpassService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGraduationCap, faChartBar, faMoon, faSun, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { faGraduationCap, faMoon, faSun, faSignOutAlt, faBars } from '@fortawesome/free-solid-svg-icons';
 
-const Navbar = () => {
+const Navbar = ({ onToggleSidebar }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -53,123 +53,101 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark sticky-top">
-      <div className="container-fluid px-4">
-        <Link className="navbar-brand fw-bold" to={getDashboardLink()}>
-          <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: '1.3rem', marginRight: '0.5rem' }} /> Hostel Management
-        </Link>
+    <nav className="navbar navbar-dark sticky-top">
+      <div className="container-fluid px-3">
+        <div className="d-flex align-items-center">
+          {isAuthenticated && onToggleSidebar && (
+            <button
+              className="btn btn-link text-white d-lg-none me-2 p-0"
+              onClick={onToggleSidebar}
+              style={{ fontSize: '1.25rem' }}
+            >
+              <FontAwesomeIcon icon={faBars} />
+            </button>
+          )}
+          <Link className="navbar-brand fw-bold mb-0" to={getDashboardLink()}>
+            <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: '1.3rem', marginRight: '0.5rem' }} /> Hostel Management
+          </Link>
+        </div>
 
-        <button
-          className="navbar-toggler border-0"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          style={{ padding: '0.5rem' }}
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          {isAuthenticated ? (
+            <>
+              <button
+                className="btn btn-outline-light btn-sm"
+                onClick={() => setDarkMode(!darkMode)}
+                title={darkMode ? 'Light mode' : 'Dark mode'}
+                style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
+              >
+                <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+              </button>
 
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ms-auto align-items-lg-center">
-            {isAuthenticated ? (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" to={getDashboardLink()}>
-                    <FontAwesomeIcon icon={faChartBar} style={{ marginRight: '0.5rem' }} /> Dashboard
-                  </Link>
-                </li>
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)' }} className="d-none d-sm-block"></div>
 
-                <li className="nav-item ms-2">
-                  <button
-                    className="btn btn-outline-light btn-sm"
-                    onClick={() => setDarkMode(!darkMode)}
-                    title={darkMode ? 'Light mode' : 'Dark mode'}
-                    style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
-                  >
-                    <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
-                  </button>
-                </li>
-
-                <li className="nav-item ms-lg-2" style={{ padding: '0 0.5rem' }}>
-                  <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)' }} className="d-none d-lg-block"></div>
-                </li>
-
-                <li className="nav-item">
-                  <div className="d-flex align-items-center gap-2" style={{ padding: '0.25rem 0' }}>
-                    {profilePic ? (
-                      <img
-                        src={profilePic}
-                        alt="Profile"
-                        style={{
-                          width: '34px', height: '34px', borderRadius: '50%',
-                          objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)',
-                        }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: '34px', height: '34px', borderRadius: '50%',
-                        background: '#ed8936', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: '#fff', fontWeight: '600',
-                        fontSize: '0.85rem', border: '2px solid rgba(255,255,255,0.5)',
-                      }}>
-                        {(userName || user.email).charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div style={{ lineHeight: '1.2' }}>
-                      <div style={{ color: '#fff', fontSize: '0.85rem', fontWeight: '600' }}>
-                        {userName || user.email.split('@')[0]}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
-                        {user.role.replace('_', ' ')}
-                      </div>
-                    </div>
-                  </div>
-                </li>
-
-                <li className="nav-item ms-2">
-                  <button
-                    className="btn btn-outline-light btn-sm"
-                    onClick={handleLogout}
-                    title="Logout"
-                    style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
-                  >
-                    <FontAwesomeIcon icon={faSignOutAlt} />
-                  </button>
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="nav-item">
-                  <button
-                    className="btn btn-outline-light btn-sm me-2"
-                    onClick={() => setDarkMode(!darkMode)}
-                    title={darkMode ? 'Light mode' : 'Dark mode'}
-                    style={{ fontWeight: '600', minWidth: '36px' }}
-                  >
-                    <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/login">
-                    Login
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link
-                    className="nav-link"
-                    to="/register"
+              <div className="d-flex align-items-center gap-2">
+                {profilePic ? (
+                  <img
+                    src={profilePic}
+                    alt="Profile"
                     style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: '0.375rem',
-                      fontWeight: '600'
+                      width: '34px', height: '34px', borderRadius: '50%',
+                      objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)',
                     }}
-                  >
-                    Register
-                  </Link>
-                </li>
-              </>
-            )}
-          </ul>
+                  />
+                ) : (
+                  <div style={{
+                    width: '34px', height: '34px', borderRadius: '50%',
+                    background: '#ed8936', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: '#fff', fontWeight: '600',
+                    fontSize: '0.85rem', border: '2px solid rgba(255,255,255,0.5)',
+                  }}>
+                    {(userName || user?.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div style={{ lineHeight: '1.2' }} className="d-none d-sm-block">
+                  <div style={{ color: '#fff', fontSize: '0.85rem', fontWeight: '600' }}>
+                    {userName || user.email.split('@')[0]}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
+                    {user.role.replace('_', ' ')}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                className="btn btn-outline-light btn-sm"
+                onClick={handleLogout}
+                title="Logout"
+                style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
+              >
+                <FontAwesomeIcon icon={faSignOutAlt} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn btn-outline-light btn-sm"
+                onClick={() => setDarkMode(!darkMode)}
+                title={darkMode ? 'Light mode' : 'Dark mode'}
+                style={{ fontWeight: '600', minWidth: '36px' }}
+              >
+                <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
+              </button>
+              <Link className="nav-link text-white" to="/login">Login</Link>
+              <Link
+                className="nav-link text-white"
+                to="/register"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '0.375rem',
+                  fontWeight: '600',
+                  padding: '0.5rem 1rem',
+                }}
+              >
+                Register
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

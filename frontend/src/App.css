@@ -265,15 +265,109 @@ input[type="time"]:focus {
   border-right-color: transparent;
 }
 
+/* ===== SIDEBAR LAYOUT ===== */
+.app-layout {
+  display: flex;
+  min-height: calc(100vh - 60px);
+}
+
+.app-sidebar {
+  width: 240px;
+  background: var(--color-bg-primary);
+  border-right: 1px solid #e2e8f0;
+  padding: 1rem 0;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0.75rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.sidebar-link:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.sidebar-link.active {
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sidebar-icon {
+  width: 18px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 991.98px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1050;
+    transform: translateX(-100%);
+    box-shadow: none;
+    padding-top: 1.5rem;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1040;
+  }
+}
+
 /* ===== NAVBAR ===== */
 .navbar {
   box-shadow: var(--shadow-md);
   background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%) !important;
-  padding: 1rem 0;
+  padding: 0.75rem 0;
+  height: 60px;
+  z-index: 1030;
 }
 
 .navbar-brand {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 700;
   letter-spacing: -0.5px;
   color: white !important;
@@ -427,6 +521,25 @@ input[type="time"]:focus {
 /* ===== DARK MODE OVERRIDES ===== */
 [data-theme="dark"] .card {
   border-color: #3a302a;
+}
+
+[data-theme="dark"] .app-sidebar {
+  background: #171210;
+  border-right-color: #3a302a;
+}
+
+[data-theme="dark"] .sidebar-link {
+  color: #d5c4b0;
+}
+
+[data-theme="dark"] .sidebar-link:hover {
+  background: #2a2320;
+  color: #f5ebe0;
+}
+
+[data-theme="dark"] .sidebar-link.active {
+  background: #2a2320;
+  color: #c9a87c;
 }
 
 [data-theme="dark"] .card-header {
