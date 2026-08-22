@@ -139,7 +139,7 @@ public class AuthController {
 
     @Transactional
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String role = request.getOrDefault("role", "STUDENT");
 
@@ -164,9 +164,12 @@ public class AuthController {
         resetTokenRepository.save(resetToken);
 
         // In production, send token via email. For now, include in response for demo only.
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("token", token);
+        body.put("demo", true);
         return ResponseEntity.ok(ApiResponse.success(
                 "Reset token generated. In production this would be sent to your email.",
-                Map.of("token", token, "demo", true)));
+                body));
     }
 
     @Transactional
