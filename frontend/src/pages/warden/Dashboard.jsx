@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserTie, faArrowRight, faDoorOpen, faCalendarCheck, faUsers, faHourglass, faCheckCircle, faTimesCircle, faClipboardList, faExclamationTriangle, faBullhorn } from '@fortawesome/free-solid-svg-icons';
+import { faUserTie, faHourglass, faCheckCircle, faTimesCircle, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 
 const WardenDashboard = () => {
   const [stats, setStats] = useState({ pending: 0, total: 0, approved: 0, declined: 0 });
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
@@ -90,79 +88,6 @@ const WardenDashboard = () => {
         </div>
       </div>
 
-      {/* Outpass, Attendance & Students Cards */}
-      <div className="row g-4">
-        <div className="col-md-4">
-          <div className="card shadow h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/warden/outpass')}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--bg-circle-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faDoorOpen} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
-              </div>
-              <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Outpass</h3>
-              <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Review & manage requests</p>
-              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
-            </div>
-          </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/warden/attendance')}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--bg-circle-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
-              </div>
-              <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Attendance</h3>
-              <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Start & manage attendance</p>
-              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
-            </div>
-          </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/warden/students')}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--bg-circle-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faUsers} style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
-              </div>
-              <h3 className="fw-bold mb-2" style={{ color: 'var(--color-primary)' }}>Students</h3>
-              <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>View rooms & student info</p>
-              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
-            </div>
-          </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/warden/complaints')}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--bg-circle-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2.5rem', color: 'var(--accent-red)' }} />
-              </div>
-              <h3 className="fw-bold mb-2" style={{ color: 'var(--accent-red)' }}>Complaints</h3>
-              <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Review & respond to complaints</p>
-              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
-            </div>
-          </div>
-        </div>
-        <div className="col-md-4">
-          <div className="card shadow h-100" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onClick={() => navigate('/warden/announcements')}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-            <div className="card-body text-center py-5 px-4">
-              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--bg-circle-purple)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: '2.5rem', color: 'var(--accent-purple)' }} />
-              </div>
-              <h3 className="fw-bold mb-2" style={{ color: 'var(--accent-purple)' }}>Announcements</h3>
-              <p className="text-muted mb-3" style={{ fontSize: '1rem' }}>Post notices for students</p>
-              <FontAwesomeIcon icon={faArrowRight} className="text-muted" style={{ fontSize: '1.25rem' }} />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
