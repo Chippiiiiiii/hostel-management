@@ -105,29 +105,29 @@ const SecurityDashboard = () => {
       {/* Statistics Cards */}
       <div className="row mb-4 g-4">
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-success)', border: 'none' }}>
             <div className="card-body p-4">
-              <h1 className="display-3" style={{ color: 'var(--color-success)', fontWeight: '700' }}>{approvedOutpasses.length}</h1>
-              <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Approved - Ready to Exit</h5>
-              <p className="mb-0 text-muted">Awaiting departure verification</p>
+              <h1 className="display-3" style={{ color: '#fff', fontWeight: '700' }}>{approvedOutpasses.length}</h1>
+              <h5 style={{ color: '#fff', fontWeight: '600' }}>Approved - Ready to Exit</h5>
+              <p className="mb-0" style={{ color: 'rgba(255,255,255,0.8)' }}>Awaiting departure verification</p>
             </div>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-warning)', border: 'none' }}>
             <div className="card-body p-4">
-              <h1 className="display-3" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>{departedOutpasses.length}</h1>
-              <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Departed - Outside</h5>
-              <p className="mb-0 text-muted">Awaiting return verification</p>
+              <h1 className="display-3" style={{ color: '#fff', fontWeight: '700' }}>{departedOutpasses.length}</h1>
+              <h5 style={{ color: '#fff', fontWeight: '600' }}>Departed - Outside</h5>
+              <p className="mb-0" style={{ color: 'rgba(255,255,255,0.8)' }}>Awaiting return verification</p>
             </div>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-info)', border: 'none' }}>
             <div className="card-body p-4">
-              <h1 className="display-3" style={{ color: 'var(--color-info)', fontWeight: '700' }}>{todayOutpasses.length}</h1>
-              <h5 style={{ color: 'var(--color-text-primary)', fontWeight: '600' }}>Today's Schedule</h5>
-              <p className="mb-0 text-muted">All outpasses for today</p>
+              <h1 className="display-3" style={{ color: '#fff', fontWeight: '700' }}>{todayOutpasses.length}</h1>
+              <h5 style={{ color: '#fff', fontWeight: '600' }}>Today's Schedule</h5>
+              <p className="mb-0" style={{ color: 'rgba(255,255,255,0.8)' }}>All outpasses for today</p>
             </div>
           </div>
         </div>

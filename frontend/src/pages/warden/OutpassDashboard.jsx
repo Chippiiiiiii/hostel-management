@@ -66,37 +66,37 @@ const WardenOutpassDashboard = () => {
       {/* Stats */}
       <div className="row mb-4 g-4">
         <div className="col-md-3">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-warning)', border: 'none' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <h1 className="display-2 fw-bold" style={{ color: 'var(--color-warning)', marginBottom: '1rem' }}>{stats.pending}</h1>
-              <h5 className="mb-3 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Pending</h5>
-              <Link to="/warden/pending" className="btn btn-primary mt-2 fw-semibold">
+              <h1 className="display-2 fw-bold" style={{ color: '#fff', marginBottom: '1rem' }}>{stats.pending}</h1>
+              <h5 className="mb-3 fw-bold" style={{ color: '#fff' }}>Pending</h5>
+              <Link to="/warden/pending" className="btn btn-light mt-2 fw-semibold">
                 <FontAwesomeIcon icon={faSearch} /> Review
               </Link>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-info)', border: 'none' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <h1 className="display-2 fw-bold" style={{ color: 'var(--color-info)', marginBottom: '1rem' }}>{stats.total}</h1>
-              <h5 className="mb-0 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Total Processed</h5>
+              <h1 className="display-2 fw-bold" style={{ color: '#fff', marginBottom: '1rem' }}>{stats.total}</h1>
+              <h5 className="mb-0 fw-bold" style={{ color: '#fff' }}>Total Processed</h5>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-success)', border: 'none' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <h1 className="display-2 fw-bold" style={{ color: 'var(--color-success)', marginBottom: '1rem' }}>{stats.approved}</h1>
-              <h5 className="mb-0 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Approved</h5>
+              <h1 className="display-2 fw-bold" style={{ color: '#fff', marginBottom: '1rem' }}>{stats.approved}</h1>
+              <h5 className="mb-0 fw-bold" style={{ color: '#fff' }}>Approved</h5>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card text-center h-100 shadow-sm">
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-danger)', border: 'none' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <h1 className="display-2 fw-bold" style={{ color: 'var(--accent-red)', marginBottom: '1rem' }}>{stats.declined}</h1>
-              <h5 className="mb-0 fw-bold" style={{ color: 'var(--color-text-primary)' }}>Declined</h5>
+              <h1 className="display-2 fw-bold" style={{ color: '#fff', marginBottom: '1rem' }}>{stats.declined}</h1>
+              <h5 className="mb-0 fw-bold" style={{ color: '#fff' }}>Declined</h5>
             </div>
           </div>
         </div>
