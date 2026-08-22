@@ -108,18 +108,6 @@ const StudentDashboard = () => {
                   </Link>
                 </div>
                 <div className="d-flex">
-                  {profile.profilePicture && (
-                    <div className="me-4 flex-shrink-0">
-                      <img
-                        src={profile.profilePicture}
-                        alt={profile.name}
-                        style={{
-                          width: '80px', height: '80px', borderRadius: '50%',
-                          objectFit: 'cover', border: '3px solid var(--color-primary)',
-                        }}
-                      />
-                    </div>
-                  )}
                   <div className="row flex-grow-1">
                     <div className="col-md-3">
                       <p className="mb-2"><strong>Name:</strong> {profile.name}</p>
