@@ -15,6 +15,7 @@ import com.outpass.portal.dto.request.DeclineOutpassRequest;
 import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.OutpassResponse;
 import com.outpass.portal.dto.response.StudentOutpassStatsResponse;
+import com.outpass.portal.dto.response.StudentSummaryResponse;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
 import com.outpass.portal.repository.AttendanceRecordRepository;
@@ -31,10 +32,12 @@ import com.outpass.portal.model.entity.Announcement;
 import com.outpass.portal.repository.AnnouncementRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/warden")
 @RequiredArgsConstructor
+@Slf4j
 public class WardenController {
 
     private final OutpassService outpassService;
@@ -102,15 +105,19 @@ public class WardenController {
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) request.get("ids");
         int success = 0;
+        int failed = 0;
         for (Number id : ids) {
             try {
                 outpassService.approveOutpass(id.longValue(), warden.getHostel(), warden.getId(), null);
                 success++;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Bulk approve failed for outpass {}: {}", id, e.getMessage());
+                failed++;
+            }
         }
         return ResponseEntity.ok(ApiResponse.success(
                 success + " outpasses approved",
-                Map.of("approved", success, "total", ids.size())));
+                Map.of("approved", success, "failed", failed, "total", ids.size())));
     }
 
     @PutMapping("/outpass/bulk-decline")
@@ -125,15 +132,19 @@ public class WardenController {
         com.outpass.portal.dto.request.DeclineOutpassRequest declineReq = new com.outpass.portal.dto.request.DeclineOutpassRequest();
         declineReq.setDeclineReason(reason);
         int success = 0;
+        int failed = 0;
         for (Number id : ids) {
             try {
                 outpassService.declineOutpass(id.longValue(), warden.getHostel(), warden.getId(), declineReq);
                 success++;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Bulk decline failed for outpass {}: {}", id, e.getMessage());
+                failed++;
+            }
         }
         return ResponseEntity.ok(ApiResponse.success(
                 success + " outpasses declined",
-                Map.of("declined", success, "total", ids.size())));
+                Map.of("declined", success, "failed", failed, "total", ids.size())));
     }
 
     @GetMapping("/outpass/history")
@@ -336,9 +347,12 @@ public class WardenController {
     }
 
     @GetMapping("/students")
-    public ResponseEntity<ApiResponse<List<Student>>> getStudents(
+    public ResponseEntity<ApiResponse<List<StudentSummaryResponse>>> getStudents(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        List<Student> students = studentRepository.findAll();
+        List<StudentSummaryResponse> students = studentRepository.findAll()
+                .stream()
+                .map(StudentSummaryResponse::from)
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(students));
     }
 

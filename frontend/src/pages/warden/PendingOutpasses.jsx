@@ -31,7 +31,6 @@ const PendingOutpasses = () => {
       const response = await outpassService.getPendingOutpasses();
       setOutpasses(response.data);
     } catch (error) {
-      console.error('Error fetching pending outpasses:', error);
       toast.error('Failed to load pending outpasses');
     } finally {
       setLoading(false);
@@ -101,7 +100,6 @@ const PendingOutpasses = () => {
       setShowApproveModal(false);
       setSelectedOutpass(null);
     } catch (error) {
-      console.error('Error approving outpass:', error);
       toast.error(error.response?.data?.message || 'Failed to approve outpass');
     } finally {
       setProcessingId(null);
@@ -123,7 +121,6 @@ const PendingOutpasses = () => {
       setShowDeclineModal(false);
       setSelectedOutpass(null);
     } catch (error) {
-      console.error('Error declining outpass:', error);
       toast.error(error.response?.data?.message || 'Failed to decline outpass');
     } finally {
       setProcessingId(null);

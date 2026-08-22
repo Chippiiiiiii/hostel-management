@@ -5,6 +5,7 @@ import com.outpass.portal.dto.request.RefreshTokenRequest;
 import com.outpass.portal.dto.request.StudentRegistrationRequest;
 import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.AuthResponse;
+import com.outpass.portal.dto.response.StudentSummaryResponse;
 import com.outpass.portal.model.entity.PasswordResetToken;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
@@ -49,7 +50,7 @@ public class AuthController {
     }
 
     @PostMapping("/student/register")
-    public ResponseEntity<ApiResponse<Student>> registerStudent(
+    public ResponseEntity<ApiResponse<StudentSummaryResponse>> registerStudent(
             @Valid @RequestBody StudentRegistrationRequest request) {
 
         Student student = Student.builder()
@@ -67,7 +68,7 @@ public class AuthController {
                 .build();
 
         Student registered = authService.registerStudent(student);
-        return ResponseEntity.ok(ApiResponse.success("Student registered successfully", registered));
+        return ResponseEntity.ok(ApiResponse.success("Student registered successfully", StudentSummaryResponse.from(registered)));
     }
 
     @PostMapping("/student/login")
@@ -162,9 +163,10 @@ public class AuthController {
                 .build();
         resetTokenRepository.save(resetToken);
 
+        // In production, send token via email. For now, include in response for demo only.
         return ResponseEntity.ok(ApiResponse.success(
-                "Password reset token generated. Use it to reset your password.",
-                Map.of("token", token)));
+                "Reset token generated. In production this would be sent to your email.",
+                Map.of("token", token, "demo", true)));
     }
 
     @Transactional

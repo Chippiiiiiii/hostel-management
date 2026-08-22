@@ -16,8 +16,8 @@ const StudentStatsCard = ({ studentId, onClose }) => {
     try {
       const response = await api.get(`/warden/student/${studentId}/stats`);
       setStats(response.data.data);
-    } catch (error) {
-      console.error('Error fetching student stats:', error);
+    } catch {
+      // silent — card simply won't render on failure
     } finally {
       setLoading(false);
     }

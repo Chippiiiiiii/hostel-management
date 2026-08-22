@@ -70,8 +70,8 @@ const AttendanceDashboard = () => {
       setStats(statsRes.data);
       setHistory(historyRes.data.slice(0, 10));
       setActiveSession(sessionRes.data);
-    } catch (error) {
-      console.error('Error fetching attendance data:', error);
+    } catch {
+      // errors handled per-request; failure is silent
     } finally {
       setLoading(false);
     }
