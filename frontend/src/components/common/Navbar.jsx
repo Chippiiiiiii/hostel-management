@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import outpassService from '../../services/outpassService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGraduationCap, faChartBar, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 
@@ -8,6 +9,7 @@ const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [profilePic, setProfilePic] = useState(null);
 
   useEffect(() => {
     if (darkMode) {
@@ -18,6 +20,14 @@ const Navbar = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'STUDENT') {
+      outpassService.getStudentProfile()
+        .then(res => { if (res.data?.profilePicture) setProfilePic(res.data.profilePicture); })
+        .catch(() => {});
+    }
+  }, [isAuthenticated, user?.role]);
 
   const handleLogout = async () => {
     await logout();
@@ -95,6 +105,19 @@ const Navbar = () => {
                     <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
                   </button>
                 </li>
+
+                {profilePic && (
+                  <li className="nav-item ms-2">
+                    <img
+                      src={profilePic}
+                      alt="Profile"
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)',
+                      }}
+                    />
+                  </li>
+                )}
 
                 <li className="nav-item ms-2">
                   <button
