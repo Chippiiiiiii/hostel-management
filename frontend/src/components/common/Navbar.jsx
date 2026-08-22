@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import outpassService from '../../services/outpassService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGraduationCap, faChartBar, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { faGraduationCap, faChartBar, faMoon, faSun, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [profilePic, setProfilePic] = useState(null);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     if (darkMode) {
@@ -24,7 +25,10 @@ const Navbar = () => {
   useEffect(() => {
     if (isAuthenticated && user?.role === 'STUDENT') {
       outpassService.getStudentProfile()
-        .then(res => { if (res.data?.profilePicture) setProfilePic(res.data.profilePicture); })
+        .then(res => {
+          if (res.data?.profilePicture) setProfilePic(res.data.profilePicture);
+          if (res.data?.name) setUserName(res.data.name);
+        })
         .catch(() => {});
     }
   }, [isAuthenticated, user?.role]);
@@ -75,57 +79,61 @@ const Navbar = () => {
                   </Link>
                 </li>
 
-                <li className="nav-item">
-                  <span className="nav-link" style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '0.375rem',
-                    padding: '0.5rem 1rem'
-                  }}>
-                    <strong style={{ color: 'white' }}>{user.email}</strong>
-                    <span style={{
-                      marginLeft: '0.5rem',
-                      padding: '0.2rem 0.5rem',
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      borderRadius: '0.25rem',
-                      fontSize: '0.8rem',
-                      fontWeight: '600'
-                    }}>
-                      {user.role.replace('_', ' ')}
-                    </span>
-                  </span>
-                </li>
-
                 <li className="nav-item ms-2">
                   <button
                     className="btn btn-outline-light btn-sm"
                     onClick={() => setDarkMode(!darkMode)}
                     title={darkMode ? 'Light mode' : 'Dark mode'}
-                    style={{ fontWeight: '600', minWidth: '36px' }}
+                    style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
                   >
                     <FontAwesomeIcon icon={darkMode ? faSun : faMoon} />
                   </button>
                 </li>
 
-                {profilePic && (
-                  <li className="nav-item ms-2">
-                    <img
-                      src={profilePic}
-                      alt="Profile"
-                      style={{
-                        width: '32px', height: '32px', borderRadius: '50%',
-                        objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)',
-                      }}
-                    />
-                  </li>
-                )}
+                <li className="nav-item ms-lg-2" style={{ padding: '0 0.5rem' }}>
+                  <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)' }} className="d-none d-lg-block"></div>
+                </li>
+
+                <li className="nav-item">
+                  <div className="d-flex align-items-center gap-2" style={{ padding: '0.25rem 0' }}>
+                    {profilePic ? (
+                      <img
+                        src={profilePic}
+                        alt="Profile"
+                        style={{
+                          width: '34px', height: '34px', borderRadius: '50%',
+                          objectFit: 'cover', border: '2px solid rgba(255,255,255,0.5)',
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '34px', height: '34px', borderRadius: '50%',
+                        background: '#ed8936', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', color: '#fff', fontWeight: '600',
+                        fontSize: '0.85rem', border: '2px solid rgba(255,255,255,0.5)',
+                      }}>
+                        {(userName || user.email).charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{ lineHeight: '1.2' }}>
+                      <div style={{ color: '#fff', fontSize: '0.85rem', fontWeight: '600' }}>
+                        {userName || user.email.split('@')[0]}
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
+                        {user.role.replace('_', ' ')}
+                      </div>
+                    </div>
+                  </div>
+                </li>
 
                 <li className="nav-item ms-2">
                   <button
                     className="btn btn-outline-light btn-sm"
                     onClick={handleLogout}
-                    style={{ fontWeight: '600' }}
+                    title="Logout"
+                    style={{ fontWeight: '600', minWidth: '36px', height: '36px' }}
                   >
-                    Logout
+                    <FontAwesomeIcon icon={faSignOutAlt} />
                   </button>
                 </li>
               </>
