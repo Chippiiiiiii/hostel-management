@@ -5,16 +5,15 @@ import { API_BASE_URL } from '../../utils/constants';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState('loading');
-  const [message, setMessage] = useState('');
+  const token = searchParams.get('token');
+
+  const [status, setStatus] = useState(token ? 'loading' : 'error');
+  const [message, setMessage] = useState(
+    token ? '' : 'No verification token found. Please use the link from your email.'
+  );
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setStatus('error');
-      setMessage('No verification token found. Please use the link from your email.');
-      return;
-    }
+    if (!token) return;
 
     axios.get(`${API_BASE_URL}/auth/verify-email`, { params: { token } })
       .then(() => {
@@ -25,7 +24,7 @@ export default function VerifyEmail() {
         setStatus('error');
         setMessage(err.response?.data?.message || 'Verification failed. The link may have expired.');
       });
-  }, [searchParams]);
+  }, [token]);
 
   return (
     <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>

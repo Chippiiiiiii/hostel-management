@@ -28,25 +28,29 @@ public class RateLimiterService {
     
     public boolean isAllowed(String userId, RateLimitType type) {
         String key = "user:" + userId + ":" + type.name();
-        
-        int maxRequests = getMaxRequests(type);
-        long timeWindowSeconds = getTimeWindow(type);
-        
+        return isAllowed(key, getMaxRequests(type), getTimeWindow(type));
+    }
+
+    /**
+     * Generic key-based limiter, e.g. for unauthenticated endpoints keyed by
+     * client IP or IP+email rather than an authenticated user id.
+     */
+    public boolean isAllowed(String key, int maxRequests, long timeWindowSeconds) {
         Instant now = Instant.now();
         RateLimitInfo info = requestCounts.computeIfAbsent(key, k -> new RateLimitInfo());
-        
+
         synchronized (info) {
             // Reset counter if time window has passed
             if (now.getEpochSecond() - info.windowStart.getEpochSecond() >= timeWindowSeconds) {
                 info.requestCount = 0;
                 info.windowStart = now;
             }
-            
+
             // Check if limit exceeded
             if (info.requestCount >= maxRequests) {
                 return false;
             }
-            
+
             info.requestCount++;
             return true;
         }

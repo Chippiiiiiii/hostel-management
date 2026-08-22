@@ -1,5 +1,6 @@
 package com.outpass.portal.service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,10 +8,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 @Service
 @Slf4j
 public class EmailService {
+
+    private static final String DEFAULT_FRONTEND_URL = "http://localhost:5173";
 
     @Autowired(required = false)
     private JavaMailSender mailSender;
@@ -18,11 +22,25 @@ public class EmailService {
     @Value("${spring.mail.username:}")
     private String fromEmail;
 
-    @Value("${app.frontend.url:http://localhost:5173}")
+    @Value("${app.frontend.url:" + DEFAULT_FRONTEND_URL + "}")
     private String frontendUrl;
 
     public boolean isConfigured() {
         return mailSender != null && !fromEmail.isBlank();
+    }
+
+    @PostConstruct
+    void logConfigurationState() {
+        if (!isConfigured()) {
+            log.warn("Email is NOT configured (MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD missing) — "
+                    + "verification and password reset emails will not be sent until this is fixed.");
+        }
+        if (isConfigured() && DEFAULT_FRONTEND_URL.equals(frontendUrl)) {
+            // Mail is live but the frontend URL was never overridden — almost certainly a
+            // misconfigured production deploy about to send real emails with broken links.
+            log.error("FRONTEND_URL is not set and mail IS configured — verification/reset "
+                    + "emails will contain localhost links. Set the FRONTEND_URL environment variable.");
+        }
     }
 
     public void sendVerificationEmail(String toEmail, String name, String token) {
@@ -31,6 +49,7 @@ public class EmailService {
             return;
         }
         String link = frontendUrl + "/verify-email?token=" + token;
+        String safeName = HtmlUtils.htmlEscape(name);
         String html = """
                 <!DOCTYPE html>
                 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
@@ -45,7 +64,7 @@ public class EmailService {
                   </p>
                   <p style="color:#888;font-size:12px;">Or copy this link: %s</p>
                 </body></html>
-                """.formatted(name, link, link);
+                """.formatted(safeName, link, link);
         send(toEmail, "Verify Your Email — Hostel Management", html);
     }
 
@@ -55,6 +74,7 @@ public class EmailService {
             return;
         }
         String link = frontendUrl + "/forgot-password?token=" + token;
+        String safeName = HtmlUtils.htmlEscape(name);
         String html = """
                 <!DOCTYPE html>
                 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
@@ -69,7 +89,7 @@ public class EmailService {
                   </p>
                   <p style="color:#888;font-size:12px;">Or copy this link: %s</p>
                 </body></html>
-                """.formatted(name, link, link);
+                """.formatted(safeName, link, link);
         send(toEmail, "Reset Your Password — Hostel Management", html);
     }
 
@@ -84,8 +104,10 @@ public class EmailService {
             mailSender.send(message);
             log.info("Email sent to {}: {}", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Failed to send email: " + e.getMessage());
+            // Log full detail server-side only; never let SMTP host/port/auth or
+            // provider-specific exception text reach an API response.
+            log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
+            throw new RuntimeException("Failed to send email. Please try again later.");
         }
     }
 }

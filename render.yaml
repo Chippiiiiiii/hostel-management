@@ -24,3 +24,19 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://hostel-management-mit.vercel.app
+      # Used to build the links inside verification/password-reset emails.
+      # Must match the deployed frontend origin above, not localhost.
+      - key: FRONTEND_URL
+        value: https://hostel-management-mit.vercel.app
+      # Email is optional (the app degrades gracefully if unset — see EmailService).
+      # Gmail SMTP. MAIL_PASSWORD must be a 16-char Gmail App Password (requires
+      # 2-Step Verification on the account), NOT the account login password —
+      # set it in the Render dashboard, never commit it here.
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: mit.hostelmanagement@gmail.com
+      - key: MAIL_PASSWORD
+        sync: false
