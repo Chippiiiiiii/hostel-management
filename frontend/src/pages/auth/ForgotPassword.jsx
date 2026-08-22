@@ -32,8 +32,8 @@ const ForgotPassword = () => {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 4) {
-      toast.error('Password must be at least 4 characters');
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -128,9 +128,9 @@ const ForgotPassword = () => {
                       className="form-control"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
+                      placeholder="Enter new password (min. 6 characters)"
                       required
-                      minLength={4}
+                      minLength={6}
                     />
                   </div>
                   <div className="mb-4">

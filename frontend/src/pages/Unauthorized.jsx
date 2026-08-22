@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBan, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
@@ -13,13 +14,13 @@ const Unauthorized = () => {
               <p className="text-muted mb-4" style={{ fontSize: '1.1rem' }}>
                 You don't have permission to access this page.
               </p>
-              <a 
-                href="/" 
+              <Link
+                to="/"
                 className="btn btn-primary btn-lg"
                 style={{ minWidth: '200px', fontWeight: '600' }}
               >
                 <FontAwesomeIcon icon={faArrowLeft} /> Go to Home
-              </a>
+              </Link>
             </div>
           </div>
         </div>

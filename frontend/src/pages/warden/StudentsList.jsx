@@ -64,8 +64,8 @@ const StudentsList = () => {
       } catch {
         setRegisteredStudents([]);
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
+      // silent — individual operations below surface their own errors via toast
     } finally {
       setLoading(false);
     }

@@ -29,7 +29,6 @@ const SecurityDashboard = () => {
       setDepartedOutpasses(departedRes.data);
       setTodayOutpasses(todayRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -44,7 +43,6 @@ const SecurityDashboard = () => {
       toast.success('Departure verified successfully!');
       fetchData(); // Refresh data
     } catch (error) {
-      console.error('Error marking departure:', error);
       toast.error(error.response?.data?.message || 'Failed to mark departure');
     }
   };
@@ -57,7 +55,6 @@ const SecurityDashboard = () => {
       toast.success('Return verified successfully!');
       fetchData(); // Refresh data
     } catch (error) {
-      console.error('Error marking return:', error);
       toast.error(error.response?.data?.message || 'Failed to mark return');
     }
   };

@@ -32,10 +32,8 @@ const authService = {
   logout: async () => {
     try {
       await api.post('/auth/logout');
-    } catch (error) {
-      console.error('Logout error:', error);
     } finally {
-      localStorage.clear();
+      Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     }
   },
 

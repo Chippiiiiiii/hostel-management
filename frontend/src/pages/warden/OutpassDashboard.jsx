@@ -29,7 +29,6 @@ const WardenOutpassDashboard = () => {
         declined: history.filter(o => o.status === 'DECLINED').length,
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
       toast.error('Failed to load outpass data');
     } finally {
       setLoading(false);

@@ -33,6 +33,7 @@ import SecurityDashboard from '../pages/security/Dashboard';
 
 // Other Pages
 import Unauthorized from '../pages/Unauthorized';
+import NotFound from '../pages/NotFound';
 import { ROLES } from '../utils/constants';
 
 const AppRoutes = () => {
@@ -200,7 +201,7 @@ const AppRoutes = () => {
         <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
 
         {/* 404 - Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<><Navbar /><NotFound /></>} />
       </Routes>
     </Router>
   );

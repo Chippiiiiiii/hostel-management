@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -24,7 +24,6 @@ const OutpassHistory = () => {
       const response = await outpassService.getOutpassHistory();
       setOutpasses(response.data);
     } catch (error) {
-      console.error('Error fetching outpass history:', error);
       toast.error('Failed to load outpass history');
     } finally {
       setLoading(false);
@@ -129,8 +128,8 @@ const OutpassHistory = () => {
                     </thead>
                     <tbody>
                       {filteredOutpasses.map((outpass) => (
-                        <>
-                          <tr key={outpass.id}>
+                        <Fragment key={outpass.id}>
+                          <tr>
                             <td>{outpass.id}</td>
                             <td>{outpass.placeOfVisit}</td>
                             <td>{format(new Date(outpass.date), 'dd/MM/yyyy HH:mm')}</td>
@@ -201,7 +200,7 @@ const OutpassHistory = () => {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

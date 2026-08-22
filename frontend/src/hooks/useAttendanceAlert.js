@@ -10,8 +10,12 @@ const useAttendanceAlert = () => {
     attendanceService.requestNotificationPermission();
 
     const checkSession = async () => {
-      const res = await attendanceService.getActiveSession();
-      setActiveSession(res.data);
+      try {
+        const res = await attendanceService.getActiveSession();
+        setActiveSession(res.data);
+      } catch {
+        // silently ignore polling errors
+      }
     };
 
     checkSession();

@@ -20,7 +20,6 @@ const OutpassDashboard = () => {
       const outpassRes = await outpassService.getOutpassHistory();
       setRecentOutpasses(outpassRes.data.slice(0, 5));
     } catch (error) {
-      console.error('Error fetching outpass data:', error);
       toast.error('Failed to load outpass data');
     } finally {
       setLoading(false);

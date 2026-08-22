@@ -47,8 +47,8 @@ api.interceptors.response.use(
           return api(originalRequest);
         }
       } catch (refreshError) {
-        // Refresh failed, logout user
-        localStorage.clear();
+        // Refresh failed, clear only auth keys and redirect
+        Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

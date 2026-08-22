@@ -71,7 +71,6 @@ const EditProfile = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);
@@ -169,7 +168,6 @@ const EditProfile = () => {
       toast.success('Profile updated successfully!');
       navigate('/student/dashboard');
     } catch (error) {
-      console.error('Error updating profile:', error);
       toast.error(error.response?.data?.message || 'Failed to update profile');
     } finally {
       setSubmitting(false);

@@ -38,7 +38,6 @@ const StudentDashboard = () => {
       setAttendanceStats(attendanceRes.data);
       setRoommates(roommatesRes.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);

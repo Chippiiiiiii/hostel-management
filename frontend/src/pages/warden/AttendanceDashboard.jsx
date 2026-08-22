@@ -57,8 +57,8 @@ const WardenAttendanceDashboard = () => {
       if (configRes.data) {
         setAttendanceConfig(configRes.data);
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch {
+      // silent — individual section errors surface via toast if needed
     } finally {
       setLoading(false);
     }

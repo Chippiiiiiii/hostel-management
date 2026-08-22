@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import outpassService from '../../services/outpassService';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileAlt, faCalendarAlt, faMapMarkerAlt, faPhone, faUsers, faCheck, faTimes, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
@@ -74,7 +73,6 @@ const CreateOutpass = () => {
       toast.success('Outpass request created successfully!');
       navigate('/student/history');
     } catch (error) {
-      console.error('Error creating outpass:', error);
       toast.error(error.response?.data?.message || 'Failed to create outpass');
     } finally {
       setLoading(false);
