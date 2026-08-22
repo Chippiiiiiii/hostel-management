@@ -17,6 +17,7 @@ import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.service.AuthService;
+import com.outpass.portal.service.EmailService;
 import com.outpass.portal.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RoomService roomService;
+    private final EmailService emailService;
     private final PasswordResetTokenRepository resetTokenRepository;
     private final StudentRepository studentRepository;
     private final WardenRepository wardenRepository;
@@ -137,21 +139,32 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 
+    @GetMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
+        authService.verifyEmail(token);
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now log in.", null));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(@RequestBody Map<String, String> request) {
+        authService.resendVerification(request.get("email"));
+        return ResponseEntity.ok(ApiResponse.success("Verification email sent. Please check your inbox.", null));
+    }
+
     @Transactional
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> forgotPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String role = request.getOrDefault("role", "STUDENT");
 
-        boolean exists = switch (role) {
-            case "WARDEN" -> wardenRepository.findByEmail(email).isPresent();
-            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email).isPresent();
-            default -> studentRepository.findByEmail(email).isPresent();
+        String name = switch (role) {
+            case "WARDEN" -> wardenRepository.findByEmail(email)
+                    .map(w -> w.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email)
+                    .map(s -> s.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
+            default -> studentRepository.findByEmail(email)
+                    .map(s -> s.getName()).orElseThrow(() -> new RuntimeException("No account found with this email"));
         };
-
-        if (!exists) {
-            throw new RuntimeException("No account found with this email");
-        }
 
         resetTokenRepository.deleteByEmail(email);
         String token = UUID.randomUUID().toString();
@@ -163,13 +176,10 @@ public class AuthController {
                 .build();
         resetTokenRepository.save(resetToken);
 
-        // In production, send token via email. For now, include in response for demo only.
-        Map<String, Object> body = new java.util.HashMap<>();
-        body.put("token", token);
-        body.put("demo", true);
+        emailService.sendPasswordResetEmail(email, name, token);
+
         return ResponseEntity.ok(ApiResponse.success(
-                "Reset token generated. In production this would be sent to your email.",
-                body));
+                "Password reset link sent to your email.", null));
     }
 
     @Transactional

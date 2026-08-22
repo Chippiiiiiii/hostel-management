@@ -8,6 +8,7 @@ import Layout from '../components/common/Layout';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import ForgotPassword from '../pages/auth/ForgotPassword';
+import VerifyEmail from '../pages/auth/VerifyEmail';
 
 // Student Pages
 import StudentDashboard from '../pages/student/Dashboard';
@@ -61,6 +62,7 @@ const AppRoutes = () => {
         <Route path="/login" element={<><Navbar /><Login /></>} />
         <Route path="/register" element={<><Navbar /><Register /></>} />
         <Route path="/forgot-password" element={<><Navbar /><ForgotPassword /></>} />
+        <Route path="/verify-email" element={<><Navbar /><VerifyEmail /></>} />
         <Route path="/unauthorized" element={<><Navbar /><Unauthorized /></>} />
 
         {/* Student Routes — with sidebar layout */}

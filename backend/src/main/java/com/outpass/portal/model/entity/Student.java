@@ -55,6 +55,9 @@ public class Student {
     @Builder.Default
     private String gender = "BOY";
 
+    @Column(name = "email_verified")
+    private Boolean emailVerified;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
