@@ -73,33 +73,33 @@ const OutpassDashboard = () => {
       {/* Quick Actions */}
       <div className="row mb-4 g-4">
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-bg-dark)', border: 'none', transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <FontAwesomeIcon icon={faFileAlt} style={{ fontSize: '3.5rem', color: 'var(--accent-teal)', marginBottom: '1rem' }} />
-              <h5 className="mb-3 fw-bold">Create New Outpass</h5>
-              <Link to="/student/create-outpass" className="btn btn-primary mt-2 fw-semibold">
+              <FontAwesomeIcon icon={faFileAlt} style={{ fontSize: '3.5rem', color: '#fff', marginBottom: '1rem' }} />
+              <h5 className="mb-3 fw-bold" style={{ color: '#fff' }}>Create New Outpass</h5>
+              <Link to="/student/create-outpass" className="btn btn-light mt-2 fw-semibold">
                 <FontAwesomeIcon icon={faPencilAlt} /> Create Now
               </Link>
             </div>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-info)', border: 'none', transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '3.5rem', color: 'var(--accent-purple)', marginBottom: '1rem' }} />
-              <h5 className="mb-3 fw-bold">View All History</h5>
-              <Link to="/student/history" className="btn btn-primary mt-2 fw-semibold">
+              <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '3.5rem', color: '#fff', marginBottom: '1rem' }} />
+              <h5 className="mb-3 fw-bold" style={{ color: '#fff' }}>View All History</h5>
+              <Link to="/student/history" className="btn btn-light mt-2 fw-semibold">
                 <FontAwesomeIcon icon={faClipboardList} /> Open History
               </Link>
             </div>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="card text-center h-100 shadow-sm" style={{ transition: 'all 0.2s' }}>
+          <div className="card text-center h-100 shadow-sm" style={{ backgroundColor: 'var(--color-success)', border: 'none', transition: 'all 0.2s' }}>
             <div className="card-body d-flex flex-column justify-content-center p-4">
-              <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '3.5rem', color: 'var(--color-info)', marginBottom: '1rem' }} />
-              <h5 className="mb-3 fw-bold">Outpass Statistics</h5>
-              <p className="mb-0 mt-2" style={{ fontSize: '1.2rem', fontWeight: '600', color: 'var(--color-info)' }}>Total: {recentOutpasses.length}</p>
+              <FontAwesomeIcon icon={faChartPie} style={{ fontSize: '3.5rem', color: '#fff', marginBottom: '1rem' }} />
+              <h5 className="mb-3 fw-bold" style={{ color: '#fff' }}>Outpass Statistics</h5>
+              <p className="mb-0 mt-2" style={{ fontSize: '1.2rem', fontWeight: '600', color: '#fff' }}>Total: {recentOutpasses.length}</p>
             </div>
           </div>
         </div>
