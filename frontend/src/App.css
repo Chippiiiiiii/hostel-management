@@ -16,9 +16,9 @@
 }
 
 .card-header {
-  background: var(--color-bg-dark) !important;
-  color: white !important;
-  border-bottom: none;
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid #e2e8f0;
   padding: 1rem 1.5rem;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -432,6 +432,7 @@ input[type="time"]:focus {
 [data-theme="dark"] .card-header {
   background: #1e1916 !important;
   color: #d5c4b0 !important;
+  border-bottom-color: #3a302a;
 }
 
 [data-theme="dark"] .form-control,
