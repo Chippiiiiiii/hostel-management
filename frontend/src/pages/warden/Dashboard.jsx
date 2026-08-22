@@ -4,11 +4,10 @@ import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserTie, faArrowRight, faDoorOpen, faCalendarCheck, faUsers, faHourglass, faCheckCircle, faTimesCircle, faClipboardList, faExclamationTriangle, faUserGraduate, faBuilding, faBell, faBullhorn } from '@fortawesome/free-solid-svg-icons';
+import { faUserTie, faArrowRight, faDoorOpen, faCalendarCheck, faUsers, faHourglass, faCheckCircle, faTimesCircle, faClipboardList, faExclamationTriangle, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 
 const WardenDashboard = () => {
   const [stats, setStats] = useState({ pending: 0, total: 0, approved: 0, declined: 0 });
-  const [dashStats, setDashStats] = useState({ totalStudents: 0, allocatedStudents: 0, todayAttendance: 0, pendingComplaints: 0 });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -18,10 +17,9 @@ const WardenDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const [pendingRes, historyRes, dashRes] = await Promise.all([
+      const [pendingRes, historyRes] = await Promise.all([
         outpassService.getPendingOutpasses(),
         outpassService.getWardenHistory(),
-        outpassService.getWardenDashboardStats().catch(() => ({ data: {} })),
       ]);
 
       const history = historyRes.data;
@@ -31,7 +29,6 @@ const WardenDashboard = () => {
         approved: history.filter(o => o.status === 'APPROVED' || o.status === 'COMPLETED').length,
         declined: history.filter(o => o.status === 'DECLINED').length,
       });
-      if (dashRes.data) setDashStats(dashRes.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
       toast.error('Failed to load dashboard data');
@@ -50,46 +47,6 @@ const WardenDashboard = () => {
             <FontAwesomeIcon icon={faUserTie} /> Warden Dashboard
           </h1>
           <p className="text-muted" style={{ fontSize: '1.1rem' }}>Welcome back!</p>
-        </div>
-      </div>
-
-      {/* Overview Stats */}
-      <div className="row mb-4 g-4">
-        <div className="col-6 col-md-3">
-          <div className="card shadow h-100">
-            <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faUserGraduate} style={{ fontSize: '2rem', color: 'var(--accent-purple)', marginBottom: '0.75rem' }} />
-              <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Total Students</p>
-              <h2 className="mb-0 fw-bold" style={{ color: 'var(--accent-purple)', fontSize: '2.5rem' }}>{dashStats.totalStudents}</h2>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow h-100">
-            <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '2rem', color: 'var(--accent-teal)', marginBottom: '0.75rem' }} />
-              <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Rooms Allocated</p>
-              <h2 className="mb-0 fw-bold" style={{ color: 'var(--accent-teal)', fontSize: '2.5rem' }}>{dashStats.allocatedStudents}</h2>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow h-100">
-            <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: '2rem', color: 'var(--color-success)', marginBottom: '0.75rem' }} />
-              <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Today's Attendance</p>
-              <h2 className="mb-0 fw-bold" style={{ color: 'var(--color-success)', fontSize: '2.5rem' }}>{dashStats.todayAttendance}</h2>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow h-100">
-            <div className="card-body text-center py-4">
-              <FontAwesomeIcon icon={faBell} style={{ fontSize: '2rem', color: 'var(--accent-red)', marginBottom: '0.75rem' }} />
-              <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Pending Complaints</p>
-              <h2 className="mb-0 fw-bold" style={{ color: 'var(--accent-red)', fontSize: '2.5rem' }}>{dashStats.pendingComplaints}</h2>
-            </div>
-          </div>
         </div>
       </div>
 
