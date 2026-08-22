@@ -1,80 +1,64 @@
 package com.outpass.portal.service;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
 public class EmailService {
 
-    private static final String DEFAULT_FRONTEND_URL = "http://localhost:5173";
+    @Value("${brevo.api.key:}")
+    private String apiKey;
 
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
+    @Value("${app.mail.from.email:noreply@hostel.app}")
     private String fromEmail;
 
-    @Value("${app.frontend.url:" + DEFAULT_FRONTEND_URL + "}")
+    @Value("${app.mail.from.name:Hostel Management}")
+    private String fromName;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    public boolean isConfigured() {
-        return mailSender != null && !fromEmail.isBlank();
-    }
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    @PostConstruct
-    void logConfigurationState() {
-        if (!isConfigured()) {
-            log.warn("Email is NOT configured (MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD missing) — "
-                    + "verification and password reset emails will not be sent until this is fixed.");
-        }
-        if (isConfigured() && DEFAULT_FRONTEND_URL.equals(frontendUrl)) {
-            // Mail is live but the frontend URL was never overridden — almost certainly a
-            // misconfigured production deploy about to send real emails with broken links.
-            log.error("FRONTEND_URL is not set and mail IS configured — verification/reset "
-                    + "emails will contain localhost links. Set the FRONTEND_URL environment variable.");
-        }
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.isBlank();
     }
 
     public void sendVerificationEmail(String toEmail, String name, String token) {
         if (!isConfigured()) {
-            log.warn("Email not configured — skipping verification email to {}", toEmail);
+            log.warn("Brevo API key not configured — skipping verification email to {}", toEmail);
             return;
         }
         String link = frontendUrl + "/verify-email?token=" + token;
-        String safeName = HtmlUtils.htmlEscape(name);
         String html = """
                 <!DOCTYPE html>
                 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
                   <h2 style="color:#c07a3a;">Verify Your Email</h2>
                   <p>Hi <strong>%s</strong>,</p>
-                  <p>Thanks for registering! Click the button below to verify your email address and activate your account.</p>
+                  <p>Thanks for registering! Click the button below to verify your email and activate your account.</p>
                   <a href="%s" style="display:inline-block;padding:12px 28px;background:#ed8936;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;margin:16px 0;">
                     Verify Email
                   </a>
-                  <p style="color:#888;font-size:12px;margin-top:24px;">
-                    This link expires in 24 hours. If you did not register, please ignore this email.
-                  </p>
-                  <p style="color:#888;font-size:12px;">Or copy this link: %s</p>
+                  <p style="color:#888;font-size:12px;margin-top:24px;">This link expires in 24 hours.</p>
+                  <p style="color:#888;font-size:12px;">Or copy: %s</p>
                 </body></html>
-                """.formatted(safeName, link, link);
-        send(toEmail, "Verify Your Email — Hostel Management", html);
+                """.formatted(name, link, link);
+        send(toEmail, name, "Verify Your Email — Hostel Management", html);
     }
 
     public void sendPasswordResetEmail(String toEmail, String name, String token) {
         if (!isConfigured()) {
-            log.warn("Email not configured — skipping password reset email to {}", toEmail);
+            log.warn("Brevo API key not configured — skipping password reset email to {}", toEmail);
             return;
         }
         String link = frontendUrl + "/forgot-password?token=" + token;
-        String safeName = HtmlUtils.htmlEscape(name);
         String html = """
                 <!DOCTYPE html>
                 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
@@ -84,29 +68,38 @@ public class EmailService {
                   <a href="%s" style="display:inline-block;padding:12px 28px;background:#ed8936;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;margin:16px 0;">
                     Reset Password
                   </a>
-                  <p style="color:#888;font-size:12px;margin-top:24px;">
-                    If you did not request this, please ignore this email. Your password will not change.
-                  </p>
-                  <p style="color:#888;font-size:12px;">Or copy this link: %s</p>
+                  <p style="color:#888;font-size:12px;margin-top:24px;">If you did not request this, ignore this email.</p>
+                  <p style="color:#888;font-size:12px;">Or copy: %s</p>
                 </body></html>
-                """.formatted(safeName, link, link);
-        send(toEmail, "Reset Your Password — Hostel Management", html);
+                """.formatted(name, link, link);
+        send(toEmail, name, "Reset Your Password — Hostel Management", html);
     }
 
-    private void send(String to, String subject, String html) {
+    private void send(String toEmail, String toName, String subject, String html) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-            mailSender.send(message);
-            log.info("Email sent to {}: {}", to, subject);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+
+            Map<String, Object> body = Map.of(
+                    "sender", Map.of("name", fromName, "email", fromEmail),
+                    "to", List.of(Map.of("email", toEmail, "name", toName)),
+                    "subject", subject,
+                    "htmlContent", html
+            );
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://api.brevo.com/v3/smtp/email", entity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Email sent to {} via Brevo: {}", toEmail, subject);
+            } else {
+                log.error("Brevo rejected email to {}: {}", toEmail, response.getBody());
+                throw new RuntimeException("Email delivery failed");
+            }
         } catch (Exception e) {
-            // Log full detail server-side only; never let SMTP host/port/auth or
-            // provider-specific exception text reach an API response.
-            log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
+            log.error("Failed to send email to {} via Brevo: {}", toEmail, e.getMessage());
             throw new RuntimeException("Failed to send email. Please try again later.");
         }
     }
