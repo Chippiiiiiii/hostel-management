@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCamera, faEye, faUserCheck, faCheckCircle, faTimesCircle,
+  faIdCard, faEye, faUserCheck, faCheckCircle, faTimesCircle,
   faSpinner, faVideoSlash, faExclamationTriangle, faRedo,
 } from '@fortawesome/free-solid-svg-icons';
 import {
@@ -24,7 +24,6 @@ const PHASE = {
   REFERENCE_ERROR: 'REFERENCE_ERROR',
   REQUESTING_CAMERA: 'REQUESTING_CAMERA',
   CAMERA_ERROR: 'CAMERA_ERROR',
-  CAPTURE_REFERENCE: 'CAPTURE_REFERENCE',
   VERIFYING: 'VERIFYING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
@@ -38,7 +37,11 @@ const FACE_STATUS = {
   OK: 'OK',
 };
 
-const DETECTION_INTERVAL_MS = 350; // throttle — not per animation frame
+// Sampled, not per animation frame (~16ms) — but fast enough that a natural
+// blink (typically ~100-400ms closed-to-open) reliably lands at least one
+// sample during the closed-eye moment. The previous 350ms interval was slow
+// enough to routinely skip over blinks entirely.
+const DETECTION_INTERVAL_MS = 100;
 const MIN_FACE_WIDTH_RATIO = 0.18; // face bounding box must fill at least this much of frame width
 
 const stopStream = (streamRef, videoRef) => {
@@ -52,8 +55,9 @@ const stopStream = (streamRef, videoRef) => {
 };
 
 /**
- * Browser-only face verification: live webcam face vs. a reference face,
- * gated by a landmark-based blink (liveness) check.
+ * Browser-only face verification: live webcam face vs. a reference photo
+ * (e.g. the student's profile photo), gated by a landmark-based blink
+ * (liveness) check.
  *
  * IMPORTANT — security scope: the blink check is a *basic* liveness signal
  * (it defeats a static printed/displayed photo held up to the camera). It is
@@ -63,11 +67,13 @@ const stopStream = (streamRef, videoRef) => {
  * blinking person). Do not present this as a high-security biometric system.
  *
  * Usage:
- *   <FaceVerification onSuccess={(r) => ...} onFailure={(r) => ...} />
+ *   <FaceVerification referenceImage={profilePhotoDataUrl} onSuccess={...} onFailure={...} />
  *
- * If `referenceImage` is omitted, the user first captures a reference photo
- * from their own webcam; pass an existing photo (data URL / URL) to skip
- * that step and verify directly against it.
+ * `referenceImage` is required — a data URL or same-origin URL of an
+ * existing photo of the person's face. This component never captures or
+ * enrolls a new reference photo itself; that keeps it usable anywhere a
+ * trusted reference photo already exists (e.g. the student's profile photo)
+ * without a second, competing "enrollment" concept.
  */
 const FaceVerification = ({
   referenceImage = null,
@@ -83,7 +89,6 @@ const FaceVerification = ({
   const [blinkDetected, setBlinkDetected] = useState(false);
   const [faceMatch, setFaceMatch] = useState(false);
   const [matchDistance, setMatchDistance] = useState(null);
-  const [referenceThumbnail, setReferenceThumbnail] = useState(null);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -123,7 +128,7 @@ const FaceVerification = ({
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      setPhase(referenceDescriptorRef.current ? PHASE.VERIFYING : PHASE.CAPTURE_REFERENCE);
+      setPhase(PHASE.VERIFYING);
     } catch (err) {
       let message = 'Could not access the camera.';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -138,12 +143,20 @@ const FaceVerification = ({
     }
   }, []);
 
-  // 1. Load models, then (optionally) the reference descriptor, then the camera.
+  // 1. Load models, 2. process the reference photo into a descriptor once,
+  // 3. start the camera. The reference descriptor is computed exactly once
+  // here — never recomputed from live camera frames.
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
 
     (async () => {
+      if (!referenceImage) {
+        setErrorMessage('Profile photo is required for face verification. Please update your profile photo.');
+        setPhase(PHASE.REFERENCE_ERROR);
+        return;
+      }
+
       try {
         await loadFaceApiModels();
       } catch {
@@ -154,25 +167,22 @@ const FaceVerification = ({
         return;
       }
 
-      if (referenceImage) {
-        setPhase(PHASE.LOADING_REFERENCE);
-        try {
-          const descriptor = await computeReferenceDescriptorFromImage(referenceImage, getDetectorOptions());
-          if (cancelled) return;
-          if (!descriptor) {
-            setErrorMessage('No face could be detected in the reference image.');
-            setPhase(PHASE.REFERENCE_ERROR);
-            return;
-          }
-          referenceDescriptorRef.current = descriptor;
-          setReferenceThumbnail(referenceImage);
-        } catch {
-          if (!cancelled) {
-            setErrorMessage('Failed to process the reference image.');
-            setPhase(PHASE.REFERENCE_ERROR);
-          }
+      setPhase(PHASE.LOADING_REFERENCE);
+      try {
+        const descriptor = await computeReferenceDescriptorFromImage(referenceImage, getDetectorOptions());
+        if (cancelled) return;
+        if (!descriptor) {
+          setErrorMessage('No face could be detected in your profile photo. Please update your profile photo.');
+          setPhase(PHASE.REFERENCE_ERROR);
           return;
         }
+        referenceDescriptorRef.current = descriptor;
+      } catch {
+        if (!cancelled) {
+          setErrorMessage('Failed to load your profile photo for face verification. Please try again.');
+          setPhase(PHASE.REFERENCE_ERROR);
+        }
+        return;
       }
 
       if (!cancelled) await startCamera();
@@ -202,50 +212,19 @@ const FaceVerification = ({
     }
   }, [onSuccess, onFailure]);
 
-  const captureReference = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) return;
-    try {
-      const results = await detectFacesWithDescriptors(video, getDetectorOptions());
-      if (results.length === 0) {
-        setErrorMessage('No face detected. Please position your face in the frame and try again.');
-        return;
-      }
-      if (results.length > 1) {
-        setErrorMessage('Multiple faces detected. Make sure only you are in frame.');
-        return;
-      }
-      referenceDescriptorRef.current = results[0].descriptor;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      setReferenceThumbnail(canvas.toDataURL('image/jpeg', 0.8));
-
-      setErrorMessage('');
-      blinkDetectorRef.current.reset();
-      setBlinkDetected(false);
-      setFaceMatch(false);
-      setMatchDistance(null);
-      setPhase(PHASE.VERIFYING);
-    } catch {
-      setErrorMessage('Could not capture the reference photo. Please try again.');
-    }
-  }, []);
-
   // Live detection loop — runs on a fixed interval (not per rAF) once verifying.
   useEffect(() => {
     if (phase !== PHASE.VERIFYING) return undefined;
 
     settledRef.current = false;
+    blinkDetectorRef.current.reset();
 
     timeoutRef.current = setTimeout(() => {
       finish({
         success: false,
         message: !blinkDetectorRef.current.hasBlinked()
           ? 'No blink was detected in time. Please look at the camera and blink naturally.'
-          : 'Face did not match the reference within the time limit.',
+          : 'Face did not match your profile photo within the time limit.',
         blinkDetected: blinkDetectorRef.current.hasBlinked(),
         faceMatch: false,
       });
@@ -291,6 +270,8 @@ const FaceVerification = ({
         const hasBlinked = blinkDetectorRef.current.hasBlinked();
         setBlinkDetected(hasBlinked);
 
+        // Compared against the descriptor computed once from referenceImage
+        // above — never recomputed from a live frame.
         const distance = getFaceDistance(referenceDescriptorRef.current, result.descriptor);
         const matched = isFaceMatch(referenceDescriptorRef.current, result.descriptor, matchThreshold);
         setMatchDistance(distance);
@@ -305,9 +286,6 @@ const FaceVerification = ({
             blinkDetected: true,
             faceMatch: true,
             capturedAt: new Date().toISOString(),
-            // the photo verified against — callers that don't pass `referenceImage`
-            // can persist this to skip the capture step next time.
-            referenceImage: referenceThumbnail,
           });
         }
       } catch {
@@ -320,10 +298,7 @@ const FaceVerification = ({
     return () => {
       clearTimers();
     };
-    // referenceThumbnail is stable for the lifetime of this effect (it's set
-    // once, before the phase transition into VERIFYING that mounts it) but is
-    // listed so the closure captured below always reads its current value.
-  }, [phase, matchThreshold, verificationTimeoutMs, finish, referenceThumbnail]);
+  }, [phase, matchThreshold, verificationTimeoutMs, finish]);
 
   const retry = () => {
     settledRef.current = false;
@@ -332,10 +307,8 @@ const FaceVerification = ({
     setBlinkDetected(false);
     setFaceMatch(false);
     setMatchDistance(null);
-    blinkDetectorRef.current.reset();
-    // Keep any already-captured reference descriptor (live-captured or from
-    // `referenceImage`) — startCamera() goes straight back to VERIFYING when
-    // one exists, so a failed attempt doesn't force a pointless re-capture.
+    // referenceDescriptorRef is kept — it was computed once from
+    // referenceImage and doesn't need recomputing on a retry.
     startCamera();
   };
 
@@ -345,23 +318,19 @@ const FaceVerification = ({
     onCancel?.();
   };
 
-  const faceStatusMessage = {
-    [FACE_STATUS.NONE]: 'Looking for your face...',
-    [FACE_STATUS.NO_FACE]: 'No face detected. Position your face in the frame.',
-    [FACE_STATUS.MULTIPLE_FACES]: 'Multiple faces detected. Only one person should be in frame.',
-    [FACE_STATUS.TOO_FAR]: 'Move closer to the camera.',
-    [FACE_STATUS.OK]: 'Face detected. Please blink naturally.',
-  }[faceStatus];
+  const faceStatusMessage = (() => {
+    if (faceStatus === FACE_STATUS.NONE) return 'Looking for your face...';
+    if (faceStatus === FACE_STATUS.NO_FACE) return 'No face detected. Look at the camera.';
+    if (faceStatus === FACE_STATUS.MULTIPLE_FACES) return 'Multiple faces detected. Only one person should be in frame.';
+    if (faceStatus === FACE_STATUS.TOO_FAR) return 'Move closer to the camera.';
+    // faceStatus === OK
+    if (blinkDetected && faceMatch) return 'Blink detected ✓  Face verified ✓';
+    if (blinkDetected && !faceMatch) return 'Blink detected ✓ — checking your face against your profile photo...';
+    if (faceMatch && !blinkDetected) return 'Face matched. Blink naturally to confirm liveness.';
+    return 'Look at the camera and blink naturally.';
+  })();
 
-  const captureStatusMessage = {
-    [FACE_STATUS.NONE]: 'Looking for your face...',
-    [FACE_STATUS.NO_FACE]: 'No face detected. Position your face in the frame.',
-    [FACE_STATUS.MULTIPLE_FACES]: 'Multiple faces detected. Only one person should be in frame.',
-    [FACE_STATUS.TOO_FAR]: 'Move closer to the camera.',
-    [FACE_STATUS.OK]: 'Face detected. Center yourself and capture your reference photo.',
-  }[faceStatus];
-
-  const showVideo = phase === PHASE.CAPTURE_REFERENCE || phase === PHASE.VERIFYING;
+  const showVideo = phase === PHASE.VERIFYING;
 
   return (
     <div className="face-verification">
@@ -396,7 +365,7 @@ const FaceVerification = ({
           <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2.5rem', color: 'var(--color-primary)' }} />
           <p className="text-muted mt-3 mb-0">
             {phase === PHASE.LOADING_MODELS && 'Loading face verification models...'}
-            {phase === PHASE.LOADING_REFERENCE && 'Processing reference image...'}
+            {phase === PHASE.LOADING_REFERENCE && 'Loading your profile photo...'}
             {phase === PHASE.REQUESTING_CAMERA && 'Requesting camera access...'}
           </p>
         </div>
@@ -407,62 +376,42 @@ const FaceVerification = ({
           <FontAwesomeIcon icon={phase === PHASE.CAMERA_ERROR ? faVideoSlash : faExclamationTriangle}
             style={{ fontSize: '2.5rem', color: 'var(--color-danger)' }} />
           <p className="text-muted mt-3 mb-3">{errorMessage}</p>
-          <button type="button" className="btn btn-primary" onClick={phase === PHASE.MODELS_ERROR ? () => window.location.reload() : startCamera}>
-            <FontAwesomeIcon icon={faRedo} /> Try Again
-          </button>
+          {phase !== PHASE.REFERENCE_ERROR && (
+            <button type="button" className="btn btn-primary" onClick={phase === PHASE.MODELS_ERROR ? () => window.location.reload() : startCamera}>
+              <FontAwesomeIcon icon={faRedo} /> Try Again
+            </button>
+          )}
+          {onCancel && (
+            <button type="button" className="btn btn-outline-secondary ms-2" onClick={cancel}>
+              Cancel
+            </button>
+          )}
         </div>
       )}
 
       {showVideo && (
         <div>
+          <p className="text-center text-muted mb-3" style={{ fontSize: '0.85rem' }}>
+            Verifying your face against your profile photo.
+          </p>
           <div className="d-flex justify-content-center gap-4 mb-3">
-            <StepIcon icon={faCamera} label="Position" active={faceStatus === FACE_STATUS.OK || phase === PHASE.VERIFYING} />
+            <StepIcon icon={faIdCard} label="Position" active={faceStatus === FACE_STATUS.OK} />
             <StepIcon icon={faEye} label="Blink" active={blinkDetected} />
             <StepIcon icon={faUserCheck} label="Match" active={faceMatch} />
           </div>
 
-          <p className="text-center text-muted mt-3 mb-1">
-            {phase === PHASE.CAPTURE_REFERENCE
-              ? (errorMessage || captureStatusMessage)
-              : faceStatusMessage}
-          </p>
-          {phase === PHASE.VERIFYING && matchDistance !== null && (
+          <p className="text-center text-muted mt-3 mb-1">{faceStatusMessage}</p>
+          {matchDistance !== null && (
             <p className="text-center mb-2" style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
               match distance: {matchDistance.toFixed(3)} (threshold {matchThreshold})
             </p>
           )}
 
-          <div className="text-center mt-3 d-flex justify-content-center gap-2">
-            {phase === PHASE.CAPTURE_REFERENCE && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={faceStatus === FACE_STATUS.NO_FACE || faceStatus === FACE_STATUS.MULTIPLE_FACES}
-                onClick={captureReference}
-              >
-                <FontAwesomeIcon icon={faCamera} /> Capture Reference Photo
-              </button>
-            )}
-            {onCancel && (
+          {onCancel && (
+            <div className="text-center mt-3">
               <button type="button" className="btn btn-outline-secondary" onClick={cancel}>
                 Cancel
               </button>
-            )}
-          </div>
-
-          {/* Reference-photo capture step also needs the "single face" detection
-              loop running so the Capture button + status text stay live. */}
-          {phase === PHASE.CAPTURE_REFERENCE && (
-            <ReferenceDetectionLoop
-              videoRef={videoRef}
-              onStatus={setFaceStatus}
-            />
-          )}
-
-          {referenceThumbnail && phase === PHASE.VERIFYING && (
-            <div className="text-center mt-3">
-              <small className="text-muted d-block mb-1">Reference</small>
-              <img src={referenceThumbnail} alt="Reference" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--color-primary)' }} />
             </div>
           )}
         </div>
@@ -472,7 +421,7 @@ const FaceVerification = ({
         <div className="text-center py-5">
           <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: 'var(--color-success)' }} />
           <h5 className="fw-bold mt-3" style={{ color: 'var(--color-success)' }}>Verification Successful</h5>
-          <p className="text-muted mb-0">Face matched and blink liveness confirmed.</p>
+          <p className="text-muted mb-0">Face matched your profile photo and blink liveness confirmed.</p>
         </div>
       )}
 
@@ -505,41 +454,6 @@ const StepIcon = ({ icon, label, active }) => (
 );
 StepIcon.propTypes = { icon: PropTypes.object.isRequired, label: PropTypes.string.isRequired, active: PropTypes.bool };
 
-// Lightweight polling loop used only during the reference-capture step, to
-// keep the "position your face" status accurate before descriptors matter.
-const ReferenceDetectionLoop = ({ videoRef, onStatus }) => {
-  useEffect(() => {
-    let cancelled = false;
-    let running = false;
-    const id = setInterval(async () => {
-      if (running || cancelled) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2) return;
-      running = true;
-      try {
-        const results = await detectFacesWithDescriptors(video, getDetectorOptions());
-        if (cancelled) return;
-        if (results.length === 0) onStatus(FACE_STATUS.NO_FACE);
-        else if (results.length > 1) onStatus(FACE_STATUS.MULTIPLE_FACES);
-        else {
-          const tooFar = results[0].detection.box.width / video.videoWidth < MIN_FACE_WIDTH_RATIO;
-          onStatus(tooFar ? FACE_STATUS.TOO_FAR : FACE_STATUS.OK);
-        }
-      } catch {
-        // ignore transient errors
-      } finally {
-        running = false;
-      }
-    }, DETECTION_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [videoRef, onStatus]);
-  return null;
-};
-ReferenceDetectionLoop.propTypes = { videoRef: PropTypes.object.isRequired, onStatus: PropTypes.func.isRequired };
-
 function drawOverlay(canvas, video, box, color) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -552,11 +466,11 @@ function drawOverlay(canvas, video, box, color) {
 }
 
 FaceVerification.propTypes = {
-  /** Optional pre-existing reference photo (data URL or URL). Omit to capture one live. */
+  /** Required: an existing photo of the person's face (data URL or same-origin URL) — e.g. the student's profile photo. Never captured/enrolled by this component. */
   referenceImage: PropTypes.string,
   /** Euclidean descriptor distance below which two faces are considered a match. */
   matchThreshold: PropTypes.number,
-  /** Called once with { success: true, distance, blinkDetected, faceMatch, capturedAt, referenceImage }. */
+  /** Called once with { success: true, distance, blinkDetected, faceMatch, capturedAt }. */
   onSuccess: PropTypes.func,
   /** Called once with { success: false, message, blinkDetected, faceMatch }. */
   onFailure: PropTypes.func,

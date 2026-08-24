@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import attendanceService from '../../services/attendanceService';
-import { useAuth } from '../../context/AuthContext';
-import { getReferenceImage, saveReferenceImage } from '../../utils/face/referenceStore';
+import outpassService from '../../services/outpassService';
 // face-api.js bundles TensorFlow.js (~1MB+); load it only when a student
 // actually starts marking attendance, not on every visit to this page.
 const FaceVerification = lazy(() => import('../../components/common/FaceVerification'));
@@ -19,11 +18,11 @@ import {
 const STEP_ORDER = ['face', 'wifi', 'location', 'biometric', 'done'];
 
 const AttendanceDashboard = () => {
-  const { user } = useAuth();
   const [todayStatus, setTodayStatus] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, percentage: 0 });
   const [history, setHistory] = useState([]);
+  const [profilePicture, setProfilePicture] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markingStep, setMarkingStep] = useState(null);
   const [stepMessage, setStepMessage] = useState('');
@@ -70,16 +69,18 @@ const AttendanceDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [todayRes, statsRes, historyRes, sessionRes] = await Promise.all([
+      const [todayRes, statsRes, historyRes, sessionRes, profileRes] = await Promise.all([
         attendanceService.getTodayStatus(),
         attendanceService.getStats(),
         attendanceService.getAttendanceHistory(),
         attendanceService.getActiveSession(),
+        outpassService.getStudentProfile(),
       ]);
       setTodayStatus(todayRes.data);
       setStats(statsRes.data);
       setHistory(historyRes.data.slice(0, 10));
       setActiveSession(sessionRes.data);
+      setProfilePicture(profileRes.data?.profilePicture || null);
     } catch {
       // errors handled per-request; failure is silent
     } finally {
@@ -88,23 +89,22 @@ const AttendanceDashboard = () => {
   };
 
   // Entry point for the "Mark Attendance" button — face verification runs
-  // first; the WiFi/location/biometric flow only starts once it succeeds.
+  // first, against the student's existing profile photo; the
+  // WiFi/location/biometric flow only starts once it succeeds.
   const handleStartMarking = () => {
     if (todayStatus) {
       toast.error('Attendance already marked for today');
+      return;
+    }
+    if (!profilePicture) {
+      toast.error('Profile photo is required for face verification. Please update your profile photo.');
       return;
     }
     setMarkingStep('face');
     setStepMessage('Verifying your identity...');
   };
 
-  const handleFaceVerified = (result) => {
-    // First-ever successful verification on this device enrolls the
-    // reference photo so future attendance marks skip straight to live
-    // verification instead of asking the student to recapture it.
-    if (user?.email && !getReferenceImage(user.email) && result.referenceImage) {
-      saveReferenceImage(user.email, result.referenceImage);
-    }
+  const handleFaceVerified = () => {
     proceedWithAttendance();
   };
 
@@ -299,7 +299,7 @@ const AttendanceDashboard = () => {
                     </div>
                   }>
                     <FaceVerification
-                      referenceImage={getReferenceImage(user?.email) || undefined}
+                      referenceImage={profilePicture}
                       onSuccess={handleFaceVerified}
                       onFailure={handleFaceFailed}
                       onCancel={handleFaceCancelled}

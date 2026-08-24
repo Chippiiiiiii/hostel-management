@@ -1,18 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import outpassService from '../../services/outpassService';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faIdCard, faArrowLeft, faRedo } from '@fortawesome/free-solid-svg-icons';
 import FaceVerificationWidget from '../../components/common/FaceVerification';
 
 // Demo/integration page for the browser-only face match + blink liveness
-// check. Nothing here talks to the backend — it's a self-contained showcase
-// of the <FaceVerification /> component that other flows (e.g. attendance)
-// can embed directly once a product decision is made on how the reference
-// face should be captured/stored server-side.
+// check. Nothing here talks to a face-recognition backend — verification
+// runs against the student's existing profile photo (same source the
+// attendance flow uses), and no webcam frame or biometric data ever leaves
+// the device.
 const FaceVerificationPage = () => {
+  const [loading, setLoading] = useState(true);
+  const [profilePicture, setProfilePicture] = useState(null);
   const [result, setResult] = useState(null);
   const [key, setKey] = useState(0); // bump to remount the widget for a fresh attempt
+
+  useEffect(() => {
+    outpassService.getStudentProfile()
+      .then((res) => setProfilePicture(res.data?.profilePicture || null))
+      .catch(() => toast.error('Failed to load profile photo'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSuccess = (res) => {
     setResult({ success: true, ...res });
@@ -58,7 +69,18 @@ const FaceVerificationPage = () => {
               )}
             </div>
             <div className="card-body">
-              {result ? (
+              {loading ? (
+                <LoadingSpinner message="Loading your profile photo..." />
+              ) : !profilePicture ? (
+                <div className="text-center py-4">
+                  <p className="text-danger fw-semibold mb-3">
+                    Profile photo is required for face verification. Please update your profile photo.
+                  </p>
+                  <Link to="/student/edit-profile" className="btn btn-primary">
+                    Update Profile Photo
+                  </Link>
+                </div>
+              ) : result ? (
                 <div className="text-center py-4">
                   {result.success ? (
                     <p className="text-success fw-semibold mb-0">
@@ -69,7 +91,12 @@ const FaceVerificationPage = () => {
                   )}
                 </div>
               ) : (
-                <FaceVerificationWidget key={key} onSuccess={handleSuccess} onFailure={handleFailure} />
+                <FaceVerificationWidget
+                  key={key}
+                  referenceImage={profilePicture}
+                  onSuccess={handleSuccess}
+                  onFailure={handleFailure}
+                />
               )}
             </div>
           </div>
