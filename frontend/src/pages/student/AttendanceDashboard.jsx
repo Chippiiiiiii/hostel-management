@@ -1,28 +1,19 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import attendanceService from '../../services/attendanceService';
-import outpassService from '../../services/outpassService';
-// face-api.js bundles TensorFlow.js (~1MB+); load it only when a student
-// actually starts marking attendance, not on every visit to this page.
-const FaceVerification = lazy(() => import('../../components/common/FaceVerification'));
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCalendarCheck, faArrowLeft, faWifi, faMapMarkerAlt, faFingerprint, faIdCard,
+  faCalendarCheck, faArrowLeft, faWifi, faMapMarkerAlt, faFingerprint,
   faCheckCircle, faTimesCircle, faSpinner, faPercentage, faCalendarAlt,
   faHistory, faBell,
 } from '@fortawesome/free-solid-svg-icons';
-
-// Marking steps run in this order; used both to drive the flow and to color
-// the step indicators (a step is "done" once markingStep has moved past it).
-const STEP_ORDER = ['face', 'wifi', 'location', 'biometric', 'done'];
 
 const AttendanceDashboard = () => {
   const [todayStatus, setTodayStatus] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, percentage: 0 });
   const [history, setHistory] = useState([]);
-  const [profilePicture, setProfilePicture] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markingStep, setMarkingStep] = useState(null);
   const [stepMessage, setStepMessage] = useState('');
@@ -69,18 +60,16 @@ const AttendanceDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [todayRes, statsRes, historyRes, sessionRes, profileRes] = await Promise.all([
+      const [todayRes, statsRes, historyRes, sessionRes] = await Promise.all([
         attendanceService.getTodayStatus(),
         attendanceService.getStats(),
         attendanceService.getAttendanceHistory(),
         attendanceService.getActiveSession(),
-        outpassService.getStudentProfile(),
       ]);
       setTodayStatus(todayRes.data);
       setStats(statsRes.data);
       setHistory(historyRes.data.slice(0, 10));
       setActiveSession(sessionRes.data);
-      setProfilePicture(profileRes.data?.profilePicture || null);
     } catch {
       // errors handled per-request; failure is silent
     } finally {
@@ -88,39 +77,13 @@ const AttendanceDashboard = () => {
     }
   };
 
-  // Entry point for the "Mark Attendance" button — face verification runs
-  // first, against the student's existing profile photo; the
-  // WiFi/location/biometric flow only starts once it succeeds.
-  const handleStartMarking = () => {
+  const handleMarkAttendance = async () => {
     if (todayStatus) {
       toast.error('Attendance already marked for today');
       return;
     }
-    if (!profilePicture) {
-      toast.error('Profile photo is required for face verification. Please update your profile photo.');
-      return;
-    }
-    setMarkingStep('face');
-    setStepMessage('Verifying your identity...');
-  };
 
-  const handleFaceVerified = () => {
-    proceedWithAttendance();
-  };
-
-  const handleFaceFailed = (result) => {
-    setMarkingStep(null);
-    setStepMessage('');
-    toast.error(result?.message || 'Face verification failed');
-  };
-
-  const handleFaceCancelled = () => {
-    setMarkingStep(null);
-    setStepMessage('');
-  };
-
-  const proceedWithAttendance = async () => {
-    // Step: Check WiFi
+    // Step 1: Check WiFi
     setMarkingStep('wifi');
     setStepMessage('Checking hostel WiFi connection...');
 
@@ -139,7 +102,7 @@ const AttendanceDashboard = () => {
       // WiFi check failed, continue to location
     }
 
-    // Step: Check Geolocation
+    // Step 2: Check Geolocation
     setMarkingStep('location');
     setStepMessage('WiFi not detected. Checking your location...');
 
@@ -154,7 +117,7 @@ const AttendanceDashboard = () => {
 
       setStepMessage(`Location verified (${locationResult.distance}m from hostel). Verifying identity...`);
 
-      // Step: Biometric verification
+      // Step 3: Biometric verification
       setMarkingStep('biometric');
       setStepMessage('Please complete biometric verification...');
 
@@ -183,12 +146,6 @@ const AttendanceDashboard = () => {
       setStepMessage('');
       toast.error(locError.message || 'Location check failed');
     }
-  };
-
-  const stepColor = (step) => {
-    if (markingStep === step) return 'var(--color-info)';
-    if (STEP_ORDER.indexOf(markingStep) > STEP_ORDER.indexOf(step)) return 'var(--color-success)';
-    return 'var(--color-text-light)';
   };
 
   if (loading) {
@@ -286,26 +243,6 @@ const AttendanceDashboard = () => {
                     Marked at {todayStatus.time} via {todayStatus.method === 'WIFI' ? 'WiFi' : 'Location + Biometric'}
                   </p>
                 </div>
-              ) : markingStep === 'face' ? (
-                <div>
-                  <h6 className="fw-semibold mb-3">
-                    <FontAwesomeIcon icon={faIdCard} className="me-2" style={{ color: 'var(--color-info)' }} />
-                    Step 1: Face Verification
-                  </h6>
-                  <Suspense fallback={
-                    <div className="py-4">
-                      <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
-                      <p className="text-muted mt-3 mb-0">Loading face verification...</p>
-                    </div>
-                  }>
-                    <FaceVerification
-                      referenceImage={profilePicture}
-                      onSuccess={handleFaceVerified}
-                      onFailure={handleFaceFailed}
-                      onCancel={handleFaceCancelled}
-                    />
-                  </Suspense>
-                </div>
               ) : markingStep ? (
                 <div>
                   {markingStep === 'done' ? (
@@ -317,19 +254,33 @@ const AttendanceDashboard = () => {
                   {/* Step indicators */}
                   <div className="d-flex justify-content-center gap-4 mb-3">
                     <div className="text-center">
-                      <FontAwesomeIcon icon={faIdCard} style={{ fontSize: '1.5rem', color: stepColor('face') }} />
-                      <small className="d-block text-muted">Face</small>
-                    </div>
-                    <div className="text-center">
-                      <FontAwesomeIcon icon={faWifi} style={{ fontSize: '1.5rem', color: stepColor('wifi') }} />
+                      <FontAwesomeIcon
+                        icon={faWifi}
+                        style={{
+                          fontSize: '1.5rem',
+                          color: markingStep === 'wifi' ? 'var(--color-info)' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
+                        }}
+                      />
                       <small className="d-block text-muted">WiFi</small>
                     </div>
                     <div className="text-center">
-                      <FontAwesomeIcon icon={faMapMarkerAlt} style={{ fontSize: '1.5rem', color: stepColor('location') }} />
+                      <FontAwesomeIcon
+                        icon={faMapMarkerAlt}
+                        style={{
+                          fontSize: '1.5rem',
+                          color: markingStep === 'location' ? 'var(--color-info)' : markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
+                        }}
+                      />
                       <small className="d-block text-muted">Location</small>
                     </div>
                     <div className="text-center">
-                      <FontAwesomeIcon icon={faFingerprint} style={{ fontSize: '1.5rem', color: stepColor('biometric') }} />
+                      <FontAwesomeIcon
+                        icon={faFingerprint}
+                        style={{
+                          fontSize: '1.5rem',
+                          color: markingStep === 'biometric' ? 'var(--color-info)' : markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
+                        }}
+                      />
                       <small className="d-block text-muted">Biometric</small>
                     </div>
                   </div>
@@ -342,12 +293,11 @@ const AttendanceDashboard = () => {
                   <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
                     Started by warden at {activeSession.startedAt}
                   </p>
-                  <button className="btn btn-primary btn-lg fw-semibold" onClick={handleStartMarking}>
+                  <button className="btn btn-primary btn-lg fw-semibold" onClick={handleMarkAttendance}>
                     <FontAwesomeIcon icon={faCalendarCheck} /> Mark Attendance
                   </button>
                   <div className="mt-3">
                     <small className="text-muted">
-                      <FontAwesomeIcon icon={faIdCard} /> Face &nbsp;|&nbsp;
                       <FontAwesomeIcon icon={faWifi} /> WiFi &nbsp;|&nbsp;
                       <FontAwesomeIcon icon={faMapMarkerAlt} /> Location + <FontAwesomeIcon icon={faFingerprint} /> Biometric
                     </small>
