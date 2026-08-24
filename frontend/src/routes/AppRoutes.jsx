@@ -1,8 +1,10 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PrivateRoute from './PrivateRoute';
 import Navbar from '../components/common/Navbar';
 import Layout from '../components/common/Layout';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -19,6 +21,9 @@ import OutpassDashboard from '../pages/student/OutpassDashboard';
 import AttendanceDashboard from '../pages/student/AttendanceDashboard';
 import StudentComplaints from '../pages/student/Complaints';
 import StudentAnnouncements from '../pages/student/Announcements';
+// face-api.js bundles TensorFlow.js (~1MB+), so this page is code-split and
+// only fetched when a student actually navigates to it.
+const FaceVerificationPage = lazy(() => import('../pages/student/FaceVerification'));
 
 // Warden Pages
 import WardenDashboard from '../pages/warden/Dashboard';
@@ -127,6 +132,18 @@ const AppRoutes = () => {
           element={
             <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
               <Layout><EditProfile /></Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/student/face-verification"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.STUDENT]}>
+              <Layout>
+                <Suspense fallback={<LoadingSpinner message="Loading face verification..." />}>
+                  <FaceVerificationPage />
+                </Suspense>
+              </Layout>
             </PrivateRoute>
           }
         />

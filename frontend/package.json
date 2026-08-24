@@ -16,14 +16,15 @@
     "axios": "^1.13.6",
     "bootstrap": "^5.3.8",
     "date-fns": "^4.1.0",
+    "face-api.js": "^0.22.2",
     "lucide-react": "^0.575.0",
+    "prop-types": "^15.8.1",
     "react": "^19.2.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.2",
     "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.13.1",
-    "prop-types": "^15.8.1"
+    "react-router-dom": "^7.13.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

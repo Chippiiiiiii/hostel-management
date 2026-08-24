@@ -1,15 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import attendanceService from '../../services/attendanceService';
+import { useAuth } from '../../context/AuthContext';
+import { getReferenceImage, saveReferenceImage } from '../../utils/face/referenceStore';
+// face-api.js bundles TensorFlow.js (~1MB+); load it only when a student
+// actually starts marking attendance, not on every visit to this page.
+const FaceVerification = lazy(() => import('../../components/common/FaceVerification'));
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCalendarCheck, faArrowLeft, faWifi, faMapMarkerAlt, faFingerprint,
+  faCalendarCheck, faArrowLeft, faWifi, faMapMarkerAlt, faFingerprint, faIdCard,
   faCheckCircle, faTimesCircle, faSpinner, faPercentage, faCalendarAlt,
   faHistory, faBell,
 } from '@fortawesome/free-solid-svg-icons';
 
+// Marking steps run in this order; used both to drive the flow and to color
+// the step indicators (a step is "done" once markingStep has moved past it).
+const STEP_ORDER = ['face', 'wifi', 'location', 'biometric', 'done'];
+
 const AttendanceDashboard = () => {
+  const { user } = useAuth();
   const [todayStatus, setTodayStatus] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, percentage: 0 });
@@ -77,13 +87,40 @@ const AttendanceDashboard = () => {
     }
   };
 
-  const handleMarkAttendance = async () => {
+  // Entry point for the "Mark Attendance" button — face verification runs
+  // first; the WiFi/location/biometric flow only starts once it succeeds.
+  const handleStartMarking = () => {
     if (todayStatus) {
       toast.error('Attendance already marked for today');
       return;
     }
+    setMarkingStep('face');
+    setStepMessage('Verifying your identity...');
+  };
 
-    // Step 1: Check WiFi
+  const handleFaceVerified = (result) => {
+    // First-ever successful verification on this device enrolls the
+    // reference photo so future attendance marks skip straight to live
+    // verification instead of asking the student to recapture it.
+    if (user?.email && !getReferenceImage(user.email) && result.referenceImage) {
+      saveReferenceImage(user.email, result.referenceImage);
+    }
+    proceedWithAttendance();
+  };
+
+  const handleFaceFailed = (result) => {
+    setMarkingStep(null);
+    setStepMessage('');
+    toast.error(result?.message || 'Face verification failed');
+  };
+
+  const handleFaceCancelled = () => {
+    setMarkingStep(null);
+    setStepMessage('');
+  };
+
+  const proceedWithAttendance = async () => {
+    // Step: Check WiFi
     setMarkingStep('wifi');
     setStepMessage('Checking hostel WiFi connection...');
 
@@ -102,7 +139,7 @@ const AttendanceDashboard = () => {
       // WiFi check failed, continue to location
     }
 
-    // Step 2: Check Geolocation
+    // Step: Check Geolocation
     setMarkingStep('location');
     setStepMessage('WiFi not detected. Checking your location...');
 
@@ -117,7 +154,7 @@ const AttendanceDashboard = () => {
 
       setStepMessage(`Location verified (${locationResult.distance}m from hostel). Verifying identity...`);
 
-      // Step 3: Biometric verification
+      // Step: Biometric verification
       setMarkingStep('biometric');
       setStepMessage('Please complete biometric verification...');
 
@@ -146,6 +183,12 @@ const AttendanceDashboard = () => {
       setStepMessage('');
       toast.error(locError.message || 'Location check failed');
     }
+  };
+
+  const stepColor = (step) => {
+    if (markingStep === step) return 'var(--color-info)';
+    if (STEP_ORDER.indexOf(markingStep) > STEP_ORDER.indexOf(step)) return 'var(--color-success)';
+    return 'var(--color-text-light)';
   };
 
   if (loading) {
@@ -243,6 +286,26 @@ const AttendanceDashboard = () => {
                     Marked at {todayStatus.time} via {todayStatus.method === 'WIFI' ? 'WiFi' : 'Location + Biometric'}
                   </p>
                 </div>
+              ) : markingStep === 'face' ? (
+                <div>
+                  <h6 className="fw-semibold mb-3">
+                    <FontAwesomeIcon icon={faIdCard} className="me-2" style={{ color: 'var(--color-info)' }} />
+                    Step 1: Face Verification
+                  </h6>
+                  <Suspense fallback={
+                    <div className="py-4">
+                      <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+                      <p className="text-muted mt-3 mb-0">Loading face verification...</p>
+                    </div>
+                  }>
+                    <FaceVerification
+                      referenceImage={getReferenceImage(user?.email) || undefined}
+                      onSuccess={handleFaceVerified}
+                      onFailure={handleFaceFailed}
+                      onCancel={handleFaceCancelled}
+                    />
+                  </Suspense>
+                </div>
               ) : markingStep ? (
                 <div>
                   {markingStep === 'done' ? (
@@ -254,33 +317,19 @@ const AttendanceDashboard = () => {
                   {/* Step indicators */}
                   <div className="d-flex justify-content-center gap-4 mb-3">
                     <div className="text-center">
-                      <FontAwesomeIcon
-                        icon={faWifi}
-                        style={{
-                          fontSize: '1.5rem',
-                          color: markingStep === 'wifi' ? 'var(--color-info)' : markingStep === 'location' || markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
-                        }}
-                      />
+                      <FontAwesomeIcon icon={faIdCard} style={{ fontSize: '1.5rem', color: stepColor('face') }} />
+                      <small className="d-block text-muted">Face</small>
+                    </div>
+                    <div className="text-center">
+                      <FontAwesomeIcon icon={faWifi} style={{ fontSize: '1.5rem', color: stepColor('wifi') }} />
                       <small className="d-block text-muted">WiFi</small>
                     </div>
                     <div className="text-center">
-                      <FontAwesomeIcon
-                        icon={faMapMarkerAlt}
-                        style={{
-                          fontSize: '1.5rem',
-                          color: markingStep === 'location' ? 'var(--color-info)' : markingStep === 'biometric' || markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
-                        }}
-                      />
+                      <FontAwesomeIcon icon={faMapMarkerAlt} style={{ fontSize: '1.5rem', color: stepColor('location') }} />
                       <small className="d-block text-muted">Location</small>
                     </div>
                     <div className="text-center">
-                      <FontAwesomeIcon
-                        icon={faFingerprint}
-                        style={{
-                          fontSize: '1.5rem',
-                          color: markingStep === 'biometric' ? 'var(--color-info)' : markingStep === 'done' ? 'var(--color-success)' : 'var(--color-text-light)',
-                        }}
-                      />
+                      <FontAwesomeIcon icon={faFingerprint} style={{ fontSize: '1.5rem', color: stepColor('biometric') }} />
                       <small className="d-block text-muted">Biometric</small>
                     </div>
                   </div>
@@ -293,11 +342,12 @@ const AttendanceDashboard = () => {
                   <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
                     Started by warden at {activeSession.startedAt}
                   </p>
-                  <button className="btn btn-primary btn-lg fw-semibold" onClick={handleMarkAttendance}>
+                  <button className="btn btn-primary btn-lg fw-semibold" onClick={handleStartMarking}>
                     <FontAwesomeIcon icon={faCalendarCheck} /> Mark Attendance
                   </button>
                   <div className="mt-3">
                     <small className="text-muted">
+                      <FontAwesomeIcon icon={faIdCard} /> Face &nbsp;|&nbsp;
                       <FontAwesomeIcon icon={faWifi} /> WiFi &nbsp;|&nbsp;
                       <FontAwesomeIcon icon={faMapMarkerAlt} /> Location + <FontAwesomeIcon icon={faFingerprint} /> Biometric
                     </small>
