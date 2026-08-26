@@ -37,6 +37,13 @@ import WardenAnnouncements from '../pages/warden/Announcements';
 // Security Pages
 import SecurityDashboard from '../pages/security/Dashboard';
 
+// Admin Pages
+import AdminDashboard from '../pages/admin/Dashboard';
+import AdminWardens from '../pages/admin/Wardens';
+import AdminSecurityGuards from '../pages/admin/SecurityGuards';
+import AdminRoomManagement from '../pages/admin/RoomManagement';
+import AdminYearHostels from '../pages/admin/YearHostels';
+
 // Other Pages
 import Unauthorized from '../pages/Unauthorized';
 import NotFound from '../pages/NotFound';
@@ -55,6 +62,8 @@ const AppRoutes = () => {
         return '/warden/dashboard';
       case ROLES.SECURITY_GUARD:
         return '/security/dashboard';
+      case ROLES.ADMIN:
+        return '/admin/dashboard';
       default:
         return '/login';
     }
@@ -212,6 +221,48 @@ const AppRoutes = () => {
           element={
             <PrivateRoute allowedRoles={[ROLES.SECURITY_GUARD]}>
               <Layout><SecurityDashboard /></Layout>
+            </PrivateRoute>
+          }
+        />
+
+        {/* Admin Routes */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.ADMIN]}>
+              <Layout><AdminDashboard /></Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin/wardens"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.ADMIN]}>
+              <Layout><AdminWardens /></Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin/security-guards"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.ADMIN]}>
+              <Layout><AdminSecurityGuards /></Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin/rooms"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.ADMIN]}>
+              <Layout><AdminRoomManagement /></Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin/year-hostels"
+          element={
+            <PrivateRoute allowedRoles={[ROLES.ADMIN]}>
+              <Layout><AdminYearHostels /></Layout>
             </PrivateRoute>
           }
         />

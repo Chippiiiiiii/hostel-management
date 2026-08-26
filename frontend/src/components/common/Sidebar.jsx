@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChartBar, faDoorOpen, faCalendarCheck, faExclamationTriangle,
   faBullhorn, faUserEdit, faUsers, faClipboardList, faShieldAlt, faIdCard,
+  faUserTie, faBuilding, faGraduationCap,
 } from '@fortawesome/free-solid-svg-icons';
 
 const navItems = {
@@ -26,6 +27,13 @@ const navItems = {
   ],
   SECURITY_GUARD: [
     { path: '/security/dashboard', icon: faChartBar, label: 'Dashboard' },
+  ],
+  ADMIN: [
+    { path: '/admin/dashboard', icon: faChartBar, label: 'Dashboard' },
+    { path: '/admin/wardens', icon: faUserTie, label: 'Wardens' },
+    { path: '/admin/security-guards', icon: faShieldAlt, label: 'Security Guards' },
+    { path: '/admin/rooms', icon: faBuilding, label: 'Room Management' },
+    { path: '/admin/year-hostels', icon: faGraduationCap, label: 'Year → Hostel Eligibility' },
   ],
 };
 

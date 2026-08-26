@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGraduationCap, faUserGraduate, faUserTie, faShieldAlt, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faGraduationCap, faUserGraduate, faUserTie, faShieldAlt, faArrowRight, faUserShield } from '@fortawesome/free-solid-svg-icons';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -43,6 +43,9 @@ const Login = () => {
           break;
         case 'SECURITY_GUARD':
           navigate('/security/dashboard');
+          break;
+        case 'ADMIN':
+          navigate('/admin/dashboard');
           break;
         default:
           navigate('/');
@@ -98,6 +101,7 @@ const Login = () => {
                     <option value="STUDENT"><FontAwesomeIcon icon={faUserGraduate} /> Student</option>
                     <option value="WARDEN"><FontAwesomeIcon icon={faUserTie} /> Warden</option>
                     <option value="SECURITY_GUARD"><FontAwesomeIcon icon={faShieldAlt} /> Security Guard</option>
+                    <option value="ADMIN"><FontAwesomeIcon icon={faUserShield} /> Admin</option>
                   </select>
                 </div>
 

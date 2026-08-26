@@ -7,11 +7,13 @@ import com.outpass.portal.dto.response.ApiResponse;
 import com.outpass.portal.dto.response.AuthResponse;
 import com.outpass.portal.dto.response.StudentSummaryResponse;
 import com.outpass.portal.exception.RateLimitExceededException;
+import com.outpass.portal.model.entity.Admin;
 import com.outpass.portal.model.entity.PasswordResetToken;
 import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
 import com.outpass.portal.model.enums.Role;
+import com.outpass.portal.repository.AdminRepository;
 import com.outpass.portal.repository.PasswordResetTokenRepository;
 import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.repository.StudentRepository;
@@ -21,6 +23,7 @@ import com.outpass.portal.service.AuthService;
 import com.outpass.portal.service.EmailService;
 import com.outpass.portal.service.RefreshTokenService;
 import com.outpass.portal.service.RoomService;
+import com.outpass.portal.util.EmailUtils;
 import com.outpass.portal.util.RateLimiterService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,6 +54,7 @@ public class AuthController {
     private final StudentRepository studentRepository;
     private final WardenRepository wardenRepository;
     private final SecurityGuardRepository securityGuardRepository;
+    private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final RateLimiterService rateLimiterService;
@@ -89,6 +93,16 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(roomService.getBuildingsPublic()));
     }
 
+    // Hostels available to a student registering in the given academic year (Admin-configured
+    // via /admin/year-hostels). The frontend uses this instead of /auth/buildings once a year
+    // is selected, so a hostel not allowed for that year is never even shown -- the backend
+    // still independently re-validates the choice in RoomService.allocateForRegistration.
+    @GetMapping("/hostels-by-year")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getHostelsByYear(
+            @RequestParam Integer year) {
+        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildingsPublicForYear(year)));
+    }
+
     @PostMapping("/student/register")
     public ResponseEntity<ApiResponse<StudentSummaryResponse>> registerStudent(
             @Valid @RequestBody StudentRegistrationRequest request, HttpServletRequest httpRequest) {
@@ -101,6 +115,7 @@ public class AuthController {
                 .passwordHash(request.getPassword())
                 .rollNo(request.getRollNo())
                 .department(request.getDepartment())
+                .year(request.getYear())
                 .hostel(request.getHostel())
                 .roomNumber(request.getRoomNumber())
                 .contactNumber(request.getContactNumber())
@@ -158,6 +173,21 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
+    @PostMapping("/admin/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginAdmin(@Valid @RequestBody LoginRequest request) {
+        AuthService.AuthResponse response = authService.login(request.getEmail(), request.getPassword(), Role.ADMIN);
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(response.accessToken)
+                .refreshToken(response.refreshToken)
+                .email(response.email)
+                .role(response.role)
+                .tokenType("Bearer")
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         AuthService.AuthResponse response = authService.refreshToken(request.getRefreshToken());
@@ -189,7 +219,7 @@ public class AuthController {
     @PostMapping("/resend-verification")
     public ResponseEntity<ApiResponse<Void>> resendVerification(
             @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
-        String email = normalizeEmail(request.get("email"));
+        String email = EmailUtils.normalize(request.get("email"));
         enforceRateLimit("authrl:resend-verification:" + clientIp(httpRequest) + ":" + email,
                 resendVerificationLimit);
         authService.resendVerification(email);
@@ -201,15 +231,16 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(
             @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
-        String email = normalizeEmail(request.get("email"));
+        String email = EmailUtils.normalize(request.get("email"));
         String role = request.getOrDefault("role", "STUDENT");
 
         enforceRateLimit("authrl:forgot-password:" + clientIp(httpRequest) + ":" + email, forgotPasswordLimit);
 
         String name = switch (role) {
-            case "WARDEN" -> wardenRepository.findByEmail(email).map(Warden::getName).orElse(null);
-            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(email).map(SecurityGuard::getName).orElse(null);
-            default -> studentRepository.findByEmail(email).map(Student::getName).orElse(null);
+            case "WARDEN" -> wardenRepository.findByEmailIgnoreCase(email).map(Warden::getName).orElse(null);
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmailIgnoreCase(email).map(SecurityGuard::getName).orElse(null);
+            case "ADMIN" -> adminRepository.findByEmailIgnoreCase(email).map(Admin::getName).orElse(null);
+            default -> studentRepository.findByEmailIgnoreCase(email).map(Student::getName).orElse(null);
         };
 
         // Deliberately do not reveal whether the account exists: only issue a token
@@ -254,19 +285,25 @@ public class AuthController {
 
         String encoded = passwordEncoder.encode(newPassword);
         switch (resetToken.getUserType()) {
-            case "WARDEN" -> wardenRepository.findByEmail(resetToken.getEmail())
+            case "WARDEN" -> wardenRepository.findByEmailIgnoreCase(resetToken.getEmail())
                     .ifPresent(w -> {
                         w.setPasswordHash(encoded);
                         wardenRepository.save(w);
                         refreshTokenService.deleteByUserIdAndUserType(w.getId(), "WARDEN");
                     });
-            case "SECURITY_GUARD" -> securityGuardRepository.findByEmail(resetToken.getEmail())
+            case "SECURITY_GUARD" -> securityGuardRepository.findByEmailIgnoreCase(resetToken.getEmail())
                     .ifPresent(s -> {
                         s.setPasswordHash(encoded);
                         securityGuardRepository.save(s);
                         refreshTokenService.deleteByUserIdAndUserType(s.getId(), "SECURITY_GUARD");
                     });
-            default -> studentRepository.findByEmail(resetToken.getEmail())
+            case "ADMIN" -> adminRepository.findByEmailIgnoreCase(resetToken.getEmail())
+                    .ifPresent(a -> {
+                        a.setPasswordHash(encoded);
+                        adminRepository.save(a);
+                        refreshTokenService.deleteByUserIdAndUserType(a.getId(), "ADMIN");
+                    });
+            default -> studentRepository.findByEmailIgnoreCase(resetToken.getEmail())
                     .ifPresent(s -> {
                         s.setPasswordHash(encoded);
                         studentRepository.save(s);
@@ -276,10 +313,6 @@ public class AuthController {
 
         resetTokenRepository.delete(resetToken);
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
-    }
-
-    private String normalizeEmail(String email) {
-        return email == null ? "" : email.trim().toLowerCase();
     }
 }
 

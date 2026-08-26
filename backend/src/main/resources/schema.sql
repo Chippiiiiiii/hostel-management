@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS students (
     password_hash VARCHAR(255) NOT NULL,
     roll_no VARCHAR(20) NOT NULL,
     department VARCHAR(100) NOT NULL,
+    -- Academic year of study (1-4). Nullable: existing students predate this field and are
+    -- not auto-backfilled -- see backend/db/backfill-student-year.sql.
+    year INT NULL,
     hostel VARCHAR(100) NOT NULL,
     room_number VARCHAR(20) NOT NULL,
     contact_number VARCHAR(15) NOT NULL,
@@ -36,12 +39,14 @@ CREATE TABLE IF NOT EXISTS students (
     CONSTRAINT uk_student_roll_no UNIQUE (roll_no),
     CONSTRAINT chk_student_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'),
     CONSTRAINT chk_student_contact CHECK (contact_number REGEXP '^[0-9]{10}$'),
-    CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
+    CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$'),
+    CONSTRAINT chk_student_year CHECK (year IS NULL OR year BETWEEN 1 AND 4)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Backfills the column for an already-existing `students` table (fresh installs
--- already get it from the CREATE TABLE above). Requires MySQL 8.0.29+.
+-- Backfills the columns for an already-existing `students` table (fresh installs
+-- already get them from the CREATE TABLE above). Requires MySQL 8.0.29+.
 ALTER TABLE students ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS year INT NULL;
 
 -- =====================================================
 -- TABLE: wardens
@@ -60,6 +65,9 @@ CREATE TABLE IF NOT EXISTS wardens (
     CONSTRAINT chk_warden_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Backfills the column for an already-existing `wardens` table. Requires MySQL 8.0.29+.
+ALTER TABLE wardens ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- =====================================================
 -- TABLE: security_guards
 -- =====================================================
@@ -75,6 +83,25 @@ CREATE TABLE IF NOT EXISTS security_guards (
     CONSTRAINT uk_security_email UNIQUE (email),
     CONSTRAINT chk_security_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'),
     CONSTRAINT chk_security_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfills the column for an already-existing `security_guards` table. Requires MySQL 8.0.29+.
+ALTER TABLE security_guards ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- =====================================================
+-- TABLE: admins
+-- =====================================================
+CREATE TABLE IF NOT EXISTS admins (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(15),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_admin_email UNIQUE (email),
+    CONSTRAINT chk_admin_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'),
+    CONSTRAINT chk_admin_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
@@ -125,11 +152,16 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(512) NOT NULL,
     user_id BIGINT NOT NULL,
-    user_type ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD') NOT NULL,
+    user_type ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL,
     expiry_date TIMESTAMP NOT NULL,
 
     CONSTRAINT uk_refresh_token UNIQUE (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Widens the enum for an already-existing `refresh_tokens` table (fresh installs already
+-- get 'ADMIN' from the CREATE TABLE above). Re-runnable; a MODIFY to the same definition
+-- is a no-op.
+ALTER TABLE refresh_tokens MODIFY COLUMN user_type ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL;
 
 -- =====================================================
 -- TABLE: tokens (revoked JWT blacklist)
@@ -179,7 +211,7 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 CREATE TABLE IF NOT EXISTS access_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
-    role ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD') NOT NULL,
+    role ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL,
     endpoint VARCHAR(255) NOT NULL,
     method VARCHAR(10) NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
@@ -189,6 +221,9 @@ CREATE TABLE IF NOT EXISTS access_logs (
     INDEX idx_access_timestamp (timestamp),
     INDEX idx_access_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Widens the enum for an already-existing `access_logs` table. Re-runnable.
+ALTER TABLE access_logs MODIFY COLUMN role ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL;
 
 -- =====================================================
 -- TABLE: buildings
@@ -211,11 +246,51 @@ CREATE TABLE IF NOT EXISTS rooms (
     floor_number INT NOT NULL,
     room_number VARCHAR(20) NOT NULL,
     max_members INT NOT NULL DEFAULT 6,
+    department_override VARCHAR(100) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_room_building FOREIGN KEY (building_id)
         REFERENCES buildings(id) ON DELETE CASCADE,
     CONSTRAINT uk_room_building_number UNIQUE (building_id, room_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfills the column for an already-existing `rooms` table. Requires MySQL 8.0.29+.
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS department_override VARCHAR(100) NULL;
+
+-- =====================================================
+-- TABLE: year_hostel_eligibility
+-- Admin-configured: which buildings/hostels a student in a given academic year (1-4) may
+-- select at registration. Absence of a (year, building) row means "not allowed" -- there
+-- is no unconfigured-year fallback.
+-- =====================================================
+CREATE TABLE IF NOT EXISTS year_hostel_eligibility (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    year INT NOT NULL,
+    building_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_year_hostel_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE,
+    CONSTRAINT uk_year_hostel UNIQUE (year, building_id),
+    CONSTRAINT chk_year_hostel_year CHECK (year BETWEEN 1 AND 4)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLE: floor_departments
+-- Default department per (building, floor). A room's own department_override (above)
+-- takes precedence over this when both are set; NULL override means "inherit this".
+-- =====================================================
+CREATE TABLE IF NOT EXISTS floor_departments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    building_id BIGINT NOT NULL,
+    floor_number INT NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_floor_department_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE,
+    CONSTRAINT uk_floor_department_building_floor UNIQUE (building_id, floor_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================

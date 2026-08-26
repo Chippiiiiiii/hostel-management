@@ -9,6 +9,8 @@ import java.util.Optional;
 @Repository
 public interface WardenRepository extends JpaRepository<Warden, Long> {
     Optional<Warden> findByEmail(String email);
+    Optional<Warden> findByEmailIgnoreCase(String email);
     boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
 }
 

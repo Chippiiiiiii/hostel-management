@@ -36,6 +36,10 @@ public class Student {
     @Column(nullable = false)
     private String department;
 
+    // Academic year of study (1-4). Nullable because existing students predate this field
+    // and are not automatically backfilled (see backend/db/backfill-student-year.sql).
+    private Integer year;
+
     @Column(nullable = false)
     private String hostel;
 

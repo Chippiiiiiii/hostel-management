@@ -47,6 +47,8 @@ const Navbar = ({ onToggleSidebar }) => {
         return '/warden/dashboard';
       case 'SECURITY_GUARD':
         return '/security/dashboard';
+      case 'ADMIN':
+        return '/admin/dashboard';
       default:
         return '/';
     }

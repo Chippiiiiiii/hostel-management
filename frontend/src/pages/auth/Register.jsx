@@ -9,6 +9,13 @@ import {
   faDoorOpen, faCheckCircle, faTimesCircle,
 } from '@fortawesome/free-solid-svg-icons';
 
+const YEAR_OPTIONS = [
+  { value: 1, label: '1st Year' },
+  { value: 2, label: '2nd Year' },
+  { value: 3, label: '3rd Year' },
+  { value: 4, label: '4th Year' },
+];
+
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -17,6 +24,7 @@ const Register = () => {
     confirmPassword: '',
     rollNo: '',
     department: '',
+    year: '',
     hostel: '',
     roomNumber: '',
     contactNumber: '',
@@ -35,13 +43,21 @@ const Register = () => {
   const [registeredEmail, setRegisteredEmail] = useState('');
   const { register } = useAuth();
 
+  // Which hostels are even selectable depends on the chosen academic year (Admin-configured
+  // via /admin/year-hostels) -- re-fetched from the backend whenever the year changes, so
+  // the frontend never has to (and never should, for a security-relevant restriction) filter
+  // a full hostel list locally.
   useEffect(() => {
-    fetchBuildings();
-  }, []);
+    if (formData.year) {
+      fetchHostelsForYear(formData.year);
+    } else {
+      setBuildings([]);
+    }
+  }, [formData.year]);
 
-  const fetchBuildings = async () => {
+  const fetchHostelsForYear = async (year) => {
     try {
-      const response = await api.get('/auth/buildings');
+      const response = await api.get('/auth/hostels-by-year', { params: { year } });
       setBuildings(response.data.data || []);
     } catch {
       setBuildings([]);
@@ -73,6 +89,13 @@ const Register = () => {
     setSelectedFloor('');
     setSelectedRoom('');
     setFormData({ ...formData, hostel: '', roomNumber: '' });
+  };
+
+  const handleYearChange = (year) => {
+    setSelectedBuilding(null);
+    setSelectedFloor('');
+    setSelectedRoom('');
+    setFormData({ ...formData, year: year ? parseInt(year) : '', hostel: '', roomNumber: '' });
   };
 
   const handleBuildingSelect = (buildingId) => {
@@ -122,6 +145,10 @@ const Register = () => {
     }
     if (!studentType) {
       toast.error('Please select student type');
+      return;
+    }
+    if (!formData.year) {
+      toast.error('Please select your academic year');
       return;
     }
     if (!formData.profilePicture) {
@@ -217,9 +244,9 @@ const Register = () => {
                   <small className="text-muted d-block mt-1">Click to upload (max 2MB)</small>
                 </div>
 
-                {/* Gender Selection */}
+                {/* Gender / Student Type / Academic Year Selection */}
                 <div className="row">
-                  <div className="col-md-6 mb-4">
+                  <div className="col-md-4 mb-4">
                     <label className="form-label">Gender *</label>
                     <select
                       className="form-select"
@@ -232,7 +259,7 @@ const Register = () => {
                       <option value="GIRL">Female</option>
                     </select>
                   </div>
-                  <div className="col-md-6 mb-4">
+                  <div className="col-md-4 mb-4">
                     <label className="form-label">Student Type *</label>
                     <select
                       className="form-select"
@@ -243,6 +270,20 @@ const Register = () => {
                       <option value="">Select student type</option>
                       <option value="NRI">NRI Student</option>
                       <option value="NORMAL">Regular Student</option>
+                    </select>
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="form-label">Academic Year *</label>
+                    <select
+                      className="form-select"
+                      value={formData.year}
+                      onChange={(e) => handleYearChange(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Academic Year</option>
+                      {YEAR_OPTIONS.map(y => (
+                        <option key={y.value} value={y.value}>{y.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -282,7 +323,7 @@ const Register = () => {
                 </div>
 
                 {/* Building & Room Selection */}
-                {formData.gender && studentType && (
+                {formData.gender && studentType && formData.year && (
                   <>
                     <hr className="my-4" />
                     <h5 className="fw-bold mb-3"><FontAwesomeIcon icon={faDoorOpen} /> Select Your Room</h5>
@@ -293,7 +334,10 @@ const Register = () => {
                       <div className="row g-2">
                         {filteredBuildings.length === 0 ? (
                           <div className="col-12">
-                            <p className="text-muted">No buildings available for {formData.gender === 'GIRL' ? 'Girls' : 'Boys'} ({studentType === 'NRI' ? 'NRI' : 'Regular'})</p>
+                            <p className="text-muted">
+                              No buildings available for {formData.gender === 'GIRL' ? 'Girls' : 'Boys'} ({studentType === 'NRI' ? 'NRI' : 'Regular'})
+                              in {YEAR_OPTIONS.find(y => y.value === formData.year)?.label}. Contact your administrator if this seems wrong.
+                            </p>
                           </div>
                         ) : (
                           filteredBuildings.map(b => (

@@ -5,7 +5,8 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 export const ROLES = {
   STUDENT: 'STUDENT',
   WARDEN: 'WARDEN',
-  SECURITY_GUARD: 'SECURITY_GUARD'
+  SECURITY_GUARD: 'SECURITY_GUARD',
+  ADMIN: 'ADMIN'
 };
 
 // Outpass Status

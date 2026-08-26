@@ -35,6 +35,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String email = tokenProvider.getEmailFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
+                // A disabled warden/security-guard account (see UserPrincipal.isEnabled())
+                // must lose access immediately, not just be blocked from future logins —
+                // leave the request unauthenticated so it falls through to a 401/403
+                // rather than honoring an already-issued token for a now-disabled account.
+                if (!userDetails.isEnabled()) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

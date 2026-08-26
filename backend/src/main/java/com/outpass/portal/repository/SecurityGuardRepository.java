@@ -9,6 +9,8 @@ import java.util.Optional;
 @Repository
 public interface SecurityGuardRepository extends JpaRepository<SecurityGuard, Long> {
     Optional<SecurityGuard> findByEmail(String email);
+    Optional<SecurityGuard> findByEmailIgnoreCase(String email);
     boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
 }
 

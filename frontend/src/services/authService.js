@@ -10,11 +10,13 @@ const authService = {
 
   // Login
   login: async (email, password, role) => {
-    const endpoint = role === 'STUDENT' 
-      ? '/auth/student/login' 
-      : role === 'WARDEN' 
-      ? '/auth/warden/login' 
-      : '/auth/security/login';
+    const endpoints = {
+      STUDENT: '/auth/student/login',
+      WARDEN: '/auth/warden/login',
+      SECURITY_GUARD: '/auth/security/login',
+      ADMIN: '/auth/admin/login',
+    };
+    const endpoint = endpoints[role] || '/auth/student/login';
 
     const response = await api.post(endpoint, { email, password });
     const { accessToken, refreshToken, email: userEmail, role: userRole } = response.data.data;

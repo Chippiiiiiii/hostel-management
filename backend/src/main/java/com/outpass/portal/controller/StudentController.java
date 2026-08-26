@@ -158,7 +158,11 @@ public class StudentController {
         StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
         Long roomId = ((Number) request.get("roomId")).longValue();
 
-        Map<String, Object> allocation = roomService.allocateStudent(
+        // Atomic: the "does this student already have a room" check and the allocation
+        // write happen inside one locked transaction (see RoomService.allocateStudentSelfService),
+        // so a concurrent warden/admin assignment can never be silently overwritten by this
+        // call — whichever wins the race, a staff-made assignment always wins over this one.
+        Map<String, Object> allocation = roomService.allocateStudentSelfService(
                 roomId, profile.getName(), profile.getRollNo(),
                 profile.getDepartment(), profile.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Room allocated successfully", allocation));

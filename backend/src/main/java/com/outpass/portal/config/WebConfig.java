@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
         // Apply rate limiting to all API endpoints
         // You can customize the paths as needed
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/student/**", "/warden/**", "/security/**")
+                .addPathPatterns("/student/**", "/warden/**", "/security/**", "/admin/**")
                 .excludePathPatterns("/auth/**", "/warden/rooms/**");
     }
 }

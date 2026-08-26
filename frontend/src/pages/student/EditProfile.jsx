@@ -70,7 +70,7 @@ const EditProfile = () => {
           }
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);
@@ -144,7 +144,9 @@ const EditProfile = () => {
       return;
     }
 
-    if (!selectedBuilding || !selectedFloor || !selectedRoom) {
+    // Room is locked once allocated (see room-locking rules) — only students without an
+    // allocation yet (a pre-existing edge case) still pick a room here.
+    if (!currentAllocation && (!selectedBuilding || !selectedFloor || !selectedRoom)) {
       toast.error('Please select your building, floor, and room');
       return;
     }
@@ -152,18 +154,19 @@ const EditProfile = () => {
     setSubmitting(true);
 
     try {
-      const building = buildings.find(b => b.id === parseInt(selectedBuilding));
-      const floor = building?.floors.find(f => f.floorNumber === parseInt(selectedFloor));
-      const room = floor?.rooms.find(r => r.id === parseInt(selectedRoom));
+      // Room fields (hostel/roomNumber) are never sent once locked — the backend rejects
+      // any attempt to change them through this endpoint regardless, but omitting them
+      // keeps the request honest about what this form can actually change.
       const updatedFormData = {
-        ...formData,
-        hostel: building?.name || formData.hostel,
-        roomNumber: room?.roomNumber || formData.roomNumber,
+        contactNumber: formData.contactNumber,
+        parentNumber: formData.parentNumber,
         ...(newPhoto ? { profilePicture: newPhoto } : {}),
       };
 
       await outpassService.updateStudentProfile(updatedFormData);
-      await roomService.allocateStudentSelf(parseInt(selectedRoom));
+      if (!currentAllocation) {
+        await roomService.allocateStudentSelf(parseInt(selectedRoom));
+      }
 
       toast.success('Profile updated successfully!');
       navigate('/student/dashboard');
@@ -235,68 +238,78 @@ const EditProfile = () => {
               </div>
 
               <form onSubmit={handleSubmit}>
-                {/* Room Selection */}
+                {/* Room Allocation */}
                 <h6 className="fw-bold mb-3"><FontAwesomeIcon icon={faBuilding} /> Room Allocation</h6>
 
-                {currentAllocation && (
-                  <div className="alert alert-success mb-3" style={{ fontSize: '0.9rem' }}>
-                    Currently in: <strong>{buildings.find(b => b.id === currentAllocation.buildingId)?.name}</strong>,
+                {currentAllocation ? (
+                  <div className="alert alert-info mb-3" style={{ fontSize: '0.9rem' }}>
+                    <FontAwesomeIcon icon={faLock} /> Your room:{' '}
+                    <strong>{buildings.find(b => b.id === currentAllocation.buildingId)?.name}</strong>,
                     Floor {currentAllocation.floor}, Room {currentAllocation.roomNumber}
+                    <div className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
+                      Rooms are locked after registration. Contact your warden or admin to change your room.
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
+                      You don't have a room on file yet — select one below. Once saved, this is locked and can only
+                      be changed by a warden or admin.
+                    </p>
+                    <div className="row mb-3">
+                      <div className="col-md-4 mb-3 mb-md-0">
+                        <label className="form-label"><FontAwesomeIcon icon={faBuilding} /> Building *</label>
+                        <select
+                          className="form-select"
+                          value={selectedBuilding}
+                          onChange={handleBuildingChange}
+                          required
+                        >
+                          <option value="">Select Building</option>
+                          {buildings.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-4 mb-3 mb-md-0">
+                        <label className="form-label"><FontAwesomeIcon icon={faLayerGroup} /> Floor *</label>
+                        <select
+                          className="form-select"
+                          value={selectedFloor}
+                          onChange={handleFloorChange}
+                          disabled={!selectedBuilding}
+                          required
+                        >
+                          <option value="">Select Floor</option>
+                          {availableFloors.map(f => (
+                            <option key={f.floorNumber} value={f.floorNumber}>Floor {f.floorNumber}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label"><FontAwesomeIcon icon={faDoorOpen} /> Room *</label>
+                        <select
+                          className="form-select"
+                          value={selectedRoom}
+                          onChange={(e) => setSelectedRoom(e.target.value)}
+                          disabled={!selectedFloor}
+                          required
+                        >
+                          <option value="">Select Room</option>
+                          {availableRooms.map(r => {
+                            const occupied = getRoomOccupantCount(r.id);
+                            const isFull = occupied >= r.maxMembers;
+                            return (
+                              <option key={r.id} value={r.id} disabled={isFull}>
+                                Room {r.roomNumber} ({occupied}/{r.maxMembers}){isFull ? ' - Full' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </div>
+                  </>
                 )}
-
-                <div className="row mb-3">
-                  <div className="col-md-4 mb-3 mb-md-0">
-                    <label className="form-label"><FontAwesomeIcon icon={faBuilding} /> Building *</label>
-                    <select
-                      className="form-select"
-                      value={selectedBuilding}
-                      onChange={handleBuildingChange}
-                      required
-                    >
-                      <option value="">Select Building</option>
-                      {buildings.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-4 mb-3 mb-md-0">
-                    <label className="form-label"><FontAwesomeIcon icon={faLayerGroup} /> Floor *</label>
-                    <select
-                      className="form-select"
-                      value={selectedFloor}
-                      onChange={handleFloorChange}
-                      disabled={!selectedBuilding}
-                      required
-                    >
-                      <option value="">Select Floor</option>
-                      {availableFloors.map(f => (
-                        <option key={f.floorNumber} value={f.floorNumber}>Floor {f.floorNumber}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label"><FontAwesomeIcon icon={faDoorOpen} /> Room *</label>
-                    <select
-                      className="form-select"
-                      value={selectedRoom}
-                      onChange={(e) => setSelectedRoom(e.target.value)}
-                      disabled={!selectedFloor}
-                      required
-                    >
-                      <option value="">Select Room</option>
-                      {availableRooms.map(r => {
-                        const occupied = getRoomOccupantCount(r.id);
-                        const isFull = occupied >= r.maxMembers;
-                        return (
-                          <option key={r.id} value={r.id} disabled={isFull}>
-                            Room {r.roomNumber} ({occupied}/{r.maxMembers}){isFull ? ' - Full' : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                </div>
 
                 <hr className="my-4" />
 

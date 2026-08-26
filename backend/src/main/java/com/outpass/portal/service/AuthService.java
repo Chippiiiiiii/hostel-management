@@ -1,17 +1,20 @@
 package com.outpass.portal.service;
 
+import com.outpass.portal.model.entity.Admin;
 import com.outpass.portal.model.entity.EmailVerificationToken;
 import com.outpass.portal.model.entity.RefreshToken;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.enums.Role;
 import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.entity.Warden;
+import com.outpass.portal.repository.AdminRepository;
 import com.outpass.portal.repository.EmailVerificationTokenRepository;
 import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.repository.StudentRepository;
 import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.security.JwtTokenProvider;
 import com.outpass.portal.security.UserPrincipal;
+import com.outpass.portal.util.EmailUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,9 +40,12 @@ public class AuthService {
     private final StudentRepository studentRepository;
     private final WardenRepository wardenRepository;
     private final SecurityGuardRepository securityGuardRepository;
+    private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final RoomService roomService;
+    private final EmailUniquenessService emailUniquenessService;
 
     @Transactional
     public AuthResponse login(String email, String password, Role role) {
@@ -57,7 +63,7 @@ public class AuthService {
 
         // Block unverified students (NULL means existing/seed account = allowed)
         if (role == Role.STUDENT) {
-            Student student = studentRepository.findByEmail(email).orElseThrow();
+            Student student = studentRepository.findByEmailIgnoreCase(email).orElseThrow();
             if (Boolean.FALSE.equals(student.getEmailVerified())) {
                 throw new RuntimeException("EMAIL_NOT_VERIFIED");
             }
@@ -97,7 +103,12 @@ public class AuthService {
 
     @Transactional
     public Student registerStudent(Student student) {
-        if (studentRepository.existsByEmail(student.getEmail())) {
+        student.setEmail(EmailUtils.normalize(student.getEmail()));
+
+        // Student, Warden, SecurityGuard, and Admin are separate tables, so email must be
+        // checked as a single global namespace here, not just against the students table —
+        // otherwise this email could collide with (and shadow) an existing staff account.
+        if (emailUniquenessService.existsAnywhere(student.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
         if (studentRepository.existsByRollNo(student.getRollNo())) {
@@ -107,6 +118,14 @@ public class AuthService {
         student.setEmailVerified(false);
         student.setPasswordHash(passwordEncoder.encode(student.getPasswordHash()));
         Student registered = studentRepository.save(student);
+
+        // Validates the real Room (capacity + effective department) and creates the
+        // RoomAllocation that locks the student into this room. Runs in the same
+        // transaction as the student insert above, so any failure here (room not
+        // found, full, or department mismatch) rolls back the whole registration
+        // rather than leaving a student without a valid room.
+        roomService.allocateForRegistration(registered);
+        studentRepository.save(registered);
 
         try {
             dispatchVerificationEmail(registered.getEmail(), registered.getName());
@@ -140,7 +159,7 @@ public class AuthService {
         // Deliberately does not throw when the account doesn't exist or is already
         // verified — the caller always returns the same generic response so this
         // endpoint can't be used to enumerate registered emails.
-        studentRepository.findByEmail(email).ifPresent(student -> {
+        studentRepository.findByEmailIgnoreCase(email).ifPresent(student -> {
             if (Boolean.FALSE.equals(student.getEmailVerified())) {
                 try {
                     dispatchVerificationEmail(email, student.getName());
@@ -175,14 +194,26 @@ public class AuthService {
             case WARDEN -> {
                 Warden warden = wardenRepository.findById(userId)
                         .orElseThrow(() -> new RuntimeException("Warden not found"));
+                if (Boolean.FALSE.equals(warden.getEnabled())) {
+                    throw new RuntimeException("This account has been disabled. Contact an administrator.");
+                }
                 yield UserPrincipal.create(warden.getId(), warden.getEmail(),
                         warden.getPasswordHash(), Role.WARDEN);
             }
             case SECURITY_GUARD -> {
                 SecurityGuard guard = securityGuardRepository.findById(userId)
                         .orElseThrow(() -> new RuntimeException("Security guard not found"));
+                if (Boolean.FALSE.equals(guard.getEnabled())) {
+                    throw new RuntimeException("This account has been disabled. Contact an administrator.");
+                }
                 yield UserPrincipal.create(guard.getId(), guard.getEmail(),
                         guard.getPasswordHash(), Role.SECURITY_GUARD);
+            }
+            case ADMIN -> {
+                Admin admin = adminRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("Admin not found"));
+                yield UserPrincipal.create(admin.getId(), admin.getEmail(),
+                        admin.getPasswordHash(), Role.ADMIN);
             }
         };
     }

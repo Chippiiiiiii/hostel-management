@@ -94,6 +94,35 @@ const roomService = {
     const response = await api.put(`/warden/rooms/buildings/${buildingId}/gender`, { gender });
     return { data: response.data.data };
   },
+
+  // ==================== Floor / room department ====================
+
+  setFloorDepartment: async (buildingId, floorNumber, department) => {
+    const response = await api.put(`/warden/rooms/buildings/${buildingId}/floors/${floorNumber}/department`, { department });
+    return { data: response.data.data };
+  },
+
+  setRoomDepartmentOverride: async (roomId, department) => {
+    await api.put(`/warden/rooms/${roomId}/department`, { department });
+  },
+
+  removeRoomDepartmentOverride: async (roomId) => {
+    await api.delete(`/warden/rooms/${roomId}/department`);
+  },
+
+  // ==================== Room number editing ====================
+
+  updateRoomNumber: async (roomId, roomNumber) => {
+    await api.put(`/warden/rooms/${roomId}/number`, { roomNumber });
+  },
+
+  // ==================== Bulk allocation ====================
+
+  bulkAllocate: async (buildingId, floorNumber) => {
+    const params = floorNumber !== null && floorNumber !== undefined ? { floorNumber } : {};
+    const response = await api.post(`/warden/rooms/buildings/${buildingId}/auto-allocate`, null, { params });
+    return { data: response.data.data };
+  },
 };
 
 export default roomService;

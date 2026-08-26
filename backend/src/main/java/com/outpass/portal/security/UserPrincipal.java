@@ -23,8 +23,16 @@ public class UserPrincipal implements UserDetails {
     private String password;
     private Role role;
     private Collection<? extends GrantedAuthority> authorities;
+    @Builder.Default
+    private boolean enabled = true;
 
     public static UserPrincipal create(Long id, String email, String password, Role role) {
+        return create(id, email, password, role, true);
+    }
+
+    // Warden/SecurityGuard accounts carry an explicit enabled/disabled flag (admin-managed);
+    // Student/Admin have no such flag and are always enabled.
+    public static UserPrincipal create(Long id, String email, String password, Role role, boolean enabled) {
         Collection<GrantedAuthority> authorities = Collections.singleton(
                 new SimpleGrantedAuthority("ROLE_" + role.name())
         );
@@ -35,6 +43,7 @@ public class UserPrincipal implements UserDetails {
                 .password(password)
                 .role(role)
                 .authorities(authorities)
+                .enabled(enabled)
                 .build();
     }
 
@@ -60,7 +69,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }
 

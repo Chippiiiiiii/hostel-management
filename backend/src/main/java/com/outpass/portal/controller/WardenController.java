@@ -346,6 +346,44 @@ public class WardenController {
         return ResponseEntity.ok(ApiResponse.success("Student removed from room", null));
     }
 
+    @PutMapping("/rooms/buildings/{buildingId}/floors/{floorNumber}/department")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> setFloorDepartment(
+            @PathVariable Long buildingId, @PathVariable Integer floorNumber,
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> result = roomService.setFloorDepartment(buildingId, floorNumber, request.get("department"));
+        return ResponseEntity.ok(ApiResponse.success("Floor department updated", result));
+    }
+
+    @PutMapping("/rooms/{roomId}/department")
+    public ResponseEntity<ApiResponse<Void>> setRoomDepartmentOverride(
+            @PathVariable Long roomId, @RequestBody Map<String, String> request) {
+        roomService.setRoomDepartmentOverride(roomId, request.get("department"));
+        return ResponseEntity.ok(ApiResponse.success("Room department override set", null));
+    }
+
+    @DeleteMapping("/rooms/{roomId}/department")
+    public ResponseEntity<ApiResponse<Void>> removeRoomDepartmentOverride(@PathVariable Long roomId) {
+        roomService.removeRoomDepartmentOverride(roomId);
+        return ResponseEntity.ok(ApiResponse.success("Room department override removed", null));
+    }
+
+    @PutMapping("/rooms/{roomId}/number")
+    public ResponseEntity<ApiResponse<Void>> updateRoomNumber(
+            @PathVariable Long roomId, @RequestBody Map<String, String> request) {
+        roomService.updateRoomNumber(roomId, request.get("roomNumber"));
+        return ResponseEntity.ok(ApiResponse.success("Room number updated", null));
+    }
+
+    @PostMapping("/rooms/buildings/{buildingId}/auto-allocate")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> autoAllocate(
+            @PathVariable Long buildingId,
+            @RequestParam(required = false) Integer floorNumber,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> result = roomService.bulkAllocate(
+                buildingId, floorNumber, userPrincipal.getEmail(), userPrincipal.getRole().name());
+        return ResponseEntity.ok(ApiResponse.success("Bulk allocation completed", result));
+    }
+
     @GetMapping("/students")
     public ResponseEntity<ApiResponse<List<StudentSummaryResponse>>> getStudents(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {

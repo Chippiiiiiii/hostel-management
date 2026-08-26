@@ -12,13 +12,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StudentProfileUpdateRequest {
-    
-    @NotBlank(message = "Hostel is required")
+
+    // Room is locked after registration (see StudentService.updateProfile): these are
+    // accepted only so an older client can still send its current, unchanged values;
+    // any attempt to actually change them here is rejected. Room changes go exclusively
+    // through the room allocation endpoints (self-service pre-lock, warden/admin after).
     private String hostel;
-    
-    @NotBlank(message = "Room number is required")
+
     private String roomNumber;
-    
+
     @NotBlank(message = "Contact number is required")
     @Pattern(regexp = "^[0-9]{10}$", message = "Contact number must be 10 digits")
     private String contactNumber;

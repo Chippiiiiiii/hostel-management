@@ -1,5 +1,6 @@
 package com.outpass.portal.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,11 +26,16 @@ public class Warden {
     @Column(nullable = false)
     private String email;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
     private String hostel;
     private String phone;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enabled = true;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

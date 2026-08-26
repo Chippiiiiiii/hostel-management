@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS students (
     password_hash VARCHAR(255) NOT NULL,
     roll_no VARCHAR(20) NOT NULL,
     department VARCHAR(100) NOT NULL,
+    year INT NULL,
     hostel VARCHAR(100) NOT NULL,
     room_number VARCHAR(20) NOT NULL,
     contact_number VARCHAR(15) NOT NULL,
@@ -36,7 +37,8 @@ CREATE TABLE IF NOT EXISTS students (
     CONSTRAINT uk_student_roll_no UNIQUE (roll_no),
     CONSTRAINT chk_student_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'),
     CONSTRAINT chk_student_contact CHECK (contact_number REGEXP '^[0-9]{10}$'),
-    CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
+    CONSTRAINT chk_student_parent CHECK (parent_number REGEXP '^[0-9]{10}$'),
+    CONSTRAINT chk_student_year CHECK (year IS NULL OR year BETWEEN 1 AND 4)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_student_email ON students(email);
@@ -53,6 +55,7 @@ CREATE TABLE IF NOT EXISTS wardens (
     password_hash VARCHAR(255) NOT NULL,
     hostel VARCHAR(100),
     phone VARCHAR(15),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_warden_email UNIQUE (email),
@@ -73,6 +76,7 @@ CREATE TABLE IF NOT EXISTS security_guards (
     password_hash VARCHAR(255) NOT NULL,
     hostel VARCHAR(100),
     phone VARCHAR(15),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uk_security_email UNIQUE (email),
@@ -82,6 +86,24 @@ CREATE TABLE IF NOT EXISTS security_guards (
 
 CREATE INDEX idx_security_email ON security_guards(email);
 CREATE INDEX idx_security_hostel ON security_guards(hostel);
+
+-- =====================================================
+-- TABLE: admins
+-- =====================================================
+CREATE TABLE IF NOT EXISTS admins (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(15),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uk_admin_email UNIQUE (email),
+    CONSTRAINT chk_admin_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'),
+    CONSTRAINT chk_admin_phone CHECK (phone IS NULL OR phone REGEXP '^[0-9]{10}$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_admin_email ON admins(email);
 
 -- =====================================================
 -- TABLE: outpasses
@@ -137,7 +159,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(512) NOT NULL,
     user_id BIGINT NOT NULL,
-    user_type ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD') NOT NULL,
+    user_type ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL,
     expiry_date TIMESTAMP NOT NULL,
 
     CONSTRAINT uk_refresh_token UNIQUE (token)
@@ -199,7 +221,7 @@ CREATE INDEX idx_email_verification_email ON email_verification_tokens(email);
 CREATE TABLE IF NOT EXISTS access_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
-    role ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD') NOT NULL,
+    role ENUM('STUDENT', 'WARDEN', 'SECURITY_GUARD', 'ADMIN') NOT NULL,
     endpoint VARCHAR(255) NOT NULL,
     method VARCHAR(10) NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
@@ -230,6 +252,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     floor_number INT NOT NULL,
     room_number VARCHAR(20) NOT NULL,
     max_members INT NOT NULL DEFAULT 6,
+    department_override VARCHAR(100) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_room_building FOREIGN KEY (building_id)
@@ -239,6 +262,45 @@ CREATE TABLE IF NOT EXISTS rooms (
 
 CREATE INDEX idx_room_building ON rooms(building_id);
 CREATE INDEX idx_room_floor ON rooms(building_id, floor_number);
+
+-- =====================================================
+-- TABLE: floor_departments
+-- Default department per (building, floor). A room's own department_override (above)
+-- takes precedence over this when both are set.
+-- =====================================================
+CREATE TABLE IF NOT EXISTS floor_departments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    building_id BIGINT NOT NULL,
+    floor_number INT NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_floor_department_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE,
+    CONSTRAINT uk_floor_department_building_floor UNIQUE (building_id, floor_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_floor_department_building ON floor_departments(building_id);
+
+-- =====================================================
+-- TABLE: year_hostel_eligibility
+-- Admin-configured: which buildings/hostels a student in a given academic year (1-4) may
+-- select at registration. Absence of a (year, building) row means "not allowed".
+-- =====================================================
+CREATE TABLE IF NOT EXISTS year_hostel_eligibility (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    year INT NOT NULL,
+    building_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_year_hostel_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE,
+    CONSTRAINT uk_year_hostel UNIQUE (year, building_id),
+    CONSTRAINT chk_year_hostel_year CHECK (year BETWEEN 1 AND 4)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_year_hostel_year ON year_hostel_eligibility(year);
 
 -- =====================================================
 -- TABLE: room_allocations
@@ -361,3 +423,10 @@ INSERT IGNORE INTO security_guards (name, email, password_hash, hostel, phone) V
 INSERT IGNORE INTO students (name, email, password_hash, roll_no, department, hostel, room_number, contact_number, parent_number) VALUES
 ('Yuvi', 'yuvi@mit.edu', '$2a$10$H3Ag5JR2uJDmBLCLY1NOSeLsHKcNvMmBNQlYPMsZbSqBMGojXWhnK', '2024503541', 'CT', 'NRI', '101', '9876543214', '9876543215'),
 ('Aravinth', 'arvi@mit.edu', '$2a$10$oE5clQ8xgcRrCzvcUabJoeupjQiNHr7MBR.n2ZQD0F0uJABDoJAa.', '2024503001', 'CT', 'Marutham', '201', '9876543216', '9876543217');
+
+-- BOOTSTRAP ADMIN (uncomment and edit before running) -- there is no self-registration
+-- endpoint for ADMIN accounts by design. Generate a BCrypt hash at strength 10
+-- (matching spring.security.password.strength) for your chosen password, then
+-- uncomment and edit the row below.
+-- INSERT IGNORE INTO admins (name, email, password_hash, phone) VALUES
+-- ('Admin Name', 'admin@example.com', '$2a$10$REPLACE_WITH_A_REAL_BCRYPT_HASH', NULL);

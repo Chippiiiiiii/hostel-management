@@ -53,4 +53,17 @@ INSERT IGNORE INTO students (name, email, password_hash, roll_no, department, ho
 ('Yuvi', 'yuvi@mit.edu', '$2a$10$H3Ag5JR2uJDmBLCLY1NOSeLsHKcNvMmBNQlYPMsZbSqBMGojXWhnK', '2024503541', 'CT', 'NRI', '101', '9876543214', '9876543215'),
 ('Aravinth', 'arvi@mit.edu', '$2a$10$oE5clQ8xgcRrCzvcUabJoeupjQiNHr7MBR.n2ZQD0F0uJABDoJAa.', '2024503001', 'CT', 'Marutham', '201', '9876543216', '9876543217');
 
+-- =====================================================
+-- BOOTSTRAP ADMIN (uncomment and edit before running)
+-- =====================================================
+-- There is deliberately no public self-registration endpoint for ADMIN accounts (only
+-- ADMIN can create WARDEN/SECURITY_GUARD accounts, and nothing creates the first ADMIN).
+-- Generate a BCrypt hash for your chosen password at the same strength as
+-- `spring.security.password.strength` in application.properties (10), e.g. with:
+--   node -e "console.log(require('bcryptjs').hashSync('yourPassword', 10))"
+-- then uncomment and edit the row below before running this file.
+--
+-- INSERT IGNORE INTO admins (name, email, password_hash, phone) VALUES
+-- ('Admin Name', 'admin@example.com', '$2a$10$REPLACE_WITH_A_REAL_BCRYPT_HASH', NULL);
+
 SELECT 'Seed data loaded (existing rows preserved).' AS Status;

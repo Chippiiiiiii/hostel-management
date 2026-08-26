@@ -34,6 +34,11 @@ public class Room {
     @Builder.Default
     private Integer maxMembers = 6;
 
+    // Null means "inherit the floor's default department" (see FloorDepartment).
+    // A non-null value here always wins over the floor default.
+    @Column(name = "department_override", length = 100)
+    private String departmentOverride;
+
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RoomAllocation> allocations;
 

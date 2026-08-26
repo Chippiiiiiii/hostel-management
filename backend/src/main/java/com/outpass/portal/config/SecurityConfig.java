@@ -54,6 +54,18 @@ public class SecurityConfig {
                         // Student endpoints
                         .requestMatchers("/student/**").hasRole("STUDENT")
 
+                        // Admin-only endpoints (warden/security-guard account management)
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // Room management is shared: ADMIN has full room control too, reusing
+                        // the warden room endpoints rather than a duplicate admin API. Also
+                        // covers the registered-students roster (used to pick a student when
+                        // assigning them to a room). These matchers must come before the
+                        // general "/warden/**" -> WARDEN-only rule below, since Spring Security
+                        // uses the first matching rule.
+                        .requestMatchers("/warden/rooms/**").hasAnyRole("WARDEN", "ADMIN")
+                        .requestMatchers("/warden/students").hasAnyRole("WARDEN", "ADMIN")
+
                         // Warden endpoints
                         .requestMatchers("/warden/**").hasRole("WARDEN")
 
