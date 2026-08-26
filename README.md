@@ -11,7 +11,7 @@ The Hostel Management System digitizes day-to-day hostel operations. Students se
 ## ✨ Features
 
 ### 👨‍🎓 Student Features
-- **Email Verification** — Self-registration requires clicking a link emailed on signup before login is allowed; unverified accounts can request a new link from the login screen
+
 - **Academic Year & Eligible Hostels** — Registration requires an explicit academic year (1st–4th, no default); only hostels an Admin has configured as eligible for that year are offered, and the backend independently rejects any other combination
 - **Room Locking** — Once a room is assigned at registration, a student cannot change it themselves (`PUT /student/profile` and `POST /student/rooms/allocate` both reject the attempt) — only a Warden or Admin can move them afterward
 - **Outpass Requests** — Submit outpass requests with reason, destination, dates, and contact details
