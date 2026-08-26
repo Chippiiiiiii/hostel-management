@@ -1,17 +1,19 @@
 # 🏨 Hostel Management System
 
-A comprehensive hostel management platform for educational institutions — handling student outpasses, attendance tracking, room allocation, complaint management, and announcements with role-based access for Students, Wardens, and Security Guards.
+A comprehensive hostel management platform for educational institutions — handling student outpasses, attendance tracking, department- and year-eligibility-aware room allocation, complaint management, and announcements with role-based access for Admins, Students, Wardens, and Security Guards.
 
 **🌐 Live:** [hostel-management-mit.vercel.app](https://hostel-management-mit.vercel.app)
 
 ## 📋 Overview
 
-The Hostel Management System digitizes day-to-day hostel operations. Students request outpasses, mark attendance via WiFi or geolocation + biometric verification, file complaints, and view announcements. Wardens manage approvals, monitor attendance, allocate rooms, and respond to complaints. Security guards verify departures and returns at hostel gates. The system provides real-time notifications, risk assessment for frequent outpass users, and exportable attendance reports.
+The Hostel Management System digitizes day-to-day hostel operations. Students select their academic year and an eligible hostel, register into a room, request outpasses, mark attendance via WiFi or geolocation + biometric verification, file complaints, and view announcements — once registered, a student's room is locked and can only be changed by a Warden or Admin. Wardens manage outpass approvals, monitor attendance, configure floor/room department eligibility, run bulk room allocation, and respond to complaints. Admins create and manage Warden/Security Guard accounts (with enable/disable), have full room-management control, and configure which hostels are available to students in each academic year. Security guards verify departures and returns at hostel gates. The system provides real-time notifications, risk assessment for frequent outpass users, and exportable attendance reports.
 
 ## ✨ Features
 
 ### 👨‍🎓 Student Features
 - **Email Verification** — Self-registration requires clicking a link emailed on signup before login is allowed; unverified accounts can request a new link from the login screen
+- **Academic Year & Eligible Hostels** — Registration requires an explicit academic year (1st–4th, no default); only hostels an Admin has configured as eligible for that year are offered, and the backend independently rejects any other combination
+- **Room Locking** — Once a room is assigned at registration, a student cannot change it themselves (`PUT /student/profile` and `POST /student/rooms/allocate` both reject the attempt) — only a Warden or Admin can move them afterward
 - **Outpass Requests** — Submit outpass requests with reason, destination, dates, and contact details
 - **Outpass Tracking** — Real-time status tracking (Pending → Approved/Declined → Departed → Completed)
 - **Cancel Pending Outpasses** — Cancel requests that haven't been reviewed yet
@@ -30,7 +32,9 @@ The Hostel Management System digitizes day-to-day hostel operations. Students re
 - **Student Risk Assessment** — Automatic risk level (Low/Medium/High) based on outpass frequency and on-time return rate
 - **Attendance System** — Start/stop attendance sessions, view real-time records, configure WiFi SSID/subnet and GPS coordinates
 - **Attendance Reports** — Date-range reports with CSV export
-- **Room Management** — Add/remove buildings, floors, rooms; allocate students; configure capacity; toggle building type (Regular/NRI) and gender (Boys/Girls)
+- **Room Management** — Add/remove buildings, floors, rooms; configure capacity; toggle building type (Regular/NRI) and gender (Boys/Girls); edit room numbers (stored values, never regenerated from the floor)
+- **Department Eligibility** — Set a default department per floor, override it per room (room override always wins), and view each room's effective department and whether it's inherited or overridden
+- **Manual & Bulk Room Allocation** — Move any student (including one already housed) into a specific room, or run "Auto Allocate Rooms" per building (optionally scoped to one floor) to assign every currently-unassigned matching-gender student into a department-eligible room with capacity — never moves an already-housed student; transactional and safe under concurrent allocation
 - **Student Directory** — View all registered students with search
 - **Complaint Management** — View all complaints, update status (Pending → In Progress → Resolved/Rejected), respond to students
 - **Announcements** — Post and manage notices for students
@@ -42,6 +46,13 @@ The Hostel Management System digitizes day-to-day hostel operations. Students re
 - **Active Outpasses** — View all currently active outpasses for the hostel
 - **Today's Schedule** — List of all outpasses scheduled for today
 - **Dashboard** — Overview of approved (ready to exit), departed, and today's outpass counts
+
+### 👑 Admin Features
+- **Warden & Security Guard Accounts** — Create accounts, view all accounts, enable/disable them at any time
+- **Immediate Lockout on Disable** — A disabled account is rejected on its very next request, not just at its next login — an already-issued access token is invalidated mid-session, not merely blocked from renewal
+- **Full Room Control** — Everything a Warden can do for rooms/floors/departments/bulk allocation (Admin reuses the same endpoints; there is no separate, duplicated room-management API)
+- **Year → Hostel Eligibility Configuration** — Add/remove which hostels are selectable by students in each academic year (1st–4th); duplicate mappings are rejected
+- **No self-registration** — There is deliberately no public endpoint to create an Admin account; the first one is bootstrapped via a manual SQL insert (see Getting Started)
 
 ## 🛠️ Tech Stack
 
@@ -84,6 +95,9 @@ hostel-management/
 │   │   │   ├── StudentStatsCard.jsx   #   Student stats + risk assessment card
 │   │   │   ├── ApproveCommentsModal.jsx
 │   │   │   └── DeclineReasonModal.jsx
+│   │   ├── components/room/
+│   │   │   └── RoomManagementPanel.jsx # Shared building/floor/room/department/bulk-allocate
+│   │   │                               #   UI, reused by both the Warden and Admin room pages
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx        # Authentication context provider
 │   │   ├── hooks/
@@ -93,6 +107,8 @@ hostel-management/
 │   │   │   ├── auth/                  # Login, Register, ForgotPassword, VerifyEmail
 │   │   │   ├── student/               # Student dashboard, outpass, attendance, complaints
 │   │   │   ├── warden/                # Warden dashboard, management pages
+│   │   │   ├── admin/                 # Admin dashboard, Wardens, SecurityGuards, RoomManagement,
+│   │   │   │                          #   YearHostels
 │   │   │   └── security/              # Security guard dashboard
 │   │   ├── routes/
 │   │   │   ├── AppRoutes.jsx          # Route definitions
@@ -103,7 +119,8 @@ hostel-management/
 │   │   │   ├── outpassService.js      #   Outpass + announcements API
 │   │   │   ├── attendanceService.js   #   Attendance + WiFi/geo/biometric
 │   │   │   ├── complaintService.js    #   Complaints API
-│   │   │   └── roomService.js         #   Room/building management API
+│   │   │   ├── roomService.js         #   Room/building/department/bulk-allocate API
+│   │   │   └── adminService.js        #   Warden/guard account + year-hostel config API
 │   │   ├── utils/constants.js         # API URL, roles, status enums
 │   │   ├── App.css                    # Global component styles
 │   │   └── index.css                  # Theme variables, dark mode
@@ -121,20 +138,22 @@ hostel-management/
 │   │   │   ├── AuthController.java
 │   │   │   ├── StudentController.java
 │   │   │   ├── WardenController.java
+│   │   │   ├── AdminController.java
 │   │   │   ├── SecurityGuardController.java
 │   │   │   └── HealthController.java
 │   │   ├── dto/                       # Request/Response DTOs
 │   │   │   ├── request/
 │   │   │   └── response/
 │   │   ├── model/
-│   │   │   ├── entity/                # JPA entities (17 tables)
-│   │   │   └── enums/                 # Role, OutpassStatus, ComplaintCategory, etc.
+│   │   │   ├── entity/                # JPA entities (20 tables)
+│   │   │   └── enums/                 # Role (incl. ADMIN), OutpassStatus, ComplaintCategory, etc.
 │   │   ├── repository/                # Spring Data JPA repositories
 │   │   ├── security/                  # JWT provider, auth filter, UserPrincipal
-│   │   ├── service/                   # Business logic layer
+│   │   ├── service/                   # Business logic layer (RoomService, AdminService,
+│   │   │                              #   EmailUniquenessService, HostelEligibilityService, etc.)
 │   │   ├── interceptor/               # Rate limit interceptor
 │   │   ├── exception/                 # Global exception handler
-│   │   └── util/                      # Rate limiter, subnet utils
+│   │   └── util/                      # Rate limiter, subnet utils, EmailUtils (email normalization)
 │   ├── src/main/resources/
 │   │   ├── application.properties     # App config with env-var overrides
 │   │   ├── schema.sql                 # Full local schema
@@ -142,7 +161,11 @@ hostel-management/
 │   │   ├── seed-data.sql              # Sample data (local)
 │   │   └── seed-cloud.sql             # Sample data (cloud)
 │   ├── db/
-│   │   └── schema-managed.sql         # Managed MySQL schema with indexes
+│   │   ├── schema-managed.sql         # Managed MySQL schema with indexes
+│   │   ├── backfill-room-allocations.sql # Manual, one-time: link pre-existing students'
+│   │   │                                 #   hostel/room strings to real RoomAllocation rows
+│   │   └── backfill-student-year.sql  # Optional manual aid: derive students.year from
+│   │                                   #   roll_no where possible (never guesses)
 │   └── Dockerfile                     # Multi-stage Docker build
 │
 ├── render.yaml                        # Render deployment blueprint
@@ -155,13 +178,16 @@ hostel-management/
 
 | Entity | Table | Description |
 |--------|-------|-------------|
-| **Student** | `students` | Student accounts with profile, hostel, room details |
-| **Warden** | `wardens` | Warden accounts assigned to specific hostels |
-| **SecurityGuard** | `security_guards` | Security guard accounts assigned to hostels |
+| **Student** | `students` | Student accounts with profile, academic year (1-4, nullable for pre-existing students), hostel, room details |
+| **Warden** | `wardens` | Warden accounts assigned to specific hostels; `enabled` flag (Admin-managed) |
+| **SecurityGuard** | `security_guards` | Security guard accounts assigned to hostels; `enabled` flag (Admin-managed) |
+| **Admin** | `admins` | Admin accounts — no self-registration; bootstrapped manually (see Getting Started) |
 | **Outpass** | `outpasses` | Outpass requests with full lifecycle tracking |
 | **Building** | `buildings` | Hostel buildings (type: Regular/NRI, gender: Boy/Girl) |
-| **Room** | `rooms` | Individual rooms within buildings |
-| **RoomAllocation** | `room_allocations` | Student-to-room assignments |
+| **Room** | `rooms` | Individual rooms within buildings; editable `room_number` (stored, never regenerated); optional `department_override` |
+| **FloorDepartment** | `floor_departments` | Default department per (building, floor); overridden by a room's own `department_override` when set |
+| **YearHostelEligibility** | `year_hostel_eligibility` | Admin-configured: which hostels a student in a given academic year (1-4) may select at registration |
+| **RoomAllocation** | `room_allocations` | Student-to-room assignments — presence of a row is what "locks" a student's room |
 | **RoomConfig** | `room_config` | Key-value settings for room management |
 | **AttendanceSession** | `attendance_sessions` | Warden-initiated attendance windows |
 | **AttendanceRecord** | `attendance_records` | Individual attendance marks |
@@ -177,7 +203,7 @@ hostel-management/
 
 | Enum | Values |
 |------|--------|
-| Role | `STUDENT`, `WARDEN`, `SECURITY_GUARD` |
+| Role | `STUDENT`, `WARDEN`, `SECURITY_GUARD`, `ADMIN` |
 | OutpassStatus | `PENDING`, `APPROVED`, `DECLINED`, `DEPARTED`, `COMPLETED`, `OVERDUE` |
 | ComplaintCategory | `PLUMBING`, `ELECTRICAL`, `CLEANLINESS`, `FURNITURE`, `INTERNET`, `NOISE`, `OTHER` |
 | ComplaintStatus | `PENDING`, `IN_PROGRESS`, `RESOLVED`, `REJECTED` |
@@ -193,26 +219,28 @@ All endpoints are prefixed with `/api`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/auth/student/register` | Register a student account |
+| POST | `/auth/student/register` | Register a student account — requires `year` (1-4); the chosen hostel/room is validated against year eligibility, department, and capacity, and email is checked for uniqueness across **all** account types (Student/Warden/SecurityGuard/Admin), not just students |
 | POST | `/auth/student/login` | Student login |
-| POST | `/auth/warden/login` | Warden login |
-| POST | `/auth/security/login` | Security guard login |
-| POST | `/auth/refresh` | Refresh JWT access token |
+| POST | `/auth/warden/login` | Warden login (rejected if the account is disabled) |
+| POST | `/auth/security/login` | Security guard login (rejected if the account is disabled) |
+| POST | `/auth/admin/login` | Admin login |
+| POST | `/auth/refresh` | Refresh JWT access token (also rejected if the account has since been disabled) |
 | POST | `/auth/logout` | Invalidate refresh tokens |
 | GET | `/auth/verify-email` | Verify a student's email via the token from the registration email |
 | POST | `/auth/resend-verification` | Resend the verification email (generic response either way — does not reveal if the email exists) |
-| POST | `/auth/forgot-password` | Request password reset (generic response either way — does not reveal if the email exists) |
+| POST | `/auth/forgot-password` | Request password reset (generic response either way — does not reveal if the email exists); supports all four account types via an explicit `role` field |
 | POST | `/auth/reset-password` | Reset password with token — also revokes all of that account's refresh tokens |
-| GET | `/auth/buildings` | Public building list (for registration) |
+| GET | `/auth/buildings` | Public building list (unfiltered — legacy/general use) |
+| GET | `/auth/hostels-by-year?year=` | Public building list filtered to hostels an Admin has configured as eligible for that academic year — what the registration page actually uses |
 
-Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verification`, `verify-email`) are rate-limited by client IP (and IP+email where applicable) — see the Rate Limiting section below.
+Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verification`, `verify-email`) are rate-limited by client IP (and IP+email where applicable) — see the Rate Limiting section below. Email lookups across all four account types are case-insensitive (`Test@gmail.com` and `test@gmail.com` are the same account).
 
 ### Student (`/student`) — requires `ROLE_STUDENT`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/student/profile` | Get student profile |
-| PUT | `/student/profile` | Update profile |
+| PUT | `/student/profile` | Update contact details/photo — hostel/room fields are not editable here; any attempt to change them is rejected (use the room-allocate endpoint instead, subject to the locking rule above) |
 | POST | `/student/outpass` | Create outpass request |
 | GET | `/student/outpass/history` | Get outpass history |
 | GET | `/student/outpass/{id}` | Get specific outpass |
@@ -226,7 +254,7 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
 | GET | `/student/attendance/location` | Get hostel GPS coordinates |
 | GET | `/student/rooms/buildings` | Get buildings for room selection |
 | GET | `/student/rooms/allocation` | Get own room allocation |
-| POST | `/student/rooms/allocate` | Self-allocate to a room |
+| POST | `/student/rooms/allocate` | Self-allocate to a room — **locked**: rejected (atomically, race-safe) once the student already has an allocation; only usable for a student who has none yet |
 | GET | `/student/rooms/roommates` | Get roommates |
 | GET | `/student/rooms/allocations` | Get all room allocations |
 | POST | `/student/complaints` | Submit a complaint |
@@ -234,6 +262,8 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
 | GET | `/student/announcements` | Get announcements |
 
 ### Warden (`/warden`) — requires `ROLE_WARDEN`
+
+All `/warden/rooms/**` endpoints below (and `GET /warden/students`) also accept `ROLE_ADMIN` — Admin reuses this exact API for its "full room control" rather than a duplicate endpoint set.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -266,8 +296,13 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
 | POST | `/warden/rooms/buildings/{id}/floors/{floor}/rooms` | Add room |
 | DELETE | `/warden/rooms/buildings/{id}/floors/{floor}/rooms/last` | Remove last room |
 | GET | `/warden/rooms/allocations` | All room allocations |
-| POST | `/warden/rooms/{roomId}/allocate` | Allocate student to room |
+| POST | `/warden/rooms/{roomId}/allocate` | Allocate/move a student into a room — works even if they already have one (this is the authorized override of the student-side room lock); rejects a department mismatch against the room's effective department |
 | DELETE | `/warden/rooms/allocations/{email}` | Remove allocation |
+| PUT | `/warden/rooms/{roomId}/number` | Edit a room's number — only the number field changes; floor/building are never touched |
+| PUT | `/warden/rooms/{roomId}/department` | Set a room's department override |
+| DELETE | `/warden/rooms/{roomId}/department` | Remove a room's department override (reverts to the floor default) |
+| PUT | `/warden/rooms/buildings/{id}/floors/{floor}/department` | Set a floor's default department |
+| POST | `/warden/rooms/buildings/{id}/auto-allocate` | Bulk-allocate every currently-unassigned matching-gender student in the building (optional `floorNumber` query param) into a department-eligible room with capacity — never moves an already-housed student; returns processed/assigned/remaining/rooms-used plus per-student reasons for anyone left unassigned |
 | GET | `/warden/students` | List all students |
 | GET | `/warden/complaints` | Get complaints (optional status filter) |
 | GET | `/warden/complaints/stats` | Complaint statistics |
@@ -275,6 +310,22 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
 | GET | `/warden/announcements` | Get announcements |
 | POST | `/warden/announcements` | Create announcement |
 | DELETE | `/warden/announcements/{id}` | Delete announcement |
+
+### Admin (`/admin`) — requires `ROLE_ADMIN`
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/admin/wardens` | Create a warden account |
+| GET | `/admin/wardens` | List all wardens (incl. enabled/disabled status) |
+| PUT | `/admin/wardens/{id}/status` | Enable/disable a warden — takes effect on that account's very next request, not just its next login |
+| POST | `/admin/security-guards` | Create a security guard account |
+| GET | `/admin/security-guards` | List all security guards |
+| PUT | `/admin/security-guards/{id}/status` | Enable/disable a security guard |
+| GET | `/admin/year-hostels` | Full year → allowed-hostels configuration (always includes all 4 years, even if unconfigured) |
+| POST | `/admin/year-hostels` | Add a hostel to a year's allowed list — rejects a duplicate mapping |
+| DELETE | `/admin/year-hostels/{year}/{buildingId}` | Remove a hostel from a year's allowed list |
+
+Room management for Admin is **not** duplicated here — see the note at the top of the Warden section above; Admin calls the same `/warden/rooms/**` endpoints.
 
 ### Security Guard (`/security`) — requires `ROLE_SECURITY_GUARD`
 
@@ -322,7 +373,13 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
    mysql -u root -p outpass_portal < src/main/resources/seed-data.sql
    ```
 
-5. **Create a `.env` file** in `backend/`
+5. **Bootstrap the first Admin account** — there is no self-registration for Admins. Generate a BCrypt hash for your chosen password at strength 10 (matching `spring.security.password.strength`), e.g.:
+   ```bash
+   node -e "console.log(require('bcryptjs').hashSync('yourPassword', 10))"
+   ```
+   Then uncomment and edit the `INSERT INTO admins (...)` template at the bottom of `src/main/resources/seed-data.sql` with that hash, and re-run it.
+
+6. **Create a `.env` file** in `backend/`
    ```env
    DB_HOST=localhost
    DB_PORT=3306
@@ -343,7 +400,7 @@ Unauthenticated endpoints above (`register`, `forgot-password`, `resend-verifica
    MAIL_PASSWORD=
    ```
 
-6. **Run the backend**
+7. **Run the backend**
    ```bash
    ./mvnw spring-boot:run
    ```
@@ -377,16 +434,20 @@ If you ran the seed data:
 | Security Guard | security1@mit.edu | security123 |
 | Student | student1@mit.edu | student123 |
 
+No Admin account is seeded by default — bootstrap one as described in step 5 above before trying to log in as Admin. And before students can meaningfully register, an Admin needs to configure at least one hostel per academic year under **Admin → Year → Hostel Eligibility** (`/admin/year-hostels`) — otherwise the registration page has nothing eligible to offer.
+
 ## 🔐 Authentication
 
 The app uses JWT-based authentication with access + refresh token flow:
 
-- **Access Token** — 24-hour expiry, sent as `Authorization: Bearer <token>` header. Stateless — not revocable before natural expiry (see note below)
+- **Access Token** — 24-hour expiry, sent as `Authorization: Bearer <token>` header. Role/enabled-status is re-checked against the database on **every request** (not trusted from the token's embedded claim), so a role change or account disable takes effect immediately — see the note below on the one case that's still bounded by token expiry
 - **Refresh Token** — 7-day expiry, stored in localStorage, auto-refreshed on 401 responses
-- **Role-based Access** — Routes and API endpoints are protected by role (`STUDENT`, `WARDEN`, `SECURITY_GUARD`)
+- **Role-based Access** — Routes and API endpoints are protected by role (`STUDENT`, `WARDEN`, `SECURITY_GUARD`, `ADMIN`), enforced entirely via URL-prefix matchers in `SecurityConfig` (no separate/duplicated authorization system)
+- **Global Email Uniqueness** — Student, Warden, SecurityGuard, and Admin are separate tables, but an email can only belong to one of them at a time (case-insensitively) — enforced by `EmailUniquenessService` on every account-creation path, so a colliding email can never silently shadow another account
+- **Warden/Security Guard Enable-Disable** — Admin-managed; a disabled account is rejected at login, at refresh-token renewal, **and** on every subsequent authenticated request via `JwtAuthenticationFilter` — an already-issued access token stops working immediately, it isn't just blocked from future logins
 - **Email Verification** — New student registrations must verify via an emailed link (24h expiry, single-use) before they can log in; pre-existing/seeded accounts are treated as already verified
 - **Password Reset** — Token-based password reset flow via email (15-minute expiry, single-use); a successful reset revokes all of that account's refresh tokens immediately, so any other logged-in session is forced to re-authenticate once its current access token expires
-- **Session revocation limits** — Because access tokens are stateless JWTs with no server-side revocation check, an access token issued *before* a password reset remains valid for up to its remaining ≤24h lifetime even after the reset. Only the ability to mint *new* access tokens (via refresh) is cut off immediately.
+- **Session revocation limits** — Because access tokens are stateless JWTs, an access token issued *before* a password reset remains valid for up to its remaining ≤24h lifetime even after the reset (this is distinct from the disable-lockout above, which *is* checked per-request). Only the ability to mint *new* access tokens (via refresh) is cut off immediately by a password reset.
 
 ## 📲 Attendance System
 
@@ -397,11 +458,22 @@ The attendance system supports two verification methods:
 
 Wardens start and stop attendance sessions. Students are notified in real-time via BroadcastChannel API, localStorage events, and browser Notification API.
 
+## 🏢 Room & Department Management
+
+- **Effective Department** — A room's department is `room.departmentOverride` if set, otherwise the default configured for its floor (`FloorDepartment`); if neither is set, the room has no department restriction. This single precedence rule is enforced everywhere a department needs to be checked (registration, manual allocation, bulk allocation).
+- **Room Locking** — A student's room is locked the moment a `RoomAllocation` row exists for them (created at registration, or by a Warden/Admin). The student-side allocate endpoint is atomic and race-safe: the "already allocated" check and the write happen under a pessimistic lock on the student's own row, so a concurrent Warden/Admin assignment can never be silently overwritten by the student's own request — whichever wins the race, a staff-made assignment always wins.
+- **Bulk Allocation** — Scoped to one building (required) with an optional single-floor filter. Only ever considers students with **zero** existing `RoomAllocation` rows; matches each student's department against the target room's effective department; respects remaining capacity; runs inside one transaction with every candidate room locked up front (ascending by ID, to avoid deadlocking against concurrent single-allocate calls). There is no "Reallocate All" (moving already-housed students) — that's an intentionally unimplemented future feature.
+- **Room Numbers** — Stored, editable values, never recalculated from the floor. New rooms default to `001, 002, …` on floor 0, `101, 102, …` on floor 1, etc., but a Warden/Admin can rename any room afterward; editing a number never changes its floor.
+
+## 🎓 Year-Based Hostel Eligibility
+
+Registration requires an explicit academic year (1st–4th, no default). Which hostels are then offered is entirely Admin-configured (`/admin/year-hostels`) — a `(year, building)` pair must exist for a hostel to be selectable, there is no "unconfigured year = anything allowed" fallback. The frontend fetches only the eligible list (`GET /auth/hostels-by-year`), but the backend independently re-validates the submitted `(year, hostel)` combination during registration regardless of what the frontend showed — a direct API call with a disallowed combination is rejected.
+
 ## ⚡ Rate Limiting
 
 ### Authenticated endpoints (per logged-in user)
 
-`/student/**`, `/warden/**`, `/security/**` (excluding `/warden/rooms/**`) are rate-limited per authenticated user by `RateLimitInterceptor`. These limits are hardcoded constants in `RateLimiterService`, not environment-configurable:
+`/student/**`, `/warden/**`, `/security/**`, `/admin/**` (excluding `/warden/rooms/**`, which Admin also calls) are rate-limited per authenticated user by `RateLimitInterceptor`. These limits are hardcoded constants in `RateLimiterService`, not environment-configurable:
 
 | Tier | Limit | Applies to |
 |------|-------|------------|
@@ -462,6 +534,13 @@ mysql -h <host> -P <port> -u <user> -p<password> --ssl-mode=REQUIRED <db_name> \
 ```
 
 The app uses `spring.jpa.hibernate.ddl-auto=update`, but tables should exist before first boot.
+
+**Upgrading an existing deployment** to a version with the Admin role/room-department/year-eligibility features: `ddl-auto=update` will add the new tables/columns automatically on next boot, **except** the `ENUM` columns on `refresh_tokens.user_type` and `access_logs.role`, which need a one-time manual migration first (Hibernate won't rewrite an existing column's type):
+```sql
+ALTER TABLE refresh_tokens MODIFY COLUMN user_type ENUM('STUDENT','WARDEN','SECURITY_GUARD','ADMIN') NOT NULL;
+ALTER TABLE access_logs MODIFY COLUMN role ENUM('STUDENT','WARDEN','SECURITY_GUARD','ADMIN') NOT NULL;
+```
+Then bootstrap the first Admin (see Getting Started) and optionally run `backend/db/backfill-room-allocations.sql` / `backend/db/backfill-student-year.sql` — both are manual, reviewable, and safe to skip.
 
 ### Backend (Render)
 
@@ -526,11 +605,13 @@ java -jar target/portal-0.0.1-SNAPSHOT.jar
 
 | File | Purpose |
 |------|---------|
-| `backend/src/main/resources/schema.sql` | Full local schema (16 tables + a daily `cleanup_expired_tokens` MySQL EVENT for `refresh_tokens`/`tokens`; the newer `password_reset_tokens`/`email_verification_tokens` are cleaned up in application code instead — see `TokenCleanupScheduler`) |
+| `backend/src/main/resources/schema.sql` | Full local schema (20 tables + a daily `cleanup_expired_tokens` MySQL EVENT for `refresh_tokens`/`tokens`; the newer `password_reset_tokens`/`email_verification_tokens` are cleaned up in application code instead — see `TokenCleanupScheduler`) |
 | `backend/src/main/resources/schema-cloud.sql` | Cloud-safe schema (no events/procedures) |
 | `backend/db/schema-managed.sql` | Managed MySQL with indexes + seed data |
-| `backend/src/main/resources/seed-data.sql` | Sample data for local development |
-| `backend/src/main/resources/seed-cloud.sql` | Sample data for cloud |
+| `backend/src/main/resources/seed-data.sql` | Sample data for local development, including the commented Admin bootstrap template |
+| `backend/src/main/resources/seed-cloud.sql` | Sample data for cloud, including the commented Admin bootstrap template |
+| `backend/db/backfill-room-allocations.sql` | Manual, one-time, idempotent: creates `RoomAllocation` rows for existing students whose `hostel`/`room_number` exactly match a real building/room, so they become "locked" like new registrations. Never writes `students.hostel`/`room_number`; unmatched students are reported for manual reconciliation, not guessed. Not auto-run. |
+| `backend/db/backfill-student-year.sql` | Optional manual aid: attempts to derive `students.year` from a 4-digit admission-year prefix in `roll_no`. Explicitly caveated as unverified against real roll-number formats — preview before running; never guess-clamps an out-of-range result. Not auto-run. |
 | `backend/src/main/resources/quick-start.sql` | Drop and recreate database (destructive) |
 | `backend/src/main/resources/reset.sql` | Drop database entirely (destructive) |
 
