@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminService from '../../services/adminService';
+import roomService from '../../services/roomService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,6 +11,7 @@ const emptyForm = { name: '', email: '', password: '', hostel: '', phone: '' };
 
 const Wardens = () => {
   const [wardens, setWardens] = useState([]);
+  const [buildings, setBuildings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -21,8 +23,12 @@ const Wardens = () => {
 
   const fetchData = async () => {
     try {
-      const { data } = await adminService.getWardens();
-      setWardens(data);
+      const [{ data: wardenData }, { data: buildingData }] = await Promise.all([
+        adminService.getWardens(),
+        roomService.getBuildings(),
+      ]);
+      setWardens(wardenData);
+      setBuildings(buildingData);
     } catch {
       toast.error('Failed to load wardens');
     } finally {
@@ -102,7 +108,12 @@ const Wardens = () => {
                     </div>
                     <div className="col-md-4">
                       <label className="form-label">Hostel</label>
-                      <input type="text" className="form-control" name="hostel" value={form.hostel} onChange={handleChange} placeholder="e.g. NRI" />
+                      <select className="form-select" name="hostel" value={form.hostel} onChange={handleChange}>
+                        <option value="">Select a building</option>
+                        {buildings.map(b => (
+                          <option key={b.id} value={b.name}>{b.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="col-md-4">
                       <label className="form-label">Phone</label>

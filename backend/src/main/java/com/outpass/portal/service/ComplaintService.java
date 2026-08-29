@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,6 +19,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ComplaintService {
+
+    private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     private final ComplaintRepository complaintRepository;
     private final StudentRepository studentRepository;
@@ -49,41 +52,45 @@ public class ComplaintService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAllComplaints() {
-        return complaintRepository.findAllByOrderByCreatedAtDesc()
+    public List<Map<String, Object>> getComplaintsByHostel(String hostel) {
+        return complaintRepository.findByHostelOrderByCreatedAtDesc(hostel)
                 .stream().map(this::mapComplaint).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getComplaintsByStatus(String status) {
-        return complaintRepository.findByStatusOrderByCreatedAtDesc(ComplaintStatus.valueOf(status))
+    public List<Map<String, Object>> getComplaintsByHostelAndStatus(String hostel, String status) {
+        return complaintRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, ComplaintStatus.valueOf(status))
                 .stream().map(this::mapComplaint).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> updateComplaintStatus(Long complaintId, String status, String wardenResponse, Long wardenId) {
+    public Map<String, Object> updateComplaintStatus(Long complaintId, String status, String wardenResponse, Long wardenId, String wardenHostel) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new RuntimeException("Complaint not found"));
+
+        if (!complaint.getHostel().equals(wardenHostel)) {
+            throw new RuntimeException("You can only respond to complaints from your own hostel");
+        }
 
         complaint.setStatus(ComplaintStatus.valueOf(status));
         if (wardenResponse != null && !wardenResponse.isBlank()) {
             complaint.setWardenResponse(wardenResponse);
         }
         complaint.setRespondedBy(wardenId);
-        complaint.setRespondedAt(LocalDateTime.now());
+        complaint.setRespondedAt(LocalDateTime.now(IST));
 
         complaintRepository.save(complaint);
         return mapComplaint(complaint);
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getStats() {
+    public Map<String, Object> getStatsByHostel(String hostel) {
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("total", complaintRepository.count());
-        stats.put("pending", complaintRepository.countByStatus(ComplaintStatus.PENDING));
-        stats.put("inProgress", complaintRepository.countByStatus(ComplaintStatus.IN_PROGRESS));
-        stats.put("resolved", complaintRepository.countByStatus(ComplaintStatus.RESOLVED));
-        stats.put("rejected", complaintRepository.countByStatus(ComplaintStatus.REJECTED));
+        stats.put("total", complaintRepository.countByHostel(hostel));
+        stats.put("pending", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.PENDING));
+        stats.put("inProgress", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.IN_PROGRESS));
+        stats.put("resolved", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.RESOLVED));
+        stats.put("rejected", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.REJECTED));
         return stats;
     }
 

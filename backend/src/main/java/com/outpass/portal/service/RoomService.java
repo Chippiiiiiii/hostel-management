@@ -22,19 +22,56 @@ public class RoomService {
     private final StudentRepository studentRepository;
     private final FloorDepartmentRepository floorDepartmentRepository;
     private final HostelEligibilityService hostelEligibilityService;
+    private final WardenRepository wardenRepository;
 
+    // wardenHostel == null means the caller is Admin (or another unrestricted staff role)
+    // and sees every hostel; a non-null value restricts results/mutations to the building
+    // whose name matches that hostel, since Building.name IS the hostel (see
+    // student.setHostel(room.getBuilding().getName()) in performAllocation below).
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getBuildings() {
-        List<Building> buildings = buildingRepository.findAll();
+    public List<Map<String, Object>> getBuildings(String wardenHostel) {
+        List<Building> buildings = buildingRepository.findAll().stream()
+                .filter(b -> wardenHostel == null || wardenHostel.equals(b.getName()))
+                .collect(Collectors.toList());
         return buildings.stream().map(this::mapBuilding).collect(Collectors.toList());
     }
 
+    private void verifyBuildingOwnership(Building building, String wardenHostel) {
+        if (wardenHostel != null && !wardenHostel.equals(building.getName())) {
+            throw new RuntimeException("You can only manage your own hostel");
+        }
+    }
+
+    private void verifyRoomOwnership(Room room, String wardenHostel) {
+        if (wardenHostel != null && !wardenHostel.equals(room.getBuilding().getName())) {
+            throw new RuntimeException("You can only manage rooms in your own hostel");
+        }
+    }
+
     @Transactional
-    public Map<String, Object> renameBuilding(Long buildingId, String newName) {
+    public Map<String, Object> renameBuilding(Long buildingId, String newName, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
+        String oldName = building.getName();
         building.setName(newName);
         buildingRepository.save(building);
+
+        // Warden.hostel and Student.hostel are free-text copies of the building name (see
+        // AdminService#createWarden and performAllocation below) -- every hostel-scoped
+        // query/authorization check in the app, including verifyBuildingOwnership/
+        // verifyRoomOwnership above, relies on that string staying in sync. Without this
+        // cascade, renaming a building would silently lock its own warden out and desync
+        // every already-allocated student's hostel field.
+        if (!oldName.equals(newName)) {
+            List<Warden> wardens = wardenRepository.findByHostel(oldName);
+            wardens.forEach(w -> w.setHostel(newName));
+            wardenRepository.saveAll(wardens);
+
+            List<Student> students = studentRepository.findByHostel(oldName);
+            students.forEach(s -> s.setHostel(newName));
+            studentRepository.saveAll(students);
+        }
         return mapBuilding(building);
     }
 
@@ -73,17 +110,19 @@ public class RoomService {
     }
 
     @Transactional
-    public void updateRoomMaxMembers(Long roomId, int maxMembers) {
+    public void updateRoomMaxMembers(Long roomId, int maxMembers, String wardenHostel) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
+        verifyRoomOwnership(room, wardenHostel);
         room.setMaxMembers(maxMembers);
         roomRepository.save(room);
     }
 
     @Transactional
-    public Map<String, Object> addFloor(Long buildingId) {
+    public Map<String, Object> addFloor(Long buildingId, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
 
         List<Room> existingRooms = roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(buildingId);
         int newFloorNumber = existingRooms.stream()
@@ -108,7 +147,10 @@ public class RoomService {
     }
 
     @Transactional
-    public void removeFloor(Long buildingId, int floorNumber) {
+    public void removeFloor(Long buildingId, int floorNumber, String wardenHostel) {
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         List<Room> rooms = roomRepository.findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(buildingId, floorNumber);
         for (Room room : rooms) {
             long occupants = allocationRepository.countByRoomId(room.getId());
@@ -122,9 +164,10 @@ public class RoomService {
     }
 
     @Transactional
-    public void addRoomToFloor(Long buildingId, int floorNumber) {
+    public void addRoomToFloor(Long buildingId, int floorNumber, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
 
         long currentCount = roomRepository.countByBuildingIdAndFloorNumber(buildingId, floorNumber);
         int newRoomIndex = (int) currentCount + 1;
@@ -142,7 +185,10 @@ public class RoomService {
     }
 
     @Transactional
-    public void removeLastRoomFromFloor(Long buildingId, int floorNumber) {
+    public void removeLastRoomFromFloor(Long buildingId, int floorNumber, String wardenHostel) {
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         List<Room> rooms = roomRepository.findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(buildingId, floorNumber);
         if (rooms.isEmpty()) return;
         Room last = rooms.get(rooms.size() - 1);
@@ -157,6 +203,39 @@ public class RoomService {
     public List<Map<String, Object>> getAllAllocations() {
         List<RoomAllocation> allocations = allocationRepository.findAll();
         return allocations.stream().map(this::mapAllocation).collect(Collectors.toList());
+    }
+
+    // Warden-facing equivalent of getAllAllocations(): a warden must only see the
+    // name/roll no/department/email of students allocated within their own hostel,
+    // not every hostel's roster. "Hostel" has no first-class column on Room/RoomAllocation
+    // — it is the owning Building's name (see student.setHostel(room.getBuilding().getName())
+    // above), so filter on that instead.
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAllocationsByHostel(String hostel) {
+        return allocationRepository.findAll().stream()
+                .filter(a -> hostel.equals(a.getRoom().getBuilding().getName()))
+                .map(this::mapAllocation)
+                .collect(Collectors.toList());
+    }
+
+    // Student-facing occupancy view: the self-service room picker only needs a per-room
+    // headcount to show which rooms have space, so this returns counts only rather than
+    // reusing getAllAllocations(), which exposes every student's name/roll no/department/
+    // email — full PII with no legitimate need in the student self-service flow.
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getRoomOccupancyForStudent(String excludeStudentEmail) {
+        Map<Long, Long> countsByRoomId = allocationRepository.findAll().stream()
+                .filter(a -> !a.getStudentEmail().equals(excludeStudentEmail))
+                .collect(Collectors.groupingBy(a -> a.getRoom().getId(), Collectors.counting()));
+
+        return countsByRoomId.entrySet().stream()
+                .map(entry -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("roomId", entry.getKey());
+                    map.put("occupantCount", entry.getValue());
+                    return map;
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -184,8 +263,9 @@ public class RoomService {
     // by the student-side lock enforced in allocateStudentSelfService below.
     @Transactional
     public Map<String, Object> allocateStudent(Long roomId, String name, String rollNo,
-                                                String department, String email) {
+                                                String department, String email, String wardenHostel) {
         Room room = lockRoom(roomId);
+        verifyRoomOwnership(room, wardenHostel);
         checkDepartmentEligibility(room, department);
         RoomAllocation allocation = performAllocation(room, name, rollNo, department, email, false);
         log.info("Room allocation changed: student={} -> building={} floor={} room={}",
@@ -317,7 +397,14 @@ public class RoomService {
     }
 
     @Transactional
-    public void removeAllocation(String studentEmail) {
+    public void removeAllocation(String studentEmail, String wardenHostel) {
+        if (wardenHostel != null) {
+            allocationRepository.findByStudentEmail(studentEmail).ifPresent(allocation -> {
+                if (!wardenHostel.equals(allocation.getRoom().getBuilding().getName())) {
+                    throw new RuntimeException("You can only manage allocations in your own hostel");
+                }
+            });
+        }
         allocationRepository.deleteByStudentEmail(studentEmail);
     }
 
@@ -342,9 +429,10 @@ public class RoomService {
     }
 
     @Transactional
-    public Map<String, Object> setFloorDepartment(Long buildingId, int floorNumber, String department) {
+    public Map<String, Object> setFloorDepartment(Long buildingId, int floorNumber, String department, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         if (department == null || department.isBlank()) {
             throw new RuntimeException("Department is required");
         }
@@ -364,8 +452,9 @@ public class RoomService {
     }
 
     @Transactional
-    public void setRoomDepartmentOverride(Long roomId, String department) {
+    public void setRoomDepartmentOverride(Long roomId, String department, String wardenHostel) {
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        verifyRoomOwnership(room, wardenHostel);
         if (department == null || department.isBlank()) {
             throw new RuntimeException("Department is required");
         }
@@ -375,8 +464,9 @@ public class RoomService {
     }
 
     @Transactional
-    public void removeRoomDepartmentOverride(Long roomId) {
+    public void removeRoomDepartmentOverride(Long roomId, String wardenHostel) {
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        verifyRoomOwnership(room, wardenHostel);
         room.setDepartmentOverride(null);
         roomRepository.save(room);
         log.info("Room department override removed (reverts to floor default): room={}", roomId);
@@ -387,8 +477,9 @@ public class RoomService {
     // Changes only the room's number; floorNumber/building are never read or written here,
     // so a number edit can never move a room to a different floor.
     @Transactional
-    public void updateRoomNumber(Long roomId, String newRoomNumber) {
+    public void updateRoomNumber(Long roomId, String newRoomNumber, String wardenHostel) {
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        verifyRoomOwnership(room, wardenHostel);
         String trimmed = newRoomNumber == null ? "" : newRoomNumber.trim();
         if (trimmed.isEmpty()) {
             throw new RuntimeException("Room number is required");
@@ -414,9 +505,10 @@ public class RoomService {
     // id) so this can't race with a concurrent single-allocate or another bulk-allocate call.
     @Transactional
     public Map<String, Object> bulkAllocate(Long buildingId, Integer floorNumber,
-                                             String initiatorEmail, String initiatorRole) {
+                                             String initiatorEmail, String initiatorRole, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
 
         List<Room> candidateRooms = floorNumber != null
                 ? roomRepository.findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(buildingId, floorNumber)
@@ -632,7 +724,10 @@ public class RoomService {
     }
 
     @Transactional
-    public void removeBuilding(Long buildingId) {
+    public void removeBuilding(Long buildingId, String wardenHostel) {
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         long allocations = allocationRepository.findAll().stream()
                 .filter(a -> a.getRoom().getBuilding().getId().equals(buildingId))
                 .count();
@@ -643,18 +738,20 @@ public class RoomService {
     }
 
     @Transactional
-    public Map<String, Object> updateBuildingGender(Long buildingId, String gender) {
+    public Map<String, Object> updateBuildingGender(Long buildingId, String gender, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         building.setGender(gender);
         buildingRepository.save(building);
         return mapBuilding(building);
     }
 
     @Transactional
-    public Map<String, Object> updateBuildingType(Long buildingId, String type) {
+    public Map<String, Object> updateBuildingType(Long buildingId, String type, String wardenHostel) {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Building not found"));
+        verifyBuildingOwnership(building, wardenHostel);
         building.setType(type);
         buildingRepository.save(building);
         return mapBuilding(building);

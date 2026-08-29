@@ -107,9 +107,8 @@ const EditProfile = () => {
   };
 
   const getRoomOccupantCount = (roomId) => {
-    return allocations.filter(
-      a => a.roomId === roomId && a.studentEmail !== profile?.email
-    ).length;
+    const entry = allocations.find(a => a.roomId === roomId);
+    return entry ? entry.occupantCount : 0;
   };
 
   const handleChange = (e) => {

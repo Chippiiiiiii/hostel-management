@@ -1,6 +1,7 @@
 package com.outpass.portal.service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,13 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class OutpassService {
+
+    // Student-submitted `date`/`returnDate` values come from a browser
+    // datetime-local input representing IST wall-clock time with no timezone
+    // offset attached. Comparing them against a bare LocalDateTime.now() (which
+    // resolves to the JVM/container default zone, not necessarily IST) would
+    // silently skew every date comparison below by the UTC-IST offset.
+    private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
     private final OutpassRepository outpassRepository;
     private final StudentRepository studentRepository;
@@ -59,8 +67,7 @@ public class OutpassService {
 
     @Transactional
     public void cancelOutpass(Long outpassId, Long studentId) {
-        Outpass outpass = outpassRepository.findById(outpassId)
-                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        Outpass outpass = lockOutpass(outpassId);
         if (!outpass.getStudent().getId().equals(studentId)) {
             throw new RuntimeException("Access denied");
         }
@@ -116,8 +123,7 @@ public class OutpassService {
 
     @Transactional
     public OutpassResponse approveOutpass(Long outpassId, String wardenHostel, Long wardenId, ApproveOutpassRequest request) {
-        Outpass outpass = outpassRepository.findById(outpassId)
-                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        Outpass outpass = lockOutpass(outpassId);
 
         if (outpass.getStatus() != OutpassStatus.PENDING) {
             throw new RuntimeException("Only pending outpasses can be approved");
@@ -130,15 +136,14 @@ public class OutpassService {
         outpass.setStatus(OutpassStatus.APPROVED);
         outpass.setWardenComments(request != null ? request.getComments() : null);
         outpass.setProcessedBy(wardenId);
-        outpass.setProcessedAt(LocalDateTime.now());
+        outpass.setProcessedAt(LocalDateTime.now(IST));
         Outpass updated = outpassRepository.save(outpass);
         return mapToResponse(updated);
     }
 
     @Transactional
     public OutpassResponse declineOutpass(Long outpassId, String wardenHostel, Long wardenId, DeclineOutpassRequest request) {
-        Outpass outpass = outpassRepository.findById(outpassId)
-                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        Outpass outpass = lockOutpass(outpassId);
 
         if (outpass.getStatus() != OutpassStatus.PENDING) {
             throw new RuntimeException("Only pending outpasses can be declined");
@@ -152,14 +157,14 @@ public class OutpassService {
         outpass.setDeclineReason(request.getDeclineReason());
         outpass.setWardenComments(request.getComments());
         outpass.setProcessedBy(wardenId);
-        outpass.setProcessedAt(LocalDateTime.now());
+        outpass.setProcessedAt(LocalDateTime.now(IST));
         Outpass updated = outpassRepository.save(outpass);
         return mapToResponse(updated);
     }
 
     @Transactional(readOnly = true)
     public List<OutpassResponse> getActiveOutpasses() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(IST);
         return outpassRepository.findByStatusOrderByCreatedAtDesc(OutpassStatus.APPROVED)
                 .stream()
                 .filter(o -> o.getDate().isBefore(now) && o.getReturnDate().isAfter(now))
@@ -169,7 +174,7 @@ public class OutpassService {
 
     @Transactional(readOnly = true)
     public List<OutpassResponse> getActiveOutpassesByHostel(String hostel) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(IST);
         return outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, OutpassStatus.APPROVED)
                 .stream()
                 .filter(o -> o.getDate().isBefore(now) && o.getReturnDate().isAfter(now))
@@ -179,8 +184,8 @@ public class OutpassService {
 
     @Transactional(readOnly = true)
     public List<OutpassResponse> getTodayOutpasses() {
-        LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
-        LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
+        LocalDateTime startOfDay = LocalDateTime.now(IST).withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime endOfDay = LocalDateTime.now(IST).withHour(23).withMinute(59).withSecond(59);
 
         return outpassRepository.findByDateBetween(startOfDay, endOfDay)
                 .stream()
@@ -191,8 +196,8 @@ public class OutpassService {
 
     @Transactional(readOnly = true)
     public List<OutpassResponse> getTodayOutpassesByHostel(String hostel) {
-        LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
-        LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59);
+        LocalDateTime startOfDay = LocalDateTime.now(IST).withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime endOfDay = LocalDateTime.now(IST).withHour(23).withMinute(59).withSecond(59);
 
         return outpassRepository.findByHostelAndDateBetween(hostel, startOfDay, endOfDay)
                 .stream()
@@ -211,6 +216,14 @@ public class OutpassService {
         }
         
         return mapToResponse(outpass);
+    }
+
+    // Locks the outpass row before any check-then-act status transition, preventing
+    // lost updates when two requests (e.g. approve + decline, or two departure scans)
+    // race against the same outpass.
+    private Outpass lockOutpass(Long outpassId) {
+        return outpassRepository.findByIdForUpdate(outpassId)
+                .orElseThrow(() -> new RuntimeException("Outpass not found"));
     }
 
     private OutpassResponse mapToResponse(Outpass outpass) {
@@ -246,8 +259,7 @@ public class OutpassService {
 
     @Transactional
     public OutpassResponse markDeparture(Long outpassId, Long securityGuardId, String hostel) {
-        Outpass outpass = outpassRepository.findById(outpassId)
-                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        Outpass outpass = lockOutpass(outpassId);
 
         if (!outpass.getHostel().equals(hostel)) {
             throw new RuntimeException("You can only verify outpasses from your own hostel");
@@ -261,7 +273,7 @@ public class OutpassService {
             throw new RuntimeException("Departure already verified");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(IST);
         outpass.setActualDepartureTime(now);
         outpass.setDepartureVerifiedBy(securityGuardId);
         outpass.setStatus(OutpassStatus.DEPARTED);
@@ -272,8 +284,7 @@ public class OutpassService {
 
     @Transactional
     public OutpassResponse markReturn(Long outpassId, Long securityGuardId, String hostel) {
-        Outpass outpass = outpassRepository.findById(outpassId)
-                .orElseThrow(() -> new RuntimeException("Outpass not found"));
+        Outpass outpass = lockOutpass(outpassId);
 
         if (!outpass.getHostel().equals(hostel)) {
             throw new RuntimeException("You can only verify outpasses from your own hostel");
@@ -287,7 +298,7 @@ public class OutpassService {
             throw new RuntimeException("Return already verified");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(IST);
         outpass.setActualReturnTime(now);
         outpass.setReturnVerifiedBy(securityGuardId);
 
@@ -313,9 +324,13 @@ public class OutpassService {
     }
 
     @Transactional(readOnly = true)
-    public StudentOutpassStatsResponse getStudentStatistics(Long studentId) {
+    public StudentOutpassStatsResponse getStudentStatistics(Long studentId, String wardenHostel) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        if (wardenHostel != null && !wardenHostel.equals(student.getHostel())) {
+            throw new RuntimeException("You can only view statistics for students in your own hostel");
+        }
 
         List<Outpass> allOutpasses = outpassRepository.findByStudentIdOrderByCreatedAtDesc(studentId);
 

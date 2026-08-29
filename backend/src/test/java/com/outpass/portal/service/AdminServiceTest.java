@@ -26,6 +26,7 @@ class AdminServiceTest {
 
     @Mock private com.outpass.portal.repository.WardenRepository wardenRepository;
     @Mock private com.outpass.portal.repository.SecurityGuardRepository securityGuardRepository;
+    @Mock private com.outpass.portal.repository.BuildingRepository buildingRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private EmailUniquenessService emailUniquenessService;
 
@@ -33,7 +34,7 @@ class AdminServiceTest {
 
     @BeforeEach
     void setUp() {
-        adminService = new AdminService(wardenRepository, securityGuardRepository, passwordEncoder, emailUniquenessService);
+        adminService = new AdminService(wardenRepository, securityGuardRepository, buildingRepository, passwordEncoder, emailUniquenessService);
     }
 
     private AdminCreateWardenRequest wardenRequest(String email) {
@@ -84,6 +85,8 @@ class AdminServiceTest {
     @Test
     void createWardenNormalizesEmailCaseBeforeCheckingAndStoring() {
         when(emailUniquenessService.existsAnywhere("newwarden@x.com")).thenReturn(false);
+        when(buildingRepository.findByName("NRI"))
+                .thenReturn(java.util.Optional.of(com.outpass.portal.model.entity.Building.builder().id(1L).name("NRI").build()));
         when(passwordEncoder.encode(anyString())).thenReturn("encoded");
         when(wardenRepository.save(any())).thenAnswer(inv -> {
             var w = inv.getArgument(0, com.outpass.portal.model.entity.Warden.class);
@@ -100,6 +103,8 @@ class AdminServiceTest {
     @Test
     void createWardenSucceedsWhenEmailIsGloballyUnique() {
         when(emailUniquenessService.existsAnywhere("free@x.com")).thenReturn(false);
+        when(buildingRepository.findByName("NRI"))
+                .thenReturn(java.util.Optional.of(com.outpass.portal.model.entity.Building.builder().id(1L).name("NRI").build()));
         when(passwordEncoder.encode(anyString())).thenReturn("encoded");
         when(wardenRepository.save(any())).thenAnswer(inv -> {
             var w = inv.getArgument(0, com.outpass.portal.model.entity.Warden.class);
@@ -110,5 +115,29 @@ class AdminServiceTest {
         adminService.createWarden(wardenRequest("free@x.com"));
 
         verify(wardenRepository).save(any());
+    }
+
+    @Test
+    void cannotCreateWardenWithHostelThatDoesNotMatchAnyBuilding() {
+        when(emailUniquenessService.existsAnywhere("newwarden2@x.com")).thenReturn(false);
+        when(buildingRepository.findByName("NRI")).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> adminService.createWarden(wardenRequest("newwarden2@x.com")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("does not match any existing building");
+
+        verify(wardenRepository, never()).save(any());
+    }
+
+    @Test
+    void cannotCreateSecurityGuardWithHostelThatDoesNotMatchAnyBuilding() {
+        when(emailUniquenessService.existsAnywhere("newguard@x.com")).thenReturn(false);
+        when(buildingRepository.findByName("NRI")).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> adminService.createSecurityGuard(guardRequest("newguard@x.com")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("does not match any existing building");
+
+        verify(securityGuardRepository, never()).save(any());
     }
 }

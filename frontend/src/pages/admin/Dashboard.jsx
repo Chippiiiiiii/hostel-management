@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import adminService from '../../services/adminService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserShield, faUserTie, faShieldAlt, faBuilding, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 
@@ -16,7 +17,7 @@ const AdminDashboard = () => {
         setWardenCount(wardens.data.length);
         setGuardCount(guards.data.length);
       })
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load dashboard counts'))
       .finally(() => setLoading(false));
   }, []);
 

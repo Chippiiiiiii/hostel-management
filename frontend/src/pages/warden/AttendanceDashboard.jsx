@@ -58,7 +58,7 @@ const WardenAttendanceDashboard = () => {
         setAttendanceConfig(configRes.data);
       }
     } catch {
-      // silent — individual section errors surface via toast if needed
+      toast.error('Failed to load attendance data');
     } finally {
       setLoading(false);
     }

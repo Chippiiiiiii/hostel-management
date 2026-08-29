@@ -18,6 +18,7 @@ import com.outpass.portal.dto.response.StudentOutpassStatsResponse;
 import com.outpass.portal.dto.response.StudentSummaryResponse;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.entity.Warden;
+import com.outpass.portal.model.enums.Role;
 import com.outpass.portal.repository.AttendanceRecordRepository;
 import com.outpass.portal.repository.RoomAllocationRepository;
 import com.outpass.portal.repository.StudentRepository;
@@ -51,13 +52,17 @@ public class WardenController {
     private final AnnouncementRepository announcementRepository;
 
     @GetMapping("/dashboard/stats")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardStats() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardStats(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("totalStudents", studentRepository.count());
-        stats.put("allocatedStudents", roomAllocationRepository.count());
-        stats.put("todayAttendance", attendanceRecordRepository.countByDate(
-                LocalDate.now(ZoneId.of("Asia/Kolkata"))));
-        Map<String, Object> complaintStats = complaintService.getStats();
+        stats.put("totalStudents", studentRepository.countByHostel(warden.getHostel()));
+        stats.put("allocatedStudents", roomAllocationRepository.countByRoom_Building_Name(warden.getHostel()));
+        stats.put("todayAttendance", attendanceRecordRepository.countByDateAndStudent_Hostel(
+                LocalDate.now(ZoneId.of("Asia/Kolkata")), warden.getHostel()));
+        Map<String, Object> complaintStats = complaintService.getStatsByHostel(warden.getHostel());
         stats.put("pendingComplaints", complaintStats.getOrDefault("pending", 0));
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
@@ -161,7 +166,9 @@ public class WardenController {
     public ResponseEntity<ApiResponse<StudentOutpassStatsResponse>> getStudentStats(
             @PathVariable Long studentId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        StudentOutpassStatsResponse stats = outpassService.getStudentStatistics(studentId);
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        StudentOutpassStatsResponse stats = outpassService.getStudentStatistics(studentId, warden.getHostel());
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
@@ -188,8 +195,11 @@ public class WardenController {
 
     @GetMapping("/attendance/session/{sessionId}/records")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSessionRecords(
-            @PathVariable Long sessionId) {
-        List<Map<String, Object>> records = attendanceService.getSessionRecords(sessionId);
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<Map<String, Object>> records = attendanceService.getSessionRecords(sessionId, warden.getHostel());
         return ResponseEntity.ok(ApiResponse.success(records));
     }
 
@@ -211,10 +221,15 @@ public class WardenController {
 
     @GetMapping("/attendance/report")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAttendanceReport(
-            @RequestParam String from, @RequestParam String to) {
+            @RequestParam String from, @RequestParam String to,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
         LocalDate fromDate = LocalDate.parse(from);
         LocalDate toDate = LocalDate.parse(to);
-        var records = attendanceRecordRepository.findByDateBetweenOrderByDateDescMarkedAtDesc(fromDate, toDate);
+        var records = attendanceRecordRepository.findByDateBetweenOrderByDateDescMarkedAtDesc(fromDate, toDate)
+                .stream().filter(r -> warden.getHostel().equals(r.getStudent().getHostel()))
+                .collect(java.util.stream.Collectors.toList());
         List<Map<String, Object>> result = records.stream().map(r -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("date", r.getDate().toString());
@@ -231,35 +246,61 @@ public class WardenController {
 
     // ==================== Rooms ====================
 
+    // Shared with Admin's Room Management page (see SecurityConfig: /warden/rooms/**
+    // permits both WARDEN and ADMIN). A warden's "hostel" IS a Building's name (see
+    // student.setHostel(room.getBuilding().getName()) in RoomService), so every
+    // building/floor/room/allocation mutation below must be confined to the calling
+    // warden's own building; null means unrestricted (Admin manages every hostel).
+    private String resolveWardenHostel(UserPrincipal userPrincipal) {
+        if (userPrincipal.getRole() != Role.WARDEN) {
+            return null;
+        }
+        return wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"))
+                .getHostel();
+    }
+
     @GetMapping("/rooms/buildings")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBuildings() {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings()));
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBuildings(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings(resolveWardenHostel(userPrincipal))));
     }
 
     @PutMapping("/rooms/buildings/{id}/rename")
     public ResponseEntity<ApiResponse<Map<String, Object>>> renameBuilding(
-            @PathVariable Long id, @RequestBody Map<String, String> request) {
-        Map<String, Object> building = roomService.renameBuilding(id, request.get("name"));
+            @PathVariable Long id, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> building = roomService.renameBuilding(id, request.get("name"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building renamed", building));
     }
 
     @PutMapping("/rooms/buildings/{id}/type")
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateBuildingType(
-            @PathVariable Long id, @RequestBody Map<String, String> request) {
-        Map<String, Object> building = roomService.updateBuildingType(id, request.get("type"));
+            @PathVariable Long id, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> building = roomService.updateBuildingType(id, request.get("type"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building type updated", building));
     }
 
     @PutMapping("/rooms/buildings/{id}/gender")
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateBuildingGender(
-            @PathVariable Long id, @RequestBody Map<String, String> request) {
-        Map<String, Object> building = roomService.updateBuildingGender(id, request.get("gender"));
+            @PathVariable Long id, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> building = roomService.updateBuildingGender(id, request.get("gender"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building gender updated", building));
     }
 
+    // Creating a brand-new hostel/building has no existing owner to scope by, and this
+    // app's model is one warden per existing hostel (assigned at warden-creation time) —
+    // there's no legitimate warden workflow that needs to spin up an entirely new
+    // building, so this is Admin-only.
     @PostMapping("/rooms/buildings")
     public ResponseEntity<ApiResponse<Map<String, Object>>> addBuilding(
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        if (userPrincipal.getRole() != Role.ADMIN) {
+            throw new RuntimeException("Only an admin can add a new hostel building");
+        }
         Map<String, Object> building = roomService.addBuilding(
                 request.get("name"),
                 request.get("type"),
@@ -268,8 +309,9 @@ public class WardenController {
     }
 
     @DeleteMapping("/rooms/buildings/{id}")
-    public ResponseEntity<ApiResponse<Void>> removeBuilding(@PathVariable Long id) {
-        roomService.removeBuilding(id);
+    public ResponseEntity<ApiResponse<Void>> removeBuilding(
+            @PathVariable Long id, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.removeBuilding(id, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building removed", null));
     }
 
@@ -291,86 +333,108 @@ public class WardenController {
 
     @PutMapping("/rooms/{roomId}/max-members")
     public ResponseEntity<ApiResponse<Void>> updateRoomMaxMembers(
-            @PathVariable Long roomId, @RequestBody Map<String, Integer> request) {
-        roomService.updateRoomMaxMembers(roomId, request.get("maxMembers"));
+            @PathVariable Long roomId, @RequestBody Map<String, Integer> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.updateRoomMaxMembers(roomId, request.get("maxMembers"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room capacity updated", null));
     }
 
     @PostMapping("/rooms/buildings/{buildingId}/floors")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> addFloor(@PathVariable Long buildingId) {
-        Map<String, Object> floor = roomService.addFloor(buildingId);
+    public ResponseEntity<ApiResponse<Map<String, Object>>> addFloor(
+            @PathVariable Long buildingId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> floor = roomService.addFloor(buildingId, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor added", floor));
     }
 
     @DeleteMapping("/rooms/buildings/{buildingId}/floors/{floorNumber}")
     public ResponseEntity<ApiResponse<Void>> removeFloor(
-            @PathVariable Long buildingId, @PathVariable Integer floorNumber) {
-        roomService.removeFloor(buildingId, floorNumber);
+            @PathVariable Long buildingId, @PathVariable Integer floorNumber,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.removeFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor removed", null));
     }
 
     @PostMapping("/rooms/buildings/{buildingId}/floors/{floorNumber}/rooms")
     public ResponseEntity<ApiResponse<Void>> addRoom(
-            @PathVariable Long buildingId, @PathVariable Integer floorNumber) {
-        roomService.addRoomToFloor(buildingId, floorNumber);
+            @PathVariable Long buildingId, @PathVariable Integer floorNumber,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.addRoomToFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room added", null));
     }
 
     @DeleteMapping("/rooms/buildings/{buildingId}/floors/{floorNumber}/rooms/last")
     public ResponseEntity<ApiResponse<Void>> removeLastRoom(
-            @PathVariable Long buildingId, @PathVariable Integer floorNumber) {
-        roomService.removeLastRoomFromFloor(buildingId, floorNumber);
+            @PathVariable Long buildingId, @PathVariable Integer floorNumber,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.removeLastRoomFromFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room removed", null));
     }
 
     @GetMapping("/rooms/allocations")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations() {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getAllAllocations()));
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        // Shared with Admin's Room Management page (see SecurityConfig: /warden/rooms/**
+        // permits both WARDEN and ADMIN) — admins have no Warden row to scope by, and are
+        // meant to see allocations across every hostel, so only narrow the result for wardens.
+        List<Map<String, Object>> allocations = userPrincipal.getRole() == Role.WARDEN
+                ? roomService.getAllocationsByHostel(wardenRepository.findById(userPrincipal.getId())
+                        .orElseThrow(() -> new RuntimeException("Warden not found"))
+                        .getHostel())
+                : roomService.getAllAllocations();
+        return ResponseEntity.ok(ApiResponse.success(allocations));
     }
 
     @PostMapping("/rooms/{roomId}/allocate")
     public ResponseEntity<ApiResponse<Map<String, Object>>> allocateStudent(
-            @PathVariable Long roomId, @RequestBody Map<String, String> request) {
+            @PathVariable Long roomId, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Map<String, Object> allocation = roomService.allocateStudent(
                 roomId,
                 request.get("name"),
                 request.get("rollNo"),
                 request.get("department"),
-                request.get("email"));
+                request.get("email"),
+                resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Student allocated", allocation));
     }
 
     @DeleteMapping("/rooms/allocations/{email}")
-    public ResponseEntity<ApiResponse<Void>> removeAllocation(@PathVariable String email) {
-        roomService.removeAllocation(email);
+    public ResponseEntity<ApiResponse<Void>> removeAllocation(
+            @PathVariable String email, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.removeAllocation(email, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Student removed from room", null));
     }
 
     @PutMapping("/rooms/buildings/{buildingId}/floors/{floorNumber}/department")
     public ResponseEntity<ApiResponse<Map<String, Object>>> setFloorDepartment(
             @PathVariable Long buildingId, @PathVariable Integer floorNumber,
-            @RequestBody Map<String, String> request) {
-        Map<String, Object> result = roomService.setFloorDepartment(buildingId, floorNumber, request.get("department"));
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> result = roomService.setFloorDepartment(
+                buildingId, floorNumber, request.get("department"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor department updated", result));
     }
 
     @PutMapping("/rooms/{roomId}/department")
     public ResponseEntity<ApiResponse<Void>> setRoomDepartmentOverride(
-            @PathVariable Long roomId, @RequestBody Map<String, String> request) {
-        roomService.setRoomDepartmentOverride(roomId, request.get("department"));
+            @PathVariable Long roomId, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.setRoomDepartmentOverride(roomId, request.get("department"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room department override set", null));
     }
 
     @DeleteMapping("/rooms/{roomId}/department")
-    public ResponseEntity<ApiResponse<Void>> removeRoomDepartmentOverride(@PathVariable Long roomId) {
-        roomService.removeRoomDepartmentOverride(roomId);
+    public ResponseEntity<ApiResponse<Void>> removeRoomDepartmentOverride(
+            @PathVariable Long roomId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.removeRoomDepartmentOverride(roomId, resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room department override removed", null));
     }
 
     @PutMapping("/rooms/{roomId}/number")
     public ResponseEntity<ApiResponse<Void>> updateRoomNumber(
-            @PathVariable Long roomId, @RequestBody Map<String, String> request) {
-        roomService.updateRoomNumber(roomId, request.get("roomNumber"));
+            @PathVariable Long roomId, @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        roomService.updateRoomNumber(roomId, request.get("roomNumber"), resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room number updated", null));
     }
 
@@ -380,34 +444,48 @@ public class WardenController {
             @RequestParam(required = false) Integer floorNumber,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Map<String, Object> result = roomService.bulkAllocate(
-                buildingId, floorNumber, userPrincipal.getEmail(), userPrincipal.getRole().name());
+                buildingId, floorNumber, userPrincipal.getEmail(), userPrincipal.getRole().name(),
+                resolveWardenHostel(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Bulk allocation completed", result));
     }
 
     @GetMapping("/students")
     public ResponseEntity<ApiResponse<List<StudentSummaryResponse>>> getStudents(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        List<StudentSummaryResponse> students = studentRepository.findAll()
-                .stream()
+        // Shared with Admin's Room Management page (see SecurityConfig: /warden/students
+        // permits both WARDEN and ADMIN) — admins have no Warden row to scope by, and are
+        // meant to see students across every hostel, so only narrow the result for wardens.
+        List<Student> students = userPrincipal.getRole() == Role.WARDEN
+                ? studentRepository.findByHostel(wardenRepository.findById(userPrincipal.getId())
+                        .orElseThrow(() -> new RuntimeException("Warden not found"))
+                        .getHostel())
+                : studentRepository.findAll();
+        List<StudentSummaryResponse> response = students.stream()
                 .map(StudentSummaryResponse::from)
                 .collect(java.util.stream.Collectors.toList());
-        return ResponseEntity.ok(ApiResponse.success(students));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // ==================== Complaints ====================
 
     @GetMapping("/complaints")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllComplaints(
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
         List<Map<String, Object>> complaints = status != null && !status.isEmpty()
-                ? complaintService.getComplaintsByStatus(status)
-                : complaintService.getAllComplaints();
+                ? complaintService.getComplaintsByHostelAndStatus(warden.getHostel(), status)
+                : complaintService.getComplaintsByHostel(warden.getHostel());
         return ResponseEntity.ok(ApiResponse.success(complaints));
     }
 
     @GetMapping("/complaints/stats")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getComplaintStats() {
-        return ResponseEntity.ok(ApiResponse.success(complaintService.getStats()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getComplaintStats(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        return ResponseEntity.ok(ApiResponse.success(complaintService.getStatsByHostel(warden.getHostel())));
     }
 
     @PutMapping("/complaints/{id}")
@@ -415,10 +493,12 @@ public class WardenController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestBody Map<String, String> request) {
+        Warden warden = wardenRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("Warden not found"));
         String status = request.get("status");
         String wardenResponse = request.get("wardenResponse");
         Map<String, Object> complaint = complaintService.updateComplaintStatus(
-                id, status, wardenResponse, userPrincipal.getId());
+                id, status, wardenResponse, userPrincipal.getId(), warden.getHostel());
         return ResponseEntity.ok(ApiResponse.success("Complaint updated", complaint));
     }
 
@@ -447,7 +527,14 @@ public class WardenController {
     }
 
     @DeleteMapping("/announcements/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteAnnouncement(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteAnnouncement(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Announcement not found"));
+        if (!announcement.getPostedBy().equals(userPrincipal.getId())) {
+            throw new RuntimeException("You can only delete your own announcements");
+        }
         announcementRepository.deleteById(id);
         return ResponseEntity.ok(ApiResponse.success("Announcement deleted", null));
     }

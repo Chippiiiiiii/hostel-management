@@ -87,9 +87,7 @@ const attendanceService = {
       throw new Error('Geolocation not supported');
     }
 
-    const location = await api.get('/student/attendance/location').then(r => r.data.data).catch(() => ({
-      latitude: 0, longitude: 0, radius: 50
-    }));
+    const location = await api.get('/student/attendance/location').then(r => r.data.data);
 
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(

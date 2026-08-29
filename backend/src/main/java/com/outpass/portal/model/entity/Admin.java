@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "admins", uniqueConstraints = {@UniqueConstraint(name = "uk_admin_email", columnNames = "email")})
@@ -37,6 +38,6 @@ public class Admin {
 
     @PrePersist
     private void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }

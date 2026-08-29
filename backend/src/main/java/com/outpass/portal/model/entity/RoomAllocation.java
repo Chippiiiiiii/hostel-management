@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "room_allocations", uniqueConstraints = {
@@ -44,6 +45,6 @@ public class RoomAllocation {
 
     @PrePersist
     public void prePersist() {
-        this.allocatedAt = LocalDateTime.now();
+        this.allocatedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }

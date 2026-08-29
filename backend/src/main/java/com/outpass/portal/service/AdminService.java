@@ -6,6 +6,7 @@ import com.outpass.portal.dto.response.SecurityGuardSummaryResponse;
 import com.outpass.portal.dto.response.WardenSummaryResponse;
 import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.entity.Warden;
+import com.outpass.portal.repository.BuildingRepository;
 import com.outpass.portal.repository.SecurityGuardRepository;
 import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.util.EmailUtils;
@@ -25,6 +26,7 @@ public class AdminService {
 
     private final WardenRepository wardenRepository;
     private final SecurityGuardRepository securityGuardRepository;
+    private final BuildingRepository buildingRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailUniquenessService emailUniquenessService;
 
@@ -35,6 +37,12 @@ public class AdminService {
         // already used by any account type would otherwise silently shadow one of them.
         if (emailUniquenessService.existsAnywhere(email)) {
             throw new RuntimeException("Email already exists");
+        }
+        // The entire hostel-scoping/authorization model relies on exact string equality
+        // between Warden.hostel and Building.name (see Student.hostel/RoomService). A typo
+        // here would silently create a warden who can never see or approve anything.
+        if (buildingRepository.findByName(request.getHostel()).isEmpty()) {
+            throw new RuntimeException("Hostel does not match any existing building");
         }
         Warden warden = Warden.builder()
                 .name(request.getName())
@@ -71,6 +79,9 @@ public class AdminService {
         String email = EmailUtils.normalize(request.getEmail());
         if (emailUniquenessService.existsAnywhere(email)) {
             throw new RuntimeException("Email already exists");
+        }
+        if (buildingRepository.findByName(request.getHostel()).isEmpty()) {
+            throw new RuntimeException("Hostel does not match any existing building");
         }
         SecurityGuard guard = SecurityGuard.builder()
                 .name(request.getName())

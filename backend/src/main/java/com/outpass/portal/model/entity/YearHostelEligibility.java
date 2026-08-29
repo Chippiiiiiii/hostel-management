@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 // Admin-configured mapping: which buildings/hostels a student in a given academic year
 // (1-4) is allowed to select at registration. A (year, building) pair present here means
@@ -35,6 +36,6 @@ public class YearHostelEligibility {
 
     @PrePersist
     public void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }

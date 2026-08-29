@@ -104,14 +104,15 @@ public class StudentController {
     @PostMapping("/attendance/mark")
     public ResponseEntity<ApiResponse<Map<String, Object>>> markAttendance(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @RequestBody Map<String, Object> request) {
+            @RequestBody Map<String, Object> request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
         String method = (String) request.get("method");
         Double latitude = request.get("latitude") != null ? ((Number) request.get("latitude")).doubleValue() : null;
         Double longitude = request.get("longitude") != null ? ((Number) request.get("longitude")).doubleValue() : null;
         Integer distance = request.get("distance") != null ? ((Number) request.get("distance")).intValue() : null;
 
         Map<String, Object> record = attendanceService.markAttendance(
-                userPrincipal.getId(), method, latitude, longitude, distance);
+                userPrincipal.getId(), method, latitude, longitude, distance, httpRequest.getRemoteAddr());
         return ResponseEntity.ok(ApiResponse.success("Attendance marked successfully", record));
     }
 
@@ -140,7 +141,7 @@ public class StudentController {
 
     @GetMapping("/rooms/buildings")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBuildings() {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings()));
+        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings(null)));
     }
 
     @GetMapping("/rooms/allocation")
@@ -177,8 +178,10 @@ public class StudentController {
     }
 
     @GetMapping("/rooms/allocations")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations() {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getAllAllocations()));
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllAllocations(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        StudentProfileResponse profile = studentService.getProfile(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success(roomService.getRoomOccupancyForStudent(profile.getEmail())));
     }
 
     // ==================== Complaints ====================
@@ -209,15 +212,12 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(announcementRepository.findAllByOrderByCreatedAtDesc()));
     }
 
+    // server.forward-headers-strategy=native (Tomcat's RemoteIpValve) already resolves
+    // X-Forwarded-For into getRemoteAddr() using its trusted-proxy handling. Parsing the
+    // raw header here instead would let a client spoof its own IP by prepending an
+    // arbitrary value (e.g. to fake being on hostel WiFi), since proxies conventionally
+    // append rather than replace X-Forwarded-For entries.
     private String getClientIp(jakarta.servlet.http.HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            return xff.split(",")[0].trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isEmpty()) {
-            return realIp;
-        }
         return request.getRemoteAddr();
     }
 }

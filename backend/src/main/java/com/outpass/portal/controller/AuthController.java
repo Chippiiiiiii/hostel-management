@@ -275,6 +275,13 @@ public class AuthController {
         String token = request.get("token");
         String newPassword = request.get("newPassword");
 
+        // Registration and admin-created accounts both enforce a 6-character minimum via
+        // DTO validation; this endpoint takes a raw request body, so the same rule must be
+        // enforced explicitly here to avoid a weaker password ending up on the account.
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new RuntimeException("Password must be at least 6 characters");
+        }
+
         PasswordResetToken resetToken = resetTokenRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
 

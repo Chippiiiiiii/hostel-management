@@ -9,11 +9,15 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
 
     List<Complaint> findByStudentIdOrderByCreatedAtDesc(Long studentId);
 
-    List<Complaint> findAllByOrderByCreatedAtDesc();
+    List<Complaint> findByHostelOrderByCreatedAtDesc(String hostel);
 
-    List<Complaint> findByStatusOrderByCreatedAtDesc(ComplaintStatus status);
+    List<Complaint> findByHostelAndStatusOrderByCreatedAtDesc(String hostel, ComplaintStatus status);
 
     long countByStatus(ComplaintStatus status);
 
     long countByStudentId(Long studentId);
+
+    long countByHostel(String hostel);
+
+    long countByHostelAndStatus(String hostel, ComplaintStatus status);
 }

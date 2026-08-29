@@ -35,17 +35,24 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          });
-
-          const { accessToken } = response.data.data;
-          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
+        if (!refreshToken) {
+          // No refresh token to fall back on — this 401 can't be recovered from,
+          // so clear stale state instead of silently leaving the app authenticated
+          // with a token that no longer works.
+          Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+          window.location.href = '/login';
+          return Promise.reject(error);
         }
+
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+
+        const { accessToken } = response.data.data;
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
       } catch (refreshError) {
         // Refresh failed, clear only auth keys and redirect
         Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));

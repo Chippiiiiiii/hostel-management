@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChartBar, faDoorOpen, faCalendarCheck, faExclamationTriangle,
-  faBullhorn, faUserEdit, faUsers, faClipboardList, faShieldAlt, faIdCard,
+  faBullhorn, faUserEdit, faUsers, faClipboardList, faShieldAlt,
   faUserTie, faBuilding, faGraduationCap,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -14,7 +14,6 @@ const navItems = {
     { path: '/student/attendance', icon: faCalendarCheck, label: 'Attendance' },
     { path: '/student/complaints', icon: faExclamationTriangle, label: 'Complaints' },
     { path: '/student/announcements', icon: faBullhorn, label: 'Announcements' },
-    { path: '/student/face-verification', icon: faIdCard, label: 'Face Verification' },
     { path: '/student/edit-profile', icon: faUserEdit, label: 'Edit Profile' },
   ],
   WARDEN: [

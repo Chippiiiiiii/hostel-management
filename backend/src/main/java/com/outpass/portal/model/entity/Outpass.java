@@ -1,6 +1,7 @@
 package com.outpass.portal.model.entity;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import com.outpass.portal.model.enums.OutpassStatus;
 
@@ -134,12 +135,12 @@ public class Outpass {
 
     @PrePersist
     public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        this.updatedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
     }
 }

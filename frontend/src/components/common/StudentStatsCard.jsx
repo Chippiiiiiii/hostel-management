@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChartBar, faTimes, faClock } from '@fortawesome/free-solid-svg-icons';
 
@@ -17,7 +18,8 @@ const StudentStatsCard = ({ studentId, onClose }) => {
       const response = await api.get(`/warden/student/${studentId}/stats`);
       setStats(response.data.data);
     } catch {
-      // silent — card simply won't render on failure
+      toast.error('Failed to load student stats');
+      onClose();
     } finally {
       setLoading(false);
     }

@@ -84,7 +84,7 @@ const RoomManagementPanel = () => {
         setRegisteredStudents([]);
       }
     } catch {
-      // silent — individual operations below surface their own errors via toast
+      toast.error('Failed to load room data');
     } finally {
       setLoading(false);
     }

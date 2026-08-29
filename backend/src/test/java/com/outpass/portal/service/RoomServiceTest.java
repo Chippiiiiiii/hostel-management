@@ -33,6 +33,7 @@ class RoomServiceTest {
     @Mock private StudentRepository studentRepository;
     @Mock private FloorDepartmentRepository floorDepartmentRepository;
     @Mock private HostelEligibilityService hostelEligibilityService;
+    @Mock private WardenRepository wardenRepository;
 
     private RoomService roomService;
 
@@ -41,7 +42,8 @@ class RoomServiceTest {
     @BeforeEach
     void setUp() {
         roomService = new RoomService(buildingRepository, roomRepository, allocationRepository,
-                configRepository, studentRepository, floorDepartmentRepository, hostelEligibilityService);
+                configRepository, studentRepository, floorDepartmentRepository, hostelEligibilityService,
+                wardenRepository);
         building = Building.builder().id(1L).name("Building A").type("NORMAL").gender("BOY").build();
     }
 
@@ -67,7 +69,7 @@ class RoomServiceTest {
 
         // Student is ECE (matches room override) -> allowed. The floor default (whatever
         // it might be) is never even consulted once a room override is present.
-        roomService.allocateStudent(10L, "S", "R1", "ECE", "s@x.com");
+        roomService.allocateStudent(10L, "S", "R1", "ECE", "s@x.com", null);
 
         verify(allocationRepository).save(any(RoomAllocation.class));
         verify(floorDepartmentRepository, never()).findByBuildingIdAndFloorNumber(anyLong(), anyInt());
@@ -80,7 +82,7 @@ class RoomServiceTest {
         when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1))
                 .thenReturn(Optional.of(FloorDepartment.builder().building(building).floorNumber(1).department("CT").build()));
 
-        assertThatThrownBy(() -> roomService.allocateStudent(11L, "S", "R2", "CSE", "s2@x.com"))
+        assertThatThrownBy(() -> roomService.allocateStudent(11L, "S", "R2", "CSE", "s2@x.com", null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("CT");
 
@@ -95,7 +97,7 @@ class RoomServiceTest {
         when(allocationRepository.countByRoomId(12L)).thenReturn(0L);
         when(allocationRepository.findByStudentEmail("s3@x.com")).thenReturn(Optional.empty());
 
-        roomService.allocateStudent(12L, "S", "R3", "ANYTHING", "s3@x.com");
+        roomService.allocateStudent(12L, "S", "R3", "ANYTHING", "s3@x.com", null);
 
         verify(allocationRepository).save(any(RoomAllocation.class));
     }
@@ -107,7 +109,7 @@ class RoomServiceTest {
         when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
         when(allocationRepository.countByRoomId(13L)).thenReturn(2L); // already at maxMembers
 
-        assertThatThrownBy(() -> roomService.allocateStudent(13L, "S", "R4", "CT", "s4@x.com"))
+        assertThatThrownBy(() -> roomService.allocateStudent(13L, "S", "R4", "CT", "s4@x.com", null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("full");
 
@@ -122,7 +124,7 @@ class RoomServiceTest {
         when(roomRepository.findById(20L)).thenReturn(Optional.of(r));
         when(roomRepository.findByBuildingIdAndRoomNumber(1L, "999")).thenReturn(Optional.empty());
 
-        roomService.updateRoomNumber(20L, "999");
+        roomService.updateRoomNumber(20L, "999", null);
 
         assertThat(r.getRoomNumber()).isEqualTo("999");
         assertThat(r.getFloorNumber()).isEqualTo(1); // unchanged
@@ -137,7 +139,7 @@ class RoomServiceTest {
         when(roomRepository.findById(21L)).thenReturn(Optional.of(r));
         when(roomRepository.findByBuildingIdAndRoomNumber(1L, "105")).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> roomService.updateRoomNumber(21L, "105"))
+        assertThatThrownBy(() -> roomService.updateRoomNumber(21L, "105", null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("already exists");
 
@@ -172,7 +174,7 @@ class RoomServiceTest {
         when(allocationRepository.findByStudentEmail(anyString())).thenReturn(Optional.empty());
         when(studentRepository.findByEmailForUpdate(anyString())).thenReturn(Optional.empty());
 
-        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN");
+        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN", null);
 
         assertThat(result.get("studentsProcessed")).isEqualTo(3);
         assertThat(result.get("assigned")).isEqualTo(2); // one CT room + one ECE room, both capacity 1
@@ -196,7 +198,7 @@ class RoomServiceTest {
         when(roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(1L)).thenReturn(List.of());
         when(studentRepository.findUnassignedByGender("BOY")).thenReturn(List.of());
 
-        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN");
+        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN", null);
 
         assertThat(result.get("studentsProcessed")).isEqualTo(0);
         assertThat(result.get("assigned")).isEqualTo(0);
@@ -209,7 +211,7 @@ class RoomServiceTest {
         when(roomRepository.findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(1L, 2)).thenReturn(List.of());
         when(studentRepository.findUnassignedByGender("BOY")).thenReturn(List.of());
 
-        roomService.bulkAllocate(1L, 2, "warden@x.com", "WARDEN");
+        roomService.bulkAllocate(1L, 2, "warden@x.com", "WARDEN", null);
 
         verify(roomRepository).findByBuildingIdAndFloorNumberOrderByRoomNumberAsc(1L, 2);
         verify(roomRepository, never()).findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(anyLong());
@@ -222,7 +224,7 @@ class RoomServiceTest {
         Room r = room(40L, 1, "101", 4, "ECE");
         when(roomRepository.findById(40L)).thenReturn(Optional.of(r));
 
-        roomService.removeRoomDepartmentOverride(40L);
+        roomService.removeRoomDepartmentOverride(40L, null);
 
         assertThat(r.getDepartmentOverride()).isNull();
         verify(roomRepository).save(r);
@@ -290,7 +292,7 @@ class RoomServiceTest {
                 .studentDepartment("CT").studentEmail("moved@x.com").build();
         when(allocationRepository.findByStudentEmail("moved@x.com")).thenReturn(Optional.of(existing));
 
-        roomService.allocateStudent(53L, "Moved Student", "R53", "CT", "moved@x.com");
+        roomService.allocateStudent(53L, "Moved Student", "R53", "CT", "moved@x.com", null);
 
         assertThat(existing.getRoom()).isSameAs(newRoom); // moved, not rejected
         verify(allocationRepository).save(existing);
@@ -340,5 +342,37 @@ class RoomServiceTest {
         // Rejected before any room is resolved/locked or allocation created.
         verify(roomRepository, never()).findByBuildingIdAndRoomNumber(any(), any());
         verify(allocationRepository, never()).save(any());
+    }
+
+    // ---- Student-facing occupancy must not expose other students' PII ----
+
+    @Test
+    void studentOccupancyViewReturnsCountsOnlyAndExcludesCallingStudent() {
+        Room roomA = room(1L, 1, "101", 4, null);
+        Room roomB = room(2L, 1, "102", 4, null);
+
+        RoomAllocation self = RoomAllocation.builder().id(1L).room(roomA)
+                .studentName("Self").studentRollNo("R1").studentDepartment("CS")
+                .studentEmail("self@x.com").build();
+        RoomAllocation roommate = RoomAllocation.builder().id(2L).room(roomA)
+                .studentName("Roommate").studentRollNo("R2").studentDepartment("CS")
+                .studentEmail("roommate@x.com").build();
+        RoomAllocation otherRoom = RoomAllocation.builder().id(3L).room(roomB)
+                .studentName("Other").studentRollNo("R3").studentDepartment("CS")
+                .studentEmail("other@x.com").build();
+
+        when(allocationRepository.findAll()).thenReturn(List.of(self, roommate, otherRoom));
+
+        List<Map<String, Object>> result = roomService.getRoomOccupancyForStudent("self@x.com");
+
+        // Only aggregate counts per room, keyed by roomId — no name/rollNo/department/email.
+        assertThat(result).allSatisfy(entry -> assertThat(entry.keySet())
+                .containsExactlyInAnyOrder("roomId", "occupantCount"));
+
+        Map<Long, Long> countsByRoom = new HashMap<>();
+        result.forEach(entry -> countsByRoom.put((Long) entry.get("roomId"), (Long) entry.get("occupantCount")));
+
+        assertThat(countsByRoom.get(1L)).isEqualTo(1L); // roomA: only "roommate" counted, self excluded
+        assertThat(countsByRoom.get(2L)).isEqualTo(1L); // roomB: "other"
     }
 }

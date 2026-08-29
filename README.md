@@ -373,11 +373,10 @@ Room management for Admin is **not** duplicated here — see the note at the top
    mysql -u root -p outpass_portal < src/main/resources/seed-data.sql
    ```
 
-5. **Bootstrap the first Admin account** — there is no self-registration for Admins. Generate a BCrypt hash for your chosen password at strength 10 (matching `spring.security.password.strength`), e.g.:
+5. **Admin account** — there is no self-registration for Admins. If you ran the seed data in step 4, a sample account (`admin1@mit.edu` / `admin123`) was already created — see Default Seed Accounts below, and change its password after first login. For a production deployment (or a different email), generate your own BCrypt hash at strength 10 (matching `spring.security.password.strength`) and edit the `INSERT INTO admins (...)` row in `src/main/resources/seed-data.sql` before re-running it:
    ```bash
    node -e "console.log(require('bcryptjs').hashSync('yourPassword', 10))"
    ```
-   Then uncomment and edit the `INSERT INTO admins (...)` template at the bottom of `src/main/resources/seed-data.sql` with that hash, and re-run it.
 
 6. **Create a `.env` file** in `backend/`
    ```env
@@ -430,11 +429,12 @@ If you ran the seed data:
 
 | Role | Email | Password |
 |------|-------|----------|
+| Admin | admin1@mit.edu | admin123 |
 | Warden | warden1@mit.edu | warden123 |
 | Security Guard | security1@mit.edu | security123 |
 | Student | student1@mit.edu | student123 |
 
-No Admin account is seeded by default — bootstrap one as described in step 5 above before trying to log in as Admin. And before students can meaningfully register, an Admin needs to configure at least one hostel per academic year under **Admin → Year → Hostel Eligibility** (`/admin/year-hostels`) — otherwise the registration page has nothing eligible to offer.
+⚠️ Change the Admin password after first login in any real deployment — this is a seed credential for local/dev use. Before students can meaningfully register, log in as Admin and configure at least one hostel per academic year under **Admin → Year → Hostel Eligibility** (`/admin/year-hostels`) — otherwise the registration page has nothing eligible to offer.
 
 ## 🔐 Authentication
 
