@@ -30,3 +30,4 @@ target/
 # Logs
 *.log
 npm-debug.log*
+.serena/
