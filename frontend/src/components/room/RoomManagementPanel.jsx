@@ -978,7 +978,7 @@ const RoomManagementPanel = () => {
                 {!currentFloor ? (
                   <p className="text-muted text-center py-4" style={{ fontSize: '0.9rem' }}>No floors yet — add one above.</p>
                 ) : (
-                  <div className="row g-3">
+                  <div className="row g-4">
                     {currentFloor.rooms.map(room => {
                       const occupants = getRoomOccupants(room.id);
                       const isFull = occupants.length >= room.maxMembers;
