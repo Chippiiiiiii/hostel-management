@@ -458,22 +458,19 @@ const RoomManagementPanel = () => {
       </div>
 
       {/* Main two-panel layout */}
-      <div className="d-flex" style={{
-        border: '1px solid var(--color-bg-tertiary)',
-        borderRadius: 'var(--border-radius-lg)',
-        overflow: 'hidden',
-        minHeight: '600px',
-        boxShadow: 'var(--shadow-md)',
-      }}>
+      <div className="d-flex" style={{ gap: '1.25rem', minHeight: '600px' }}>
 
         {/* ── LEFT: Building List ── */}
         <div style={{
           width: '340px',
           flexShrink: 0,
-          borderRight: '1px solid var(--color-bg-tertiary)',
+          border: '1px solid var(--color-bg-tertiary)',
+          borderRadius: 'var(--border-radius-lg)',
           backgroundColor: 'var(--color-bg-primary)',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-md)',
         }}>
           {/* Search */}
           <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>
@@ -658,11 +655,14 @@ const RoomManagementPanel = () => {
         {/* ── RIGHT: Building Detail ── */}
         <div style={{
           flex: 1,
+          border: '1px solid var(--color-bg-tertiary)',
+          borderRadius: 'var(--border-radius-lg)',
           backgroundColor: 'var(--color-bg-secondary)',
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
           minWidth: 0,
+          boxShadow: 'var(--shadow-md)',
         }}>
           {!currentBuilding ? (
             <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted gap-2">
