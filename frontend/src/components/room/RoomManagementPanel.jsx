@@ -17,30 +17,27 @@ const RoomManagementPanel = () => {
   const [allocations, setAllocations] = useState([]);
   const [config, setConfig] = useState({ maxRoomsPerFloor: 10, maxMembersPerRoom: 6 });
   const [activeBuilding, setActiveBuilding] = useState(null);
+  const [activeFloor, setActiveFloor] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAutoAllocate, setShowAutoAllocate] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
   const [editMaxMembers, setEditMaxMembers] = useState(6);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [buildingSearch, setBuildingSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Room number editing
   const [editingRoomNumber, setEditingRoomNumber] = useState(null);
   const [editRoomNumberValue, setEditRoomNumberValue] = useState('');
 
-  // Floor department editing
   const [editingFloorDept, setEditingFloorDept] = useState(null);
   const [editFloorDeptValue, setEditFloorDeptValue] = useState('');
 
-  // Room department override editing
   const [editingRoomDept, setEditingRoomDept] = useState(null);
   const [editRoomDeptValue, setEditRoomDeptValue] = useState('');
 
-  // Auto allocate
   const [autoAllocateFloor, setAutoAllocateFloor] = useState('');
   const [autoAllocating, setAutoAllocating] = useState(false);
   const [autoAllocateResult, setAutoAllocateResult] = useState(null);
 
-  // Add student modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [addToRoom, setAddToRoom] = useState(null);
   const [registeredStudents, setRegisteredStudents] = useState([]);
@@ -48,19 +45,24 @@ const RoomManagementPanel = () => {
   const [manualEntry, setManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({ name: '', rollNo: '', department: '', email: '' });
 
-  // Building rename state
   const [editingBuildingId, setEditingBuildingId] = useState(null);
   const [editBuildingName, setEditBuildingName] = useState('');
 
-  // Add building state
   const [showAddBuilding, setShowAddBuilding] = useState(false);
   const [newBuildingName, setNewBuildingName] = useState('');
   const [newBuildingType, setNewBuildingType] = useState('NORMAL');
   const [newBuildingGender, setNewBuildingGender] = useState('BOY');
 
+  useEffect(() => { fetchData(); }, []);
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    const bldg = buildings.find(b => b.id === activeBuilding);
+    if (bldg && bldg.floors.length > 0) {
+      setActiveFloor(f => bldg.floors.find(fl => fl.floorNumber === f) ? f : bldg.floors[0].floorNumber);
+    } else {
+      setActiveFloor(null);
+    }
+  }, [activeBuilding, buildings]);
 
   const fetchData = async () => {
     try {
@@ -75,8 +77,6 @@ const RoomManagementPanel = () => {
       if (!activeBuilding && buildingsRes.data.length > 0) {
         setActiveBuilding(buildingsRes.data[0].id);
       }
-
-      // Fetch registered students from API
       try {
         const studentsRes = await api.get('/warden/students');
         setRegisteredStudents(studentsRes.data.data || studentsRes.data || []);
@@ -90,9 +90,7 @@ const RoomManagementPanel = () => {
     }
   };
 
-  const getRoomOccupants = (roomId) => {
-    return allocations.filter(a => a.roomId === roomId);
-  };
+  const getRoomOccupants = (roomId) => allocations.filter(a => a.roomId === roomId);
 
   const handleUpdateConfig = async () => {
     try {
@@ -116,10 +114,7 @@ const RoomManagementPanel = () => {
 
   const handleRemoveFloor = async (buildingId, floorNumber) => {
     const occupants = allocations.filter(a => a.buildingId === buildingId && a.floor === floorNumber);
-    if (occupants.length > 0) {
-      toast.error('Cannot remove floor with allocated students');
-      return;
-    }
+    if (occupants.length > 0) { toast.error('Cannot remove floor with allocated students'); return; }
     try {
       await roomService.removeFloor(buildingId, floorNumber);
       toast.success('Floor removed');
@@ -147,10 +142,7 @@ const RoomManagementPanel = () => {
     }
   };
 
-  const handleEditRoomCapacity = (roomId, currentMax) => {
-    setEditingRoom({ roomId });
-    setEditMaxMembers(currentMax);
-  };
+  const handleEditRoomCapacity = (roomId, currentMax) => { setEditingRoom({ roomId }); setEditMaxMembers(currentMax); };
 
   const handleSaveRoomCapacity = async () => {
     if (!editingRoom) return;
@@ -164,16 +156,10 @@ const RoomManagementPanel = () => {
     }
   };
 
-  const handleEditRoomNumber = (roomId, currentNumber) => {
-    setEditingRoomNumber(roomId);
-    setEditRoomNumberValue(currentNumber);
-  };
+  const handleEditRoomNumber = (roomId, currentNumber) => { setEditingRoomNumber(roomId); setEditRoomNumberValue(currentNumber); };
 
   const handleSaveRoomNumber = async (roomId) => {
-    if (!editRoomNumberValue.trim()) {
-      toast.error('Room number is required');
-      return;
-    }
+    if (!editRoomNumberValue.trim()) { toast.error('Room number is required'); return; }
     try {
       await roomService.updateRoomNumber(roomId, editRoomNumberValue.trim());
       setEditingRoomNumber(null);
@@ -191,13 +177,9 @@ const RoomManagementPanel = () => {
 
   const handleSaveFloorDept = async () => {
     if (!editingFloorDept) return;
-    if (!editFloorDeptValue.trim()) {
-      toast.error('Department is required');
-      return;
-    }
+    if (!editFloorDeptValue.trim()) { toast.error('Department is required'); return; }
     try {
-      await roomService.setFloorDepartment(
-        editingFloorDept.buildingId, editingFloorDept.floorNumber, editFloorDeptValue.trim());
+      await roomService.setFloorDepartment(editingFloorDept.buildingId, editingFloorDept.floorNumber, editFloorDeptValue.trim());
       setEditingFloorDept(null);
       fetchData();
       toast.success('Floor default department set');
@@ -206,16 +188,10 @@ const RoomManagementPanel = () => {
     }
   };
 
-  const handleEditRoomDept = (roomId, currentOverride) => {
-    setEditingRoomDept(roomId);
-    setEditRoomDeptValue(currentOverride || '');
-  };
+  const handleEditRoomDept = (roomId, currentOverride) => { setEditingRoomDept(roomId); setEditRoomDeptValue(currentOverride || ''); };
 
   const handleSaveRoomDept = async (roomId) => {
-    if (!editRoomDeptValue.trim()) {
-      toast.error('Department is required');
-      return;
-    }
+    if (!editRoomDeptValue.trim()) { toast.error('Department is required'); return; }
     try {
       await roomService.setRoomDepartmentOverride(roomId, editRoomDeptValue.trim());
       setEditingRoomDept(null);
@@ -265,10 +241,7 @@ const RoomManagementPanel = () => {
   };
 
   const handleAddBuilding = async () => {
-    if (!newBuildingName.trim()) {
-      toast.error('Building name is required');
-      return;
-    }
+    if (!newBuildingName.trim()) { toast.error('Building name is required'); return; }
     try {
       await roomService.addBuilding(newBuildingName.trim(), newBuildingType, newBuildingGender);
       toast.success('Building added');
@@ -328,10 +301,7 @@ const RoomManagementPanel = () => {
     if (!addToRoom) return;
     try {
       await roomService.allocateStudent(addToRoom.roomId, {
-        name: student.name,
-        rollNo: student.rollNo,
-        department: student.department,
-        email: student.email,
+        name: student.name, rollNo: student.rollNo, department: student.department, email: student.email,
       });
       toast.success(`${student.name} added to Room ${addToRoom.roomNumber}`);
       setShowAddModal(false);
@@ -344,14 +314,11 @@ const RoomManagementPanel = () => {
   const handleAddManualStudent = async () => {
     if (!addToRoom) return;
     if (!manualForm.name || !manualForm.rollNo || !manualForm.department) {
-      toast.error('Please fill in name, roll no, and department');
-      return;
+      toast.error('Please fill in name, roll no, and department'); return;
     }
     try {
       await roomService.allocateStudent(addToRoom.roomId, {
-        name: manualForm.name,
-        rollNo: manualForm.rollNo,
-        department: manualForm.department,
+        name: manualForm.name, rollNo: manualForm.rollNo, department: manualForm.department,
         email: manualForm.email || `${manualForm.rollNo}@hostel.local`,
       });
       toast.success(`${manualForm.name} added to Room ${addToRoom.roomNumber}`);
@@ -388,19 +355,31 @@ const RoomManagementPanel = () => {
     );
   };
 
-  const filteredAllocations = searchTerm
-    ? allocations.filter(a =>
-        a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.rollNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.roomNumber?.includes(searchTerm)
-      )
-    : null;
-
   const currentBuilding = buildings.find(b => b.id === activeBuilding);
+  const currentFloor = currentBuilding?.floors.find(f => f.floorNumber === activeFloor) ?? currentBuilding?.floors[0] ?? null;
 
   const totalStudents = allocations.length;
   const totalRooms = buildings.reduce((sum, b) => sum + b.floors.reduce((s, f) => s + f.rooms.length, 0), 0);
+  const totalFloors = buildings.reduce((s, b) => s + b.floors.length, 0);
+
+  const floorStudents = currentFloor
+    ? allocations.filter(a => a.buildingId === currentBuilding.id && a.floor === currentFloor.floorNumber).length
+    : 0;
+  const floorOccupied = currentFloor
+    ? currentFloor.rooms.filter(r => getRoomOccupants(r.id).length > 0).length
+    : 0;
+
+  const filteredBuildings = [...buildings]
+    .filter(b => !buildingSearch || b.name.toLowerCase().includes(buildingSearch.toLowerCase()))
+    .sort((a, b) => {
+      if (a.gender !== b.gender) return a.gender === 'GIRL' ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
+
+  const isEditingFloorDept = editingFloorDept
+    && currentBuilding
+    && editingFloorDept.buildingId === currentBuilding.id
+    && editingFloorDept.floorNumber === currentFloor?.floorNumber;
 
   if (loading) {
     return (
@@ -412,699 +391,810 @@ const RoomManagementPanel = () => {
     );
   }
 
+  const genderBadgeStyle = (gender) => gender === 'GIRL'
+    ? { backgroundColor: 'var(--badge-girls-bg)', color: 'var(--badge-girls-text)', border: '1px solid var(--badge-girls-border)' }
+    : { backgroundColor: 'var(--badge-boys-bg)', color: 'var(--badge-boys-text)', border: '1px solid var(--badge-boys-border)' };
+
+  const typeBadgeStyle = (type) => type === 'NRI'
+    ? { backgroundColor: 'var(--badge-nri-bg)', color: 'var(--badge-nri-text)', border: '1px solid var(--badge-nri-border)' }
+    : { backgroundColor: 'var(--badge-regular-bg)', color: 'var(--badge-regular-text)', border: '1px solid var(--badge-regular-border)' };
+
   return (
     <>
-      <div className="d-flex align-items-center justify-content-end mb-3">
-        <button
-          className={`btn ${showSettings ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
-          onClick={() => setShowSettings(!showSettings)}
-        >
-          <FontAwesomeIcon icon={faCog} /> Settings
-        </button>
-      </div>
-
       {/* Settings Panel */}
       {showSettings && (
-        <div className="row mb-4">
-          <div className="col-12">
-            <div className="card shadow-sm border-primary">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0"><FontAwesomeIcon icon={faCog} /> Room Settings</h5>
+        <div className="card shadow-sm border-primary mb-4">
+          <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 className="mb-0"><FontAwesomeIcon icon={faCog} /> Room Settings</h5>
+            <button className="btn btn-sm btn-outline-light" onClick={() => setShowSettings(false)}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+          <div className="card-body">
+            <div className="row g-3">
+              <div className="col-md-4">
+                <label className="form-label fw-semibold">Default Max Rooms Per Floor</label>
+                <input type="number" className="form-control" value={config.maxRoomsPerFloor}
+                  onChange={(e) => setConfig({ ...config, maxRoomsPerFloor: parseInt(e.target.value) || 1 })}
+                  min="1" max="20" />
+                <small className="text-muted">Applies to new floors</small>
               </div>
-              <div className="card-body">
-                <div className="row g-3">
-                  <div className="col-md-4">
-                    <label className="form-label fw-semibold">Default Max Rooms Per Floor</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={config.maxRoomsPerFloor}
-                      onChange={(e) => setConfig({ ...config, maxRoomsPerFloor: parseInt(e.target.value) || 1 })}
-                      min="1"
-                      max="20"
-                    />
-                    <small className="text-muted">Applies to new floors</small>
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label fw-semibold">Default Max Members Per Room</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={config.maxMembersPerRoom}
-                      onChange={(e) => setConfig({ ...config, maxMembersPerRoom: parseInt(e.target.value) || 1 })}
-                      min="1"
-                      max="12"
-                    />
-                    <small className="text-muted">Applies to new rooms</small>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <button className="btn btn-primary" onClick={handleUpdateConfig}>
-                    <FontAwesomeIcon icon={faCheck} /> Save Settings
-                  </button>
-                </div>
+              <div className="col-md-4">
+                <label className="form-label fw-semibold">Default Max Members Per Room</label>
+                <input type="number" className="form-control" value={config.maxMembersPerRoom}
+                  onChange={(e) => setConfig({ ...config, maxMembersPerRoom: parseInt(e.target.value) || 1 })}
+                  min="1" max="12" />
+                <small className="text-muted">Applies to new rooms</small>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="row mb-4 g-4">
-        <div className="col-6 col-md-3">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faBuilding} style={{ color: 'var(--color-info)' }} /> Buildings</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-info)' }}>{buildings.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faDoorOpen} style={{ color: 'var(--color-success)' }} /> Total Rooms</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-success)' }}>{totalRooms}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faUserGraduate} style={{ color: 'var(--accent-purple)' }} /> Total Students</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--accent-purple)' }}>{totalStudents}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="col-6 col-md-3">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <p className="text-muted mb-1"><FontAwesomeIcon icon={faLayerGroup} style={{ color: 'var(--color-warning)' }} /> Total Floors</p>
-              <h3 className="mb-0 fw-bold" style={{ color: 'var(--color-warning)' }}>{buildings.reduce((s, b) => s + b.floors.length, 0)}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="input-group">
-            <span className="input-group-text"><FontAwesomeIcon icon={faSearch} /></span>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by name, roll no, department, or room number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button className="btn btn-outline-secondary" onClick={() => setSearchTerm('')}>
-                <FontAwesomeIcon icon={faTimes} />
+            <div className="mt-3">
+              <button className="btn btn-primary" onClick={handleUpdateConfig}>
+                <FontAwesomeIcon icon={faCheck} /> Save Settings
               </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Search Results */}
-      {filteredAllocations && (
-        <div className="row mb-4">
-          <div className="col-12">
-            <div className="card shadow-sm">
-              <div className="card-header">
-                <h5 className="mb-0">Search Results ({filteredAllocations.length})</h5>
-              </div>
-              <div className="card-body">
-                {filteredAllocations.length === 0 ? (
-                  <p className="text-center text-muted mb-0">No students found</p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table table-hover mb-0">
-                      <thead>
-                        <tr>
-                          <th>Roll No</th>
-                          <th>Name</th>
-                          <th>Department</th>
-                          <th>Building</th>
-                          <th>Floor</th>
-                          <th>Room</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredAllocations.map((a, i) => (
-                          <tr key={i}>
-                            <td>{a.rollNo}</td>
-                            <td>{a.name}</td>
-                            <td>{a.department}</td>
-                            <td>{buildings.find(b => b.id === a.buildingId)?.name || '-'}</td>
-                            <td>Floor {a.floor}</td>
-                            <td>Room {a.roomNumber}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Building Tabs */}
-      {!searchTerm && (
-        <>
-          <div className="row mb-3">
-            <div className="col-12">
-              <div className="d-flex align-items-center justify-content-end mb-3">
-                <button
-                  className="btn btn-outline-success btn-sm"
-                  onClick={() => setShowAddBuilding(!showAddBuilding)}
-                >
-                  <FontAwesomeIcon icon={faPlus} /> Add Building
+      {/* Stats Bar */}
+      <div className="row g-3 mb-4">
+        {[
+          { icon: faBuilding, color: 'var(--color-info)', label: 'Buildings', value: buildings.length },
+          { icon: faDoorOpen, color: 'var(--color-success)', label: 'Total Rooms', value: totalRooms },
+          { icon: faUserGraduate, color: 'var(--accent-purple)', label: 'Total Students', value: totalStudents },
+          { icon: faLayerGroup, color: 'var(--color-warning)', label: 'Total Floors', value: totalFloors },
+        ].map(({ icon, color, label, value }) => (
+          <div className="col-6 col-md-3" key={label}>
+            <div className="card shadow-sm h-100">
+              <div className="card-body py-3">
+                <p className="text-muted mb-1" style={{ fontSize: '0.8rem' }}>
+                  <FontAwesomeIcon icon={icon} style={{ color }} className="me-1" />{label}
+                </p>
+                <h3 className="mb-0 fw-bold" style={{ color }}>{value}</h3>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main two-panel layout */}
+      <div className="d-flex" style={{
+        border: '1px solid var(--color-bg-tertiary)',
+        borderRadius: 'var(--border-radius-lg)',
+        overflow: 'hidden',
+        minHeight: '600px',
+        boxShadow: 'var(--shadow-md)',
+      }}>
+
+        {/* ── LEFT: Building List ── */}
+        <div style={{
+          width: '340px',
+          flexShrink: 0,
+          borderRight: '1px solid var(--color-bg-tertiary)',
+          backgroundColor: 'var(--color-bg-primary)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          {/* Search */}
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-bg-tertiary)' }}>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-bg-tertiary)' }}>
+                <FontAwesomeIcon icon={faSearch} style={{ color: 'var(--color-text-muted)' }} />
+              </span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search buildings..."
+                value={buildingSearch}
+                onChange={(e) => setBuildingSearch(e.target.value)}
+                style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-bg-tertiary)', color: 'var(--color-text-primary)' }}
+              />
+              {buildingSearch && (
+                <button className="btn btn-outline-secondary btn-sm" onClick={() => setBuildingSearch('')}>
+                  <FontAwesomeIcon icon={faTimes} />
                 </button>
-              </div>
-
-              {/* Buildings Table */}
-              <div className="card shadow-sm mb-3">
-                <div className="table-responsive">
-                  <table className="table table-hover mb-0" style={{ fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
-                      <tr>
-                        <th style={{ paddingLeft: '1rem' }}>Building</th>
-                        <th style={{ textAlign: 'center' }}>Gender</th>
-                        <th style={{ textAlign: 'center' }}>Type</th>
-                        <th style={{ textAlign: 'right', paddingRight: '1rem' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...buildings].sort((a, b) => {
-                        if (a.gender !== b.gender) return a.gender === 'GIRL' ? 1 : -1;
-                        return a.name.localeCompare(b.name);
-                      }).map(b => (
-                        <tr key={b.id} style={{ backgroundColor: activeBuilding === b.id ? 'var(--row-highlight)' : 'transparent' }}>
-                          <td style={{ paddingLeft: '1rem' }}>
-                            {editingBuildingId === b.id ? (
-                              <div className="d-flex align-items-center">
-                                <input type="text" className="form-control form-control-sm" style={{ width: '140px' }}
-                                  value={editBuildingName} onChange={(e) => setEditBuildingName(e.target.value)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()} autoFocus />
-                                <button className="btn btn-success btn-sm ms-1" onClick={handleRenameBuilding}><FontAwesomeIcon icon={faCheck} /></button>
-                                <button className="btn btn-secondary btn-sm ms-1" onClick={() => setEditingBuildingId(null)}><FontAwesomeIcon icon={faTimes} /></button>
-                              </div>
-                            ) : (
-                              <button
-                                className="btn btn-link text-decoration-none p-0 fw-semibold"
-                                style={{ color: activeBuilding === b.id ? 'var(--accent-blue-vivid)' : 'var(--color-text-primary)' }}
-                                onClick={() => setActiveBuilding(b.id)}
-                              >
-                                <FontAwesomeIcon icon={faBuilding} className="me-2" style={{ color: b.gender === 'GIRL' ? 'var(--accent-pink)' : 'var(--accent-blue-mid)' }} />
-                                {b.name}
-                              </button>
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div className="btn-group btn-group-sm" role="group" style={{ borderRadius: '12px', overflow: 'hidden' }}>
-                              <button
-                                className={`btn btn-sm ${b.gender !== 'GIRL' ? '' : 'btn-outline-secondary'}`}
-                                style={b.gender !== 'GIRL'
-                                  ? { backgroundColor: 'var(--badge-boys-bg)', color: 'var(--badge-boys-text)', border: '1px solid var(--badge-boys-border)', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
-                                onClick={() => b.gender === 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
-                              >
-                                Boys
-                              </button>
-                              <button
-                                className={`btn btn-sm ${b.gender === 'GIRL' ? '' : 'btn-outline-secondary'}`}
-                                style={b.gender === 'GIRL'
-                                  ? { backgroundColor: 'var(--badge-girls-bg)', color: 'var(--badge-girls-text)', border: '1px solid var(--badge-girls-border)', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
-                                onClick={() => b.gender !== 'GIRL' && handleToggleBuildingGender(b.id, b.gender)}
-                              >
-                                Girls
-                              </button>
-                            </div>
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <div className="btn-group btn-group-sm" role="group" style={{ borderRadius: '12px', overflow: 'hidden' }}>
-                              <button
-                                className={`btn btn-sm ${b.type !== 'NRI' ? '' : 'btn-outline-secondary'}`}
-                                style={b.type !== 'NRI'
-                                  ? { backgroundColor: 'var(--badge-regular-bg)', color: 'var(--badge-regular-text)', border: '1px solid var(--badge-regular-border)', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
-                                onClick={() => b.type === 'NRI' && handleToggleBuildingType(b.id, b.type)}
-                              >
-                                Regular
-                              </button>
-                              <button
-                                className={`btn btn-sm ${b.type === 'NRI' ? '' : 'btn-outline-secondary'}`}
-                                style={b.type === 'NRI'
-                                  ? { backgroundColor: 'var(--badge-nri-bg)', color: 'var(--badge-nri-text)', border: '1px solid var(--badge-nri-border)', fontSize: '0.7rem', fontWeight: 600 }
-                                  : { fontSize: '0.7rem', color: 'var(--color-text-muted)' }}
-                                onClick={() => b.type !== 'NRI' && handleToggleBuildingType(b.id, b.type)}
-                              >
-                                NRI
-                              </button>
-                            </div>
-                          </td>
-                          <td style={{ textAlign: 'right', paddingRight: '1rem' }}>
-                            <button
-                              className="btn btn-outline-secondary btn-sm me-1"
-                              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                              onClick={() => { setEditingBuildingId(b.id); setEditBuildingName(b.name); }}
-                              title="Rename"
-                            >
-                              <FontAwesomeIcon icon={faEdit} />
-                            </button>
-                            <button
-                              className="btn btn-outline-danger btn-sm"
-                              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                              onClick={() => handleRemoveBuilding(b.id, b.name)}
-                              title="Remove"
-                            >
-                              <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Add Building Form */}
-              {showAddBuilding && (
-                <div className="card shadow-sm mb-3 border-success">
-                  <div className="card-body">
-                    <h6 className="fw-bold mb-3">Add New Building</h6>
-                    <div className="row g-2 align-items-end">
-                      <div className="col-md-3">
-                        <label className="form-label">Building Name *</label>
-                        <input
-                          type="text"
-                          className="form-control form-control-sm"
-                          value={newBuildingName}
-                          onChange={(e) => setNewBuildingName(e.target.value)}
-                          placeholder="e.g. Hostel C"
-                        />
-                      </div>
-                      <div className="col-md-3">
-                        <label className="form-label">Type</label>
-                        <select className="form-select form-select-sm" value={newBuildingType} onChange={(e) => setNewBuildingType(e.target.value)}>
-                          <option value="NORMAL">Regular</option>
-                          <option value="NRI">NRI</option>
-                        </select>
-                      </div>
-                      <div className="col-md-3">
-                        <label className="form-label">Gender</label>
-                        <select className="form-select form-select-sm" value={newBuildingGender} onChange={(e) => setNewBuildingGender(e.target.value)}>
-                          <option value="BOY">Boys</option>
-                          <option value="GIRL">Girls</option>
-                        </select>
-                      </div>
-                      <div className="col-md-3 d-flex gap-2">
-                        <button className="btn btn-success btn-sm" onClick={handleAddBuilding}>
-                          <FontAwesomeIcon icon={faCheck} /> Add
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowAddBuilding(false)}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
           </div>
 
-          {/* Auto Allocate */}
-          {currentBuilding && (
-            <div className="row mb-4">
-              <div className="col-12">
-                <div className="card shadow-sm border-success">
-                  <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h6 className="mb-0"><FontAwesomeIcon icon={faMagic} /> Auto Allocate Rooms — {currentBuilding.name}</h6>
-                  </div>
-                  <div className="card-body">
-                    <p className="text-muted mb-3" style={{ fontSize: '0.85rem' }}>
-                      Assigns only students who currently have no room, matching each student's department against
-                      the room's effective department (room override, else floor default) and respecting capacity.
-                      Students who already have a room are never moved.
-                    </p>
-                    <div className="row g-2 align-items-end">
-                      <div className="col-md-4">
-                        <label className="form-label fw-semibold">Floor (optional)</label>
-                        <select className="form-select form-select-sm" value={autoAllocateFloor} onChange={(e) => setAutoAllocateFloor(e.target.value)}>
-                          <option value="">All floors</option>
-                          {currentBuilding.floors.map(f => (
-                            <option key={f.floorNumber} value={f.floorNumber}>Floor {f.floorNumber}</option>
-                          ))}
-                        </select>
+          {/* Table header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 80px 48px 56px',
+            padding: '0.4rem 1rem',
+            backgroundColor: 'var(--color-bg-tertiary)',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            color: 'var(--color-text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            borderBottom: '1px solid var(--color-bg-tertiary)',
+          }}>
+            <span>Building</span>
+            <span style={{ textAlign: 'center' }}>Type</span>
+            <span style={{ textAlign: 'center' }}>Rooms</span>
+            <span style={{ textAlign: 'center' }}>Students</span>
+          </div>
+
+          {/* Building rows */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {filteredBuildings.map(b => {
+              const isActive = activeBuilding === b.id;
+              const bRooms = b.floors.reduce((s, f) => s + f.rooms.length, 0);
+              const bStudents = allocations.filter(a => a.buildingId === b.id).length;
+              return (
+                <div key={b.id}>
+                  {editingBuildingId === b.id ? (
+                    <div style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: 'var(--row-highlight)',
+                      borderBottom: '1px solid var(--color-bg-tertiary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={editBuildingName}
+                        onChange={(e) => setEditBuildingName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRenameBuilding()}
+                        autoFocus
+                        style={{ flex: 1 }}
+                      />
+                      <button className="btn btn-success btn-sm" onClick={handleRenameBuilding}>
+                        <FontAwesomeIcon icon={faCheck} />
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setEditingBuildingId(null)}>
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setActiveBuilding(b.id)}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 80px 48px 56px',
+                        alignItems: 'center',
+                        padding: '0.55rem 1rem',
+                        cursor: 'pointer',
+                        backgroundColor: isActive ? 'var(--row-highlight)' : 'transparent',
+                        borderBottom: '1px solid var(--color-bg-tertiary)',
+                        borderLeft: isActive ? '3px solid var(--accent-blue-vivid)' : '3px solid transparent',
+                        transition: 'background-color 0.15s',
+                      }}
+                    >
+                      <div className="d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
+                        <FontAwesomeIcon
+                          icon={faBuilding}
+                          style={{ color: b.gender === 'GIRL' ? 'var(--accent-pink)' : 'var(--accent-blue-mid)', flexShrink: 0 }}
+                          fontSize="0.85rem"
+                        />
+                        <span className="fw-semibold text-truncate" style={{
+                          fontSize: '0.85rem',
+                          color: isActive ? 'var(--accent-blue-vivid)' : 'var(--color-text-primary)',
+                        }}>
+                          {b.name}
+                        </span>
                       </div>
-                      <div className="col-md-4">
-                        <button
-                          className="btn btn-success btn-sm"
-                          disabled={autoAllocating}
-                          onClick={() => handleAutoAllocate(currentBuilding.id)}
-                        >
-                          {autoAllocating ? (
-                            <><span className="spinner-border spinner-border-sm me-1" role="status"></span> Running...</>
-                          ) : (
-                            <><FontAwesomeIcon icon={faMagic} /> Auto Allocate Rooms</>
-                          )}
-                        </button>
+                      <div style={{ textAlign: 'center' }}>
+                        <span style={{
+                          ...genderBadgeStyle(b.gender),
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          padding: '2px 7px',
+                          borderRadius: '12px',
+                          display: 'inline-block',
+                        }}>
+                          {b.gender === 'GIRL' ? 'Girls' : 'Boys'}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                        {bRooms}
+                      </div>
+                      <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                        {bStudents}
                       </div>
                     </div>
-
-                    {autoAllocateResult && (
-                      <div className="mt-3 p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderRadius: '0.5rem' }}>
-                        <h6 className="fw-bold mb-2">Bulk allocation completed</h6>
-                        <div className="row g-2 mb-2">
-                          <div className="col-6 col-md-3">
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>Students processed</div>
-                            <div className="fw-bold">{autoAllocateResult.studentsProcessed}</div>
-                          </div>
-                          <div className="col-6 col-md-3">
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>Assigned</div>
-                            <div className="fw-bold text-success">{autoAllocateResult.assigned}</div>
-                          </div>
-                          <div className="col-6 col-md-3">
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>Remaining</div>
-                            <div className="fw-bold text-danger">{autoAllocateResult.remaining}</div>
-                          </div>
-                          <div className="col-6 col-md-3">
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>Rooms used</div>
-                            <div className="fw-bold">{autoAllocateResult.roomsUsed}</div>
-                          </div>
-                        </div>
-                        {autoAllocateResult.byDepartment?.length > 0 && (
-                          <div className="mb-2" style={{ fontSize: '0.8rem' }}>
-                            {autoAllocateResult.byDepartment.map((d, i) => (
-                              <span key={i} className="badge bg-secondary me-2 mb-1">
-                                {d.department || 'No department'}: {d.assigned}/{d.studentsNeedingRooms} assigned
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {autoAllocateResult.unassigned?.length > 0 && (
-                          <div className="table-responsive mt-2" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                            <table className="table table-sm table-hover mb-0">
-                              <thead>
-                                <tr>
-                                  <th>Roll No</th>
-                                  <th>Name</th>
-                                  <th>Department</th>
-                                  <th>Reason</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {autoAllocateResult.unassigned.map((u, i) => (
-                                  <tr key={i}>
-                                    <td>{u.rollNo}</td>
-                                    <td>{u.name}</td>
-                                    <td>{u.department}</td>
-                                    <td className="text-muted">{u.reason}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
+              );
+            })}
+            {filteredBuildings.length === 0 && (
+              <div className="text-center text-muted py-4" style={{ fontSize: '0.85rem' }}>
+                No buildings found
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Floors & Rooms */}
-          {currentBuilding && currentBuilding.floors.map(floor => {
-            const floorOccupants = allocations.filter(
-              a => a.buildingId === currentBuilding.id && a.floor === floor.floorNumber
-            );
-            const isEditingFloorDept = editingFloorDept
-              && editingFloorDept.buildingId === currentBuilding.id
-              && editingFloorDept.floorNumber === floor.floorNumber;
+          {/* Add building */}
+          <div style={{ borderTop: '1px solid var(--color-bg-tertiary)', padding: '0.75rem 1rem' }}>
+            <button
+              className="btn btn-outline-success btn-sm w-100"
+              onClick={() => setShowAddBuilding(!showAddBuilding)}
+            >
+              <FontAwesomeIcon icon={faPlus} className="me-1" /> Add Building
+            </button>
+          </div>
 
-            return (
-              <div className="row mb-4" key={floor.floorNumber}>
-                <div className="col-12">
-                  <div className="card shadow-sm">
-                    <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                      <h5 className="mb-0">
-                        <FontAwesomeIcon icon={faLayerGroup} /> Floor {floor.floorNumber}
-                        <span className="badge bg-primary ms-2">{floorOccupants.length} students</span>
-                        <span className="badge bg-secondary ms-1">{floor.rooms.length} rooms</span>
-                      </h5>
-                      <div className="d-flex align-items-center gap-2 flex-wrap">
-                        {isEditingFloorDept ? (
-                          <div className="d-flex align-items-center gap-1">
-                            <input
-                              type="text"
-                              className="form-control form-control-sm"
-                              style={{ width: '120px' }}
-                              value={editFloorDeptValue}
-                              onChange={(e) => setEditFloorDeptValue(e.target.value)}
-                              placeholder="e.g. CT"
-                              onKeyDown={(e) => e.key === 'Enter' && handleSaveFloorDept()}
-                              autoFocus
-                            />
-                            <button className="btn btn-success btn-sm" onClick={handleSaveFloorDept}><FontAwesomeIcon icon={faCheck} /></button>
-                            <button className="btn btn-secondary btn-sm" onClick={() => setEditingFloorDept(null)}><FontAwesomeIcon icon={faTimes} /></button>
-                          </div>
-                        ) : (
-                          <button
-                            className="btn btn-outline-info btn-sm"
-                            style={{ fontSize: '0.75rem' }}
-                            onClick={() => handleEditFloorDept(currentBuilding.id, floor.floorNumber, floor.department)}
-                            title="Set default department for this floor"
-                          >
-                            <FontAwesomeIcon icon={faTag} /> {floor.department ? `Default: ${floor.department}` : 'Set default department'}
-                          </button>
-                        )}
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => handleRemoveRoom(currentBuilding.id, floor.floorNumber)}
-                          disabled={floor.rooms.length <= 1}
-                          title="Remove last room"
-                        >
-                          <FontAwesomeIcon icon={faMinus} />
-                        </button>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => handleAddRoom(currentBuilding.id, floor.floorNumber)}
-                          disabled={floor.rooms.length >= 20}
-                          title="Add room"
-                        >
-                          <FontAwesomeIcon icon={faPlus} />
-                        </button>
-                        <button
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => handleRemoveFloor(currentBuilding.id, floor.floorNumber)}
-                          title="Remove floor"
-                        >
-                          <FontAwesomeIcon icon={faTimes} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <div className="row g-3">
-                        {floor.rooms.map(room => {
-                          const occupants = getRoomOccupants(room.id);
-                          const isFull = occupants.length >= room.maxMembers;
-                          const isEditingCapacity = editingRoom && editingRoom.roomId === room.id;
-                          const isEditingNumber = editingRoomNumber === room.id;
-                          const isEditingDept = editingRoomDept === room.id;
-
-                          return (
-                            <div className="col-md-6 col-lg-4" key={room.id}>
-                              <div className={`card h-100 ${isFull ? 'border-danger' : occupants.length > 0 ? 'border-success' : ''}`}>
-                                <div className="card-header d-flex justify-content-between align-items-center py-2" style={{ backgroundColor: isFull ? 'var(--room-full-bg)' : occupants.length > 0 ? 'var(--room-occupied-bg)' : 'var(--color-bg-tertiary)' }}>
-                                  <span className="fw-semibold d-flex align-items-center gap-1">
-                                    <FontAwesomeIcon icon={faDoorOpen} />
-                                    {isEditingNumber ? (
-                                      <>
-                                        <input
-                                          type="text"
-                                          className="form-control form-control-sm"
-                                          style={{ width: '70px' }}
-                                          value={editRoomNumberValue}
-                                          onChange={(e) => setEditRoomNumberValue(e.target.value)}
-                                          onKeyDown={(e) => e.key === 'Enter' && handleSaveRoomNumber(room.id)}
-                                          autoFocus
-                                        />
-                                        <button className="btn btn-success btn-sm" style={{ padding: '0.1rem 0.35rem' }} onClick={() => handleSaveRoomNumber(room.id)}><FontAwesomeIcon icon={faCheck} /></button>
-                                        <button className="btn btn-secondary btn-sm" style={{ padding: '0.1rem 0.35rem' }} onClick={() => setEditingRoomNumber(null)}><FontAwesomeIcon icon={faTimes} /></button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        Room {room.roomNumber}
-                                        <button
-                                          className="btn btn-link p-0 ms-1"
-                                          style={{ fontSize: '0.7rem' }}
-                                          onClick={() => handleEditRoomNumber(room.id, room.roomNumber)}
-                                          title="Edit room number"
-                                        >
-                                          <FontAwesomeIcon icon={faEdit} />
-                                        </button>
-                                      </>
-                                    )}
-                                  </span>
-                                  <div className="d-flex align-items-center gap-1">
-                                    {isEditingCapacity ? (
-                                      <>
-                                        <input
-                                          type="number"
-                                          className="form-control form-control-sm"
-                                          style={{ width: '60px' }}
-                                          value={editMaxMembers}
-                                          onChange={(e) => setEditMaxMembers(parseInt(e.target.value) || 1)}
-                                          min="1"
-                                          max="12"
-                                        />
-                                        <button className="btn btn-success btn-sm" onClick={handleSaveRoomCapacity}>
-                                          <FontAwesomeIcon icon={faCheck} />
-                                        </button>
-                                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingRoom(null)}>
-                                          <FontAwesomeIcon icon={faTimes} />
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span className={`badge ${isFull ? 'bg-danger' : 'bg-secondary'}`}>
-                                          {occupants.length}/{room.maxMembers}
-                                        </span>
-                                        <button
-                                          className="btn btn-outline-secondary btn-sm"
-                                          style={{ padding: '0.1rem 0.35rem', fontSize: '0.7rem' }}
-                                          onClick={() => handleEditRoomCapacity(room.id, room.maxMembers)}
-                                          title="Edit max capacity"
-                                        >
-                                          <FontAwesomeIcon icon={faEdit} />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Department: room override vs inherited floor default */}
-                                <div className="px-2 pt-2 d-flex align-items-center gap-1 flex-wrap">
-                                  {isEditingDept ? (
-                                    <>
-                                      <input
-                                        type="text"
-                                        className="form-control form-control-sm"
-                                        style={{ width: '90px' }}
-                                        value={editRoomDeptValue}
-                                        onChange={(e) => setEditRoomDeptValue(e.target.value)}
-                                        placeholder="e.g. ECE"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSaveRoomDept(room.id)}
-                                        autoFocus
-                                      />
-                                      <button className="btn btn-success btn-sm" style={{ padding: '0.1rem 0.35rem' }} onClick={() => handleSaveRoomDept(room.id)}><FontAwesomeIcon icon={faCheck} /></button>
-                                      <button className="btn btn-secondary btn-sm" style={{ padding: '0.1rem 0.35rem' }} onClick={() => setEditingRoomDept(null)}><FontAwesomeIcon icon={faTimes} /></button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      {room.effectiveDepartment ? (
-                                        <span
-                                          className={`badge ${room.departmentOverride ? 'bg-warning text-dark' : 'bg-info text-dark'}`}
-                                          style={{ fontSize: '0.7rem' }}
-                                          title={room.departmentOverride ? 'Room override' : 'Inherited from floor default'}
-                                        >
-                                          <FontAwesomeIcon icon={faTag} /> {room.effectiveDepartment}
-                                          {' '}({room.departmentOverride ? 'Room Override' : 'Floor Default'})
-                                        </span>
-                                      ) : (
-                                        <span className="text-muted" style={{ fontSize: '0.7rem' }}>No department set</span>
-                                      )}
-                                      <button
-                                        className="btn btn-link p-0"
-                                        style={{ fontSize: '0.7rem' }}
-                                        onClick={() => handleEditRoomDept(room.id, room.departmentOverride)}
-                                        title="Set room department override"
-                                      >
-                                        <FontAwesomeIcon icon={faEdit} />
-                                      </button>
-                                      {room.departmentOverride && (
-                                        <button
-                                          className="btn btn-link p-0 text-danger"
-                                          style={{ fontSize: '0.7rem' }}
-                                          onClick={() => handleRemoveRoomDeptOverride(room.id)}
-                                          title="Remove override (inherit floor default)"
-                                        >
-                                          <FontAwesomeIcon icon={faTimes} /> Remove override
-                                        </button>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                <div className="card-body p-2">
-                                  {occupants.length === 0 ? (
-                                    <p className="text-muted text-center mb-0" style={{ fontSize: '0.85rem' }}>Empty</p>
-                                  ) : (
-                                    <div className="list-group list-group-flush">
-                                      {occupants.map((student, idx) => (
-                                        <div key={idx} className="list-group-item px-2 py-1 d-flex justify-content-between align-items-center" style={{ fontSize: '0.85rem' }}>
-                                          <div>
-                                            <div className="fw-semibold">{student.name}</div>
-                                            <div className="text-muted">
-                                              {student.rollNo} &middot; {student.department}
-                                            </div>
-                                          </div>
-                                          <button
-                                            className="btn btn-outline-danger btn-sm"
-                                            style={{ padding: '0.1rem 0.3rem', fontSize: '0.7rem' }}
-                                            onClick={() => handleRemoveStudent(student.studentEmail, student.name)}
-                                            title="Remove student"
-                                          >
-                                            <FontAwesomeIcon icon={faTrash} />
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {!isFull && (
-                                    <div className="text-center mt-2">
-                                      <button
-                                        className="btn btn-outline-primary btn-sm"
-                                        style={{ fontSize: '0.8rem' }}
-                                        onClick={() => handleOpenAddModal(room.id, room.roomNumber)}
-                                      >
-                                        <FontAwesomeIcon icon={faUserPlus} /> Add Student
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          {/* Add building form */}
+          {showAddBuilding && (
+            <div style={{
+              padding: '0.75rem 1rem',
+              borderTop: '1px solid var(--color-bg-tertiary)',
+              backgroundColor: 'var(--color-bg-secondary)',
+            }}>
+              <div className="mb-2">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Building name *"
+                  value={newBuildingName}
+                  onChange={(e) => setNewBuildingName(e.target.value)}
+                />
               </div>
-            );
-          })}
-
-          {/* Add Floor Button */}
-          {currentBuilding && (
-            <div className="row mb-4">
-              <div className="col-12 text-center">
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={() => handleAddFloor(currentBuilding.id)}
-                >
-                  <FontAwesomeIcon icon={faPlus} /> Add Floor to {currentBuilding.name}
+              <div className="d-flex gap-2 mb-2">
+                <select className="form-select form-select-sm" value={newBuildingType} onChange={(e) => setNewBuildingType(e.target.value)}>
+                  <option value="NORMAL">Regular</option>
+                  <option value="NRI">NRI</option>
+                </select>
+                <select className="form-select form-select-sm" value={newBuildingGender} onChange={(e) => setNewBuildingGender(e.target.value)}>
+                  <option value="BOY">Boys</option>
+                  <option value="GIRL">Girls</option>
+                </select>
+              </div>
+              <div className="d-flex gap-2">
+                <button className="btn btn-success btn-sm flex-fill" onClick={handleAddBuilding}>
+                  <FontAwesomeIcon icon={faCheck} /> Add
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowAddBuilding(false)}>
+                  Cancel
                 </button>
               </div>
             </div>
           )}
-        </>
-      )}
+        </div>
+
+        {/* ── RIGHT: Building Detail ── */}
+        <div style={{
+          flex: 1,
+          backgroundColor: 'var(--color-bg-secondary)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          minWidth: 0,
+        }}>
+          {!currentBuilding ? (
+            <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted gap-2">
+              <FontAwesomeIcon icon={faBuilding} style={{ fontSize: '2rem', color: 'var(--color-bg-tertiary)' }} />
+              <span style={{ fontSize: '0.9rem' }}>Select a building to view details</span>
+            </div>
+          ) : (
+            <>
+              {/* Building header */}
+              <div style={{
+                padding: '0.9rem 1.25rem',
+                backgroundColor: 'var(--color-bg-primary)',
+                borderBottom: '1px solid var(--color-bg-tertiary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+              }}>
+                <div className="d-flex align-items-center gap-3">
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: 'var(--border-radius-md)',
+                    backgroundColor: currentBuilding.gender === 'GIRL' ? 'var(--badge-girls-bg)' : 'var(--badge-boys-bg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <FontAwesomeIcon
+                      icon={faBuilding}
+                      style={{ color: currentBuilding.gender === 'GIRL' ? 'var(--accent-pink)' : 'var(--accent-blue-vivid)' }}
+                    />
+                  </div>
+                  <div>
+                    <div className="fw-semibold" style={{ fontSize: '1rem', color: 'var(--color-text-primary)' }}>
+                      {currentBuilding.name}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                      {currentBuilding.gender === 'GIRL' ? 'Girls' : 'Boys'} &middot;&nbsp;
+                      {currentBuilding.floors.reduce((s, f) => s + f.rooms.length, 0)} rooms &middot;&nbsp;
+                      {allocations.filter(a => a.buildingId === currentBuilding.id).length} students
+                    </div>
+                  </div>
+                </div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  {/* Gender toggle */}
+                  <div className="btn-group btn-group-sm" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+                    <button
+                      className="btn btn-sm"
+                      style={currentBuilding.gender !== 'GIRL'
+                        ? { ...genderBadgeStyle('BOY'), fontSize: '0.7rem', fontWeight: 600 }
+                        : { fontSize: '0.7rem', color: 'var(--color-text-muted)', border: '1px solid var(--color-bg-tertiary)' }}
+                      onClick={() => currentBuilding.gender === 'GIRL' && handleToggleBuildingGender(currentBuilding.id, currentBuilding.gender)}
+                    >Boys</button>
+                    <button
+                      className="btn btn-sm"
+                      style={currentBuilding.gender === 'GIRL'
+                        ? { ...genderBadgeStyle('GIRL'), fontSize: '0.7rem', fontWeight: 600 }
+                        : { fontSize: '0.7rem', color: 'var(--color-text-muted)', border: '1px solid var(--color-bg-tertiary)' }}
+                      onClick={() => currentBuilding.gender !== 'GIRL' && handleToggleBuildingGender(currentBuilding.id, currentBuilding.gender)}
+                    >Girls</button>
+                  </div>
+                  {/* Type toggle */}
+                  <div className="btn-group btn-group-sm" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+                    <button
+                      className="btn btn-sm"
+                      style={currentBuilding.type !== 'NRI'
+                        ? { ...typeBadgeStyle('NORMAL'), fontSize: '0.7rem', fontWeight: 600 }
+                        : { fontSize: '0.7rem', color: 'var(--color-text-muted)', border: '1px solid var(--color-bg-tertiary)' }}
+                      onClick={() => currentBuilding.type === 'NRI' && handleToggleBuildingType(currentBuilding.id, currentBuilding.type)}
+                    >Regular</button>
+                    <button
+                      className="btn btn-sm"
+                      style={currentBuilding.type === 'NRI'
+                        ? { ...typeBadgeStyle('NRI'), fontSize: '0.7rem', fontWeight: 600 }
+                        : { fontSize: '0.7rem', color: 'var(--color-text-muted)', border: '1px solid var(--color-bg-tertiary)' }}
+                      onClick={() => currentBuilding.type !== 'NRI' && handleToggleBuildingType(currentBuilding.id, currentBuilding.type)}
+                    >NRI</button>
+                  </div>
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    style={{ padding: '3px 8px' }}
+                    onClick={() => { setEditingBuildingId(currentBuilding.id); setEditBuildingName(currentBuilding.name); }}
+                    title="Rename"
+                  >
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    style={{ padding: '3px 8px' }}
+                    onClick={() => handleRemoveBuilding(currentBuilding.id, currentBuilding.name)}
+                    title="Remove building"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                  <button
+                    className={`btn btn-sm ${showAutoAllocate ? 'btn-success' : 'btn-outline-success'}`}
+                    onClick={() => { setShowAutoAllocate(!showAutoAllocate); setAutoAllocateResult(null); }}
+                  >
+                    <FontAwesomeIcon icon={faMagic} className="me-1" /> Auto Allocate
+                  </button>
+                  <button
+                    className={`btn btn-sm ${showSettings ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setShowSettings(!showSettings)}
+                  >
+                    <FontAwesomeIcon icon={faCog} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-allocate panel */}
+              {showAutoAllocate && (
+                <div style={{
+                  margin: '1rem 1.25rem 0',
+                  padding: '1rem',
+                  backgroundColor: 'var(--color-bg-primary)',
+                  borderRadius: 'var(--border-radius-md)',
+                  border: '1px solid var(--color-success)',
+                }}>
+                  <h6 className="fw-bold mb-2" style={{ color: 'var(--color-success)' }}>
+                    <FontAwesomeIcon icon={faMagic} className="me-2" />
+                    Auto Allocate — {currentBuilding.name}
+                  </h6>
+                  <p className="text-muted mb-3" style={{ fontSize: '0.8rem' }}>
+                    Assigns unallocated students by department, matching room/floor defaults and respecting capacity.
+                  </p>
+                  <div className="d-flex align-items-end gap-3 flex-wrap">
+                    <div>
+                      <label className="form-label fw-semibold" style={{ fontSize: '0.8rem' }}>Floor (optional)</label>
+                      <select className="form-select form-select-sm" value={autoAllocateFloor} onChange={(e) => setAutoAllocateFloor(e.target.value)} style={{ minWidth: '130px' }}>
+                        <option value="">All floors</option>
+                        {currentBuilding.floors.map(f => (
+                          <option key={f.floorNumber} value={f.floorNumber}>Floor {f.floorNumber}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      className="btn btn-success btn-sm"
+                      disabled={autoAllocating}
+                      onClick={() => handleAutoAllocate(currentBuilding.id)}
+                    >
+                      {autoAllocating
+                        ? <><span className="spinner-border spinner-border-sm me-1" role="status" /> Running...</>
+                        : <><FontAwesomeIcon icon={faMagic} className="me-1" /> Run Allocation</>}
+                    </button>
+                  </div>
+
+                  {autoAllocateResult && (
+                    <div className="mt-3 p-3" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderRadius: 'var(--border-radius-sm)' }}>
+                      <h6 className="fw-bold mb-2">Allocation complete</h6>
+                      <div className="d-flex gap-4 mb-2 flex-wrap">
+                        {[
+                          { label: 'Processed', value: autoAllocateResult.studentsProcessed, color: 'var(--color-text-primary)' },
+                          { label: 'Assigned', value: autoAllocateResult.assigned, color: 'var(--color-success)' },
+                          { label: 'Remaining', value: autoAllocateResult.remaining, color: 'var(--color-danger)' },
+                          { label: 'Rooms used', value: autoAllocateResult.roomsUsed, color: 'var(--color-text-primary)' },
+                        ].map(({ label, value, color }) => (
+                          <div key={label}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{label}</div>
+                            <div className="fw-bold" style={{ color }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {autoAllocateResult.byDepartment?.length > 0 && (
+                        <div className="mb-2">
+                          {autoAllocateResult.byDepartment.map((d, i) => (
+                            <span key={i} className="badge bg-secondary me-1 mb-1" style={{ fontSize: '0.7rem' }}>
+                              {d.department || 'No dept'}: {d.assigned}/{d.studentsNeedingRooms}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {autoAllocateResult.unassigned?.length > 0 && (
+                        <div className="table-responsive" style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                          <table className="table table-sm table-hover mb-0" style={{ fontSize: '0.8rem' }}>
+                            <thead><tr><th>Roll No</th><th>Name</th><th>Dept</th><th>Reason</th></tr></thead>
+                            <tbody>
+                              {autoAllocateResult.unassigned.map((u, i) => (
+                                <tr key={i}>
+                                  <td>{u.rollNo}</td><td>{u.name}</td><td>{u.department}</td>
+                                  <td className="text-muted">{u.reason}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Floor tabs */}
+              <div style={{ padding: '1rem 1.25rem 0' }}>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  {currentBuilding.floors.map(floor => {
+                    const isActive = activeFloor === floor.floorNumber;
+                    return (
+                      <button
+                        key={floor.floorNumber}
+                        onClick={() => setActiveFloor(floor.floorNumber)}
+                        style={{
+                          padding: '0.3rem 0.9rem',
+                          borderRadius: '20px',
+                          border: isActive ? 'none' : '1px solid var(--color-bg-tertiary)',
+                          backgroundColor: isActive ? 'var(--accent-blue-vivid)' : 'var(--color-bg-primary)',
+                          color: isActive ? '#fff' : 'var(--color-text-muted)',
+                          fontSize: '0.82rem',
+                          fontWeight: isActive ? 600 : 400,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faLayerGroup} className="me-1" style={{ fontSize: '0.75rem' }} />
+                        Floor {floor.floorNumber}
+                      </button>
+                    );
+                  })}
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    style={{ borderRadius: '20px', padding: '0.25rem 0.7rem', fontSize: '0.8rem' }}
+                    onClick={() => handleAddFloor(currentBuilding.id)}
+                    title="Add floor"
+                  >
+                    <FontAwesomeIcon icon={faPlus} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Floor controls & stats */}
+              {currentFloor && (
+                <div style={{
+                  padding: '0.6rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}>
+                  <div className="d-flex align-items-center gap-3">
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-info)' }}>
+                      <FontAwesomeIcon icon={faUserGraduate} className="me-1" />{floorStudents} Students
+                    </span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-success)' }}>
+                      <FontAwesomeIcon icon={faDoorOpen} className="me-1" />{currentFloor.rooms.length} Rooms
+                    </span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-warning)' }}>
+                      {floorOccupied} Occupied
+                    </span>
+                  </div>
+                  <div className="d-flex align-items-center gap-1">
+                    {isEditingFloorDept ? (
+                      <div className="d-flex align-items-center gap-1">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          style={{ width: '110px' }}
+                          value={editFloorDeptValue}
+                          onChange={(e) => setEditFloorDeptValue(e.target.value)}
+                          placeholder="e.g. CT"
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveFloorDept()}
+                          autoFocus
+                        />
+                        <button className="btn btn-success btn-sm" onClick={handleSaveFloorDept}><FontAwesomeIcon icon={faCheck} /></button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingFloorDept(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn-outline-info btn-sm"
+                        style={{ fontSize: '0.75rem' }}
+                        onClick={() => handleEditFloorDept(currentBuilding.id, currentFloor.floorNumber, currentFloor.department)}
+                        title="Set default department"
+                      >
+                        <FontAwesomeIcon icon={faTag} className="me-1" />
+                        {currentFloor.department ? `Dept: ${currentFloor.department}` : 'Set dept'}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => handleRemoveRoom(currentBuilding.id, currentFloor.floorNumber)}
+                      disabled={currentFloor.rooms.length <= 1}
+                      title="Remove last room"
+                    >
+                      <FontAwesomeIcon icon={faMinus} />
+                    </button>
+                    <button
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => handleAddRoom(currentBuilding.id, currentFloor.floorNumber)}
+                      disabled={currentFloor.rooms.length >= 20}
+                      title="Add room"
+                    >
+                      <FontAwesomeIcon icon={faPlus} />
+                    </button>
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => handleRemoveFloor(currentBuilding.id, currentFloor.floorNumber)}
+                      title="Remove this floor"
+                    >
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Divider */}
+              <div style={{ height: '1px', backgroundColor: 'var(--color-bg-tertiary)', margin: '0 1.25rem' }} />
+
+              {/* Room grid */}
+              <div style={{ padding: '1rem 1.25rem 1.25rem', flex: 1 }}>
+                {!currentFloor ? (
+                  <p className="text-muted text-center py-4" style={{ fontSize: '0.9rem' }}>No floors yet — add one above.</p>
+                ) : (
+                  <div className="row g-3">
+                    {currentFloor.rooms.map(room => {
+                      const occupants = getRoomOccupants(room.id);
+                      const isFull = occupants.length >= room.maxMembers;
+                      const isOccupied = occupants.length > 0;
+                      const isEditingCapacity = editingRoom?.roomId === room.id;
+                      const isEditingNumber = editingRoomNumber === room.id;
+                      const isEditingDept = editingRoomDept === room.id;
+
+                      const roomBorderColor = isFull
+                        ? 'var(--color-danger)'
+                        : isOccupied
+                          ? 'var(--color-info)'
+                          : 'var(--color-bg-tertiary)';
+                      const roomHeaderBg = isFull
+                        ? 'var(--room-full-bg)'
+                        : isOccupied
+                          ? '#e8f4ff'
+                          : 'var(--color-bg-tertiary)';
+
+                      return (
+                        <div className="col-md-6 col-lg-4 col-xl-3" key={room.id}>
+                          <div style={{
+                            backgroundColor: 'var(--color-bg-primary)',
+                            border: `1.5px solid ${roomBorderColor}`,
+                            borderRadius: 'var(--border-radius-md)',
+                            overflow: 'hidden',
+                            boxShadow: isOccupied ? '0 2px 8px rgba(66,153,225,0.1)' : 'var(--shadow-sm)',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                          }}>
+                            {/* Room card header */}
+                            <div style={{
+                              backgroundColor: roomHeaderBg,
+                              padding: '0.5rem 0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              borderBottom: `1px solid ${roomBorderColor}`,
+                            }}>
+                              <span className="d-flex align-items-center gap-1" style={{ fontSize: '0.82rem', fontWeight: 600, color: isOccupied ? 'var(--accent-blue-vivid)' : 'var(--color-text-muted)' }}>
+                                <FontAwesomeIcon icon={faDoorOpen} style={{ fontSize: '0.75rem' }} />
+                                {isEditingNumber ? (
+                                  <>
+                                    <input
+                                      type="text"
+                                      className="form-control form-control-sm"
+                                      style={{ width: '65px' }}
+                                      value={editRoomNumberValue}
+                                      onChange={(e) => setEditRoomNumberValue(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleSaveRoomNumber(room.id)}
+                                      autoFocus
+                                    />
+                                    <button className="btn btn-success btn-sm" style={{ padding: '1px 5px' }} onClick={() => handleSaveRoomNumber(room.id)}><FontAwesomeIcon icon={faCheck} /></button>
+                                    <button className="btn btn-secondary btn-sm" style={{ padding: '1px 5px' }} onClick={() => setEditingRoomNumber(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                                  </>
+                                ) : (
+                                  <>
+                                    Room {room.roomNumber}
+                                    <button
+                                      className="btn btn-link p-0 ms-1"
+                                      style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}
+                                      onClick={() => handleEditRoomNumber(room.id, room.roomNumber)}
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} />
+                                    </button>
+                                  </>
+                                )}
+                              </span>
+                              <div className="d-flex align-items-center gap-1">
+                                {isEditingCapacity ? (
+                                  <>
+                                    <input
+                                      type="number"
+                                      className="form-control form-control-sm"
+                                      style={{ width: '52px' }}
+                                      value={editMaxMembers}
+                                      onChange={(e) => setEditMaxMembers(parseInt(e.target.value) || 1)}
+                                      min="1" max="12"
+                                    />
+                                    <button className="btn btn-success btn-sm" style={{ padding: '1px 5px' }} onClick={handleSaveRoomCapacity}><FontAwesomeIcon icon={faCheck} /></button>
+                                    <button className="btn btn-secondary btn-sm" style={{ padding: '1px 5px' }} onClick={() => setEditingRoom(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span
+                                      className={`badge ${isFull ? 'bg-danger' : isOccupied ? 'bg-primary' : 'bg-secondary'}`}
+                                      style={{ fontSize: '0.7rem' }}
+                                    >
+                                      {occupants.length}/{room.maxMembers}
+                                    </span>
+                                    <button
+                                      className="btn btn-link p-0 ms-1"
+                                      style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}
+                                      onClick={() => handleEditRoomCapacity(room.id, room.maxMembers)}
+                                      title="Edit capacity"
+                                    >
+                                      <FontAwesomeIcon icon={faEdit} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Department badge */}
+                            <div style={{ padding: '0.3rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {isEditingDept ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    className="form-control form-control-sm"
+                                    style={{ width: '80px' }}
+                                    value={editRoomDeptValue}
+                                    onChange={(e) => setEditRoomDeptValue(e.target.value)}
+                                    placeholder="e.g. ECE"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveRoomDept(room.id)}
+                                    autoFocus
+                                  />
+                                  <button className="btn btn-success btn-sm" style={{ padding: '1px 5px' }} onClick={() => handleSaveRoomDept(room.id)}><FontAwesomeIcon icon={faCheck} /></button>
+                                  <button className="btn btn-secondary btn-sm" style={{ padding: '1px 5px' }} onClick={() => setEditingRoomDept(null)}><FontAwesomeIcon icon={faTimes} /></button>
+                                </>
+                              ) : (
+                                <>
+                                  {room.effectiveDepartment ? (
+                                    <span
+                                      className={`badge ${room.departmentOverride ? 'bg-warning text-dark' : 'bg-info text-dark'}`}
+                                      style={{ fontSize: '0.65rem' }}
+                                      title={room.departmentOverride ? 'Room override' : 'Floor default'}
+                                    >
+                                      <FontAwesomeIcon icon={faTag} className="me-1" />
+                                      {room.effectiveDepartment} ({room.departmentOverride ? 'Override' : 'Default'})
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>No dept</span>
+                                  )}
+                                  <button
+                                    className="btn btn-link p-0"
+                                    style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}
+                                    onClick={() => handleEditRoomDept(room.id, room.departmentOverride)}
+                                  >
+                                    <FontAwesomeIcon icon={faEdit} />
+                                  </button>
+                                  {room.departmentOverride && (
+                                    <button
+                                      className="btn btn-link p-0 text-danger"
+                                      style={{ fontSize: '0.65rem' }}
+                                      onClick={() => handleRemoveRoomDeptOverride(room.id)}
+                                      title="Remove override"
+                                    >
+                                      <FontAwesomeIcon icon={faTimes} />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                            {/* Occupants / empty state */}
+                            <div style={{ flex: 1, padding: '0.25rem 0.75rem 0.5rem' }}>
+                              {occupants.length === 0 ? (
+                                <p className="text-muted text-center mb-0" style={{ fontSize: '0.8rem', padding: '0.5rem 0' }}>Available</p>
+                              ) : (
+                                <div>
+                                  {occupants.map((student, idx) => (
+                                    <div key={idx} style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '0.2rem 0',
+                                      borderBottom: idx < occupants.length - 1 ? '1px solid var(--color-bg-tertiary)' : 'none',
+                                    }}>
+                                      <div style={{ minWidth: 0 }}>
+                                        <div className="fw-semibold text-truncate" style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)' }}>
+                                          {student.name}
+                                        </div>
+                                        <div className="text-muted text-truncate" style={{ fontSize: '0.7rem' }}>
+                                          {student.rollNo} &middot; {student.department}
+                                        </div>
+                                      </div>
+                                      <button
+                                        className="btn btn-outline-danger btn-sm ms-1"
+                                        style={{ padding: '1px 5px', fontSize: '0.65rem', flexShrink: 0 }}
+                                        onClick={() => handleRemoveStudent(student.studentEmail, student.name)}
+                                        title="Remove"
+                                      >
+                                        <FontAwesomeIcon icon={faTrash} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Add student button */}
+                            {!isFull && (
+                              <div style={{ padding: '0.4rem 0.75rem', borderTop: '1px solid var(--color-bg-tertiary)' }}>
+                                <button
+                                  className="btn btn-outline-primary btn-sm w-100"
+                                  style={{ fontSize: '0.75rem' }}
+                                  onClick={() => handleOpenAddModal(room.id, room.roomNumber)}
+                                >
+                                  <FontAwesomeIcon icon={faUserPlus} className="me-1" /> Add Student
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Add Student Modal */}
       {showAddModal && (
         <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -1112,23 +1202,17 @@ const RoomManagementPanel = () => {
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  <FontAwesomeIcon icon={faUserPlus} /> Add Student to Room {addToRoom?.roomNumber}
+                  <FontAwesomeIcon icon={faUserPlus} className="me-2" />
+                  Add Student to Room {addToRoom?.roomNumber}
                 </h5>
-                <button type="button" className="btn-close" onClick={() => setShowAddModal(false)}></button>
+                <button type="button" className="btn-close" onClick={() => setShowAddModal(false)} />
               </div>
               <div className="modal-body">
-                {/* Toggle: pick from list or manual */}
                 <div className="btn-group w-100 mb-3" role="group">
-                  <button
-                    className={`btn ${!manualEntry ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setManualEntry(false)}
-                  >
+                  <button className={`btn ${!manualEntry ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setManualEntry(false)}>
                     Select from Registered Students
                   </button>
-                  <button
-                    className={`btn ${manualEntry ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setManualEntry(true)}
-                  >
+                  <button className={`btn ${manualEntry ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setManualEntry(true)}>
                     Add Manually
                   </button>
                 </div>
@@ -1155,12 +1239,7 @@ const RoomManagementPanel = () => {
                       <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                         <table className="table table-hover mb-0">
                           <thead className="table-light sticky-top">
-                            <tr>
-                              <th>Roll No</th>
-                              <th>Name</th>
-                              <th>Department</th>
-                              <th>Action</th>
-                            </tr>
+                            <tr><th>Roll No</th><th>Name</th><th>Department</th><th>Action</th></tr>
                           </thead>
                           <tbody>
                             {filteredModalStudents().map((student, i) => (
@@ -1169,10 +1248,7 @@ const RoomManagementPanel = () => {
                                 <td>{student.name}</td>
                                 <td>{student.department}</td>
                                 <td>
-                                  <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={() => handleAddStudentFromList(student)}
-                                  >
+                                  <button className="btn btn-primary btn-sm" onClick={() => handleAddStudentFromList(student)}>
                                     <FontAwesomeIcon icon={faPlus} /> Add
                                   </button>
                                 </td>
@@ -1187,48 +1263,32 @@ const RoomManagementPanel = () => {
                   <>
                     <div className="mb-3">
                       <label className="form-label fw-semibold">Name *</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        value={manualForm.name}
+                      <input type="text" className="form-control" value={manualForm.name}
                         onChange={(e) => setManualForm({ ...manualForm, name: e.target.value })}
-                        placeholder="Student name"
-                      />
+                        placeholder="Student name" />
                     </div>
                     <div className="row mb-3">
                       <div className="col-md-6">
                         <label className="form-label fw-semibold">Roll No *</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={manualForm.rollNo}
+                        <input type="text" className="form-control" value={manualForm.rollNo}
                           onChange={(e) => setManualForm({ ...manualForm, rollNo: e.target.value })}
-                          placeholder="e.g. 2024503001"
-                        />
+                          placeholder="e.g. 2024503001" />
                       </div>
                       <div className="col-md-6">
                         <label className="form-label fw-semibold">Department *</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={manualForm.department}
+                        <input type="text" className="form-control" value={manualForm.department}
                           onChange={(e) => setManualForm({ ...manualForm, department: e.target.value })}
-                          placeholder="e.g. CSE"
-                        />
+                          placeholder="e.g. CSE" />
                       </div>
                     </div>
                     <div className="mb-3">
                       <label className="form-label fw-semibold">Email (optional)</label>
-                      <input
-                        type="email"
-                        className="form-control"
-                        value={manualForm.email}
+                      <input type="email" className="form-control" value={manualForm.email}
                         onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })}
-                        placeholder="student@college.edu"
-                      />
+                        placeholder="student@college.edu" />
                     </div>
                     <button className="btn btn-primary" onClick={handleAddManualStudent}>
-                      <FontAwesomeIcon icon={faUserPlus} /> Add Student
+                      <FontAwesomeIcon icon={faUserPlus} className="me-1" /> Add Student
                     </button>
                   </>
                 )}
