@@ -2,13 +2,14 @@ package com.outpass.portal.service;
 
 import com.outpass.portal.model.entity.AttendanceRecord;
 import com.outpass.portal.model.entity.AttendanceSession;
+import com.outpass.portal.model.entity.Building;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.enums.AttendanceMethod;
 import com.outpass.portal.model.enums.AttendanceStatus;
 import com.outpass.portal.model.enums.SessionStatus;
 import com.outpass.portal.repository.AttendanceRecordRepository;
 import com.outpass.portal.repository.AttendanceSessionRepository;
-import com.outpass.portal.repository.RoomConfigRepository;
+import com.outpass.portal.repository.BuildingRepository;
 import com.outpass.portal.repository.StudentRepository;
 import com.outpass.portal.util.SubnetUtils;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+// Every session/config operation here is scoped to a specific Building.id -- see
+// backend/AGENTS.md and BuildingConfigService. A warden's assigned-buildings list
+// (wardenBuildingIds, resolved by WardenController from WardenBuildingService) governs
+// which building a mutation is allowed to target; a student's own hostel (resolved via
+// Student.hostel -> Building.name, the same lookup allocateForRegistration in
+// RoomService already uses) governs which building's session/config applies to them.
 @Service
 @RequiredArgsConstructor
 public class AttendanceService {
@@ -31,13 +38,38 @@ public class AttendanceService {
     private final AttendanceSessionRepository sessionRepository;
     private final AttendanceRecordRepository recordRepository;
     private final StudentRepository studentRepository;
-    private final RoomConfigRepository configRepository;
+    private final BuildingRepository buildingRepository;
+    private final BuildingConfigService buildingConfigService;
+
+    // wardenBuildingIds == null means the caller is Admin and may target any building; a
+    // non-null (possibly empty) list restricts the target to buildings actually assigned
+    // to the calling warden. Mirrors RoomService.verifyBuildingOwnership exactly.
+    private void verifyBuildingOwnership(Long buildingId, List<Long> wardenBuildingIds) {
+        if (wardenBuildingIds != null && !wardenBuildingIds.contains(buildingId)) {
+            throw new RuntimeException("You can only manage your own hostel");
+        }
+    }
+
+    // A student has no warden_buildings row -- their building is derived from their own
+    // Student.hostel, the same free-text-name-matches-Building.name convention
+    // RoomService.allocateForRegistration already relies on. A student whose hostel
+    // doesn't resolve to a real building (data problem, not a normal state) gets a clear
+    // error rather than silently falling through to any other hostel's session/config.
+    private Long resolveStudentBuildingId(Long studentId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+        if (student.getHostel() == null || student.getHostel().isBlank()) {
+            throw new RuntimeException("No hostel assigned to this account yet");
+        }
+        Building building = buildingRepository.findByName(student.getHostel())
+                .orElseThrow(() -> new RuntimeException("Your hostel could not be matched to a building. Contact your warden."));
+        return building.getId();
+    }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> verifyWifi(String clientIp) {
-        String subnets = configRepository.findByConfigKey("wifi_allowed_subnets")
-                .map(c -> c.getConfigValue())
-                .orElse("");
+    public Map<String, Object> verifyWifi(Long studentId, String clientIp) {
+        Long buildingId = resolveStudentBuildingId(studentId);
+        String subnets = buildingConfigService.getConfigString("wifi_allowed_subnets", buildingId, "");
 
         boolean connected = SubnetUtils.isInAnySubnet(clientIp, subnets);
 
@@ -48,29 +80,42 @@ public class AttendanceService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getAttendanceConfig() {
+    public Map<String, Object> getAttendanceConfig(Long buildingId, List<Long> wardenBuildingIds) {
+        verifyBuildingOwnership(buildingId, wardenBuildingIds);
+        return buildConfigMap(buildingId);
+    }
+
+    private Map<String, Object> buildConfigMap(Long buildingId) {
         Map<String, Object> config = new LinkedHashMap<>();
-        config.put("wifiAllowedSubnets", getConfigString("wifi_allowed_subnets", ""));
-        config.put("hostelLatitude", getConfigString("hostel_latitude", "0"));
-        config.put("hostelLongitude", getConfigString("hostel_longitude", "0"));
-        config.put("hostelRadius", getConfigString("hostel_radius", "50"));
+        config.put("wifiAllowedSubnets", buildingConfigService.getConfigString("wifi_allowed_subnets", buildingId, ""));
+        config.put("hostelLatitude", buildingConfigService.getConfigString("hostel_latitude", buildingId, "0"));
+        config.put("hostelLongitude", buildingConfigService.getConfigString("hostel_longitude", buildingId, "0"));
+        config.put("hostelRadius", buildingConfigService.getConfigString("hostel_radius", buildingId, "50"));
         return config;
     }
 
     @Transactional
-    public void updateAttendanceConfig(String wifiSubnets, String latitude, String longitude, String radius) {
-        saveConfigValue("wifi_allowed_subnets", wifiSubnets);
-        saveConfigValue("hostel_latitude", latitude);
-        saveConfigValue("hostel_longitude", longitude);
-        saveConfigValue("hostel_radius", radius);
+    public void updateAttendanceConfig(Long buildingId, List<Long> wardenBuildingIds,
+                                        String wifiSubnets, String latitude, String longitude, String radius) {
+        verifyBuildingOwnership(buildingId, wardenBuildingIds);
+        buildingConfigService.saveConfigValue("wifi_allowed_subnets", buildingId,
+                wifiSubnets == null ? "" : wifiSubnets);
+        buildingConfigService.saveConfigValue("hostel_latitude", buildingId, orZero(latitude));
+        buildingConfigService.saveConfigValue("hostel_longitude", buildingId, orZero(longitude));
+        buildingConfigService.saveConfigValue("hostel_radius", buildingId, orZero(radius));
+    }
+
+    private String orZero(String value) {
+        return (value == null || value.isEmpty()) ? "0" : value;
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getHostelLocation() {
+    public Map<String, Object> getHostelLocation(Long studentId) {
+        Long buildingId = resolveStudentBuildingId(studentId);
         Map<String, Object> location = new LinkedHashMap<>();
-        location.put("latitude", Double.parseDouble(getConfigString("hostel_latitude", "0")));
-        location.put("longitude", Double.parseDouble(getConfigString("hostel_longitude", "0")));
-        location.put("radius", Integer.parseInt(getConfigString("hostel_radius", "50")));
+        location.put("latitude", Double.parseDouble(buildingConfigService.getConfigString("hostel_latitude", buildingId, "0")));
+        location.put("longitude", Double.parseDouble(buildingConfigService.getConfigString("hostel_longitude", buildingId, "0")));
+        location.put("radius", Integer.parseInt(buildingConfigService.getConfigString("hostel_radius", buildingId, "50")));
         return location;
     }
 
@@ -85,37 +130,41 @@ public class AttendanceService {
         return r * c;
     }
 
-    private String getConfigString(String key, String defaultValue) {
-        return configRepository.findByConfigKey(key)
-                .map(c -> c.getConfigValue())
-                .orElse(defaultValue);
-    }
-
-    private void saveConfigValue(String key, String value) {
-        String safeValue = (value == null || value.isEmpty()) ? "0" : value;
-        com.outpass.portal.model.entity.RoomConfig config = configRepository.findByConfigKey(key)
-                .orElse(com.outpass.portal.model.entity.RoomConfig.builder().configKey(key).build());
-        config.setConfigValue(safeValue);
-        configRepository.save(config);
-    }
-
     @Transactional(readOnly = true)
-    public Map<String, Object> getActiveSession() {
-        return sessionRepository.findByStatus(SessionStatus.ACTIVE)
+    public Map<String, Object> getActiveSession(Long buildingId, List<Long> wardenBuildingIds) {
+        verifyBuildingOwnership(buildingId, wardenBuildingIds);
+        return sessionRepository.findByBuilding_IdAndStatus(buildingId, SessionStatus.ACTIVE)
+                .map(this::mapSession)
+                .orElse(null);
+    }
+
+    // Student-facing equivalent of getActiveSession: resolves the student's own building
+    // rather than trusting a client-supplied buildingId, since a student has no
+    // legitimate reason to ask about any building other than their own.
+    @Transactional(readOnly = true)
+    public Map<String, Object> getActiveSessionForStudent(Long studentId) {
+        Long buildingId = resolveStudentBuildingId(studentId);
+        return sessionRepository.findByBuilding_IdAndStatus(buildingId, SessionStatus.ACTIVE)
                 .map(this::mapSession)
                 .orElse(null);
     }
 
     @Transactional
-    public Map<String, Object> startSession(Long wardenId) {
-        // Close any existing active session
-        sessionRepository.findByStatus(SessionStatus.ACTIVE).ifPresent(session -> {
+    public Map<String, Object> startSession(Long wardenId, Long buildingId, List<Long> wardenBuildingIds) {
+        verifyBuildingOwnership(buildingId, wardenBuildingIds);
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+
+        // Close any existing active session for THIS building only -- a session already
+        // running for a different building must be left untouched.
+        sessionRepository.findByBuilding_IdAndStatus(buildingId, SessionStatus.ACTIVE).ifPresent(session -> {
             session.setStatus(SessionStatus.CLOSED);
             session.setStoppedAt(java.time.LocalDateTime.now(IST));
             sessionRepository.save(session);
         });
 
         AttendanceSession session = AttendanceSession.builder()
+                .building(building)
                 .startedBy(wardenId)
                 .status(SessionStatus.ACTIVE)
                 .build();
@@ -124,8 +173,9 @@ public class AttendanceService {
     }
 
     @Transactional
-    public void stopSession() {
-        AttendanceSession session = sessionRepository.findByStatus(SessionStatus.ACTIVE)
+    public void stopSession(Long buildingId, List<Long> wardenBuildingIds) {
+        verifyBuildingOwnership(buildingId, wardenBuildingIds);
+        AttendanceSession session = sessionRepository.findByBuilding_IdAndStatus(buildingId, SessionStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("No active session"));
         session.setStatus(SessionStatus.CLOSED);
         session.setStoppedAt(java.time.LocalDateTime.now(IST));
@@ -136,7 +186,8 @@ public class AttendanceService {
     public Map<String, Object> markAttendance(Long studentId, String method,
                                                Double latitude, Double longitude, Integer distance,
                                                String clientIp) {
-        AttendanceSession session = sessionRepository.findByStatus(SessionStatus.ACTIVE)
+        Long buildingId = resolveStudentBuildingId(studentId);
+        AttendanceSession session = sessionRepository.findByBuilding_IdAndStatus(buildingId, SessionStatus.ACTIVE)
                 .orElseThrow(() -> new RuntimeException("No active attendance session"));
 
         LocalDate today = LocalDate.now(IST);
@@ -155,10 +206,11 @@ public class AttendanceService {
         // independently re-derives whether that proposal actually holds before trusting
         // it, rather than accepting the client's self-reported connected/withinRange
         // result. This closes the gap where a request could otherwise be crafted (e.g.
-        // via curl) to claim WIFI/GEO_BIOMETRIC success from anywhere.
+        // via curl) to claim WIFI/GEO_BIOMETRIC success from anywhere. Verification is
+        // against the student's OWN building's config -- never any other hostel's.
         double serverDistance = 0;
         if (attendanceMethod == AttendanceMethod.WIFI) {
-            String subnets = getConfigString("wifi_allowed_subnets", "");
+            String subnets = buildingConfigService.getConfigString("wifi_allowed_subnets", buildingId, "");
             if (!SubnetUtils.isInAnySubnet(clientIp, subnets)) {
                 throw new RuntimeException("Not connected to hostel WiFi");
             }
@@ -166,9 +218,9 @@ public class AttendanceService {
             if (latitude == null || longitude == null) {
                 throw new RuntimeException("Location is required for this verification method");
             }
-            double hostelLat = Double.parseDouble(getConfigString("hostel_latitude", "0"));
-            double hostelLon = Double.parseDouble(getConfigString("hostel_longitude", "0"));
-            int radius = Integer.parseInt(getConfigString("hostel_radius", "50"));
+            double hostelLat = Double.parseDouble(buildingConfigService.getConfigString("hostel_latitude", buildingId, "0"));
+            double hostelLon = Double.parseDouble(buildingConfigService.getConfigString("hostel_longitude", buildingId, "0"));
+            int radius = Integer.parseInt(buildingConfigService.getConfigString("hostel_radius", buildingId, "50"));
             serverDistance = distanceMeters(latitude, longitude, hostelLat, hostelLon);
             if (serverDistance > radius) {
                 throw new RuntimeException("You are too far from the hostel to mark attendance");
@@ -232,10 +284,10 @@ public class AttendanceService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getSessionRecords(Long sessionId, String wardenHostel) {
+    public List<Map<String, Object>> getSessionRecords(Long sessionId, List<String> wardenHostels) {
         return recordRepository.findBySessionIdOrderByMarkedAtDesc(sessionId)
                 .stream()
-                .filter(r -> wardenHostel.equals(r.getStudent().getHostel()))
+                .filter(r -> wardenHostels.contains(r.getStudent().getHostel()))
                 .map(r -> {
                     Map<String, Object> map = mapRecord(r);
                     Student s = r.getStudent();
@@ -249,6 +301,8 @@ public class AttendanceService {
     private Map<String, Object> mapSession(AttendanceSession s) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", s.getId());
+        map.put("buildingId", s.getBuilding() != null ? s.getBuilding().getId() : null);
+        map.put("buildingName", s.getBuilding() != null ? s.getBuilding().getName() : null);
         map.put("status", s.getStatus().name());
         map.put("startedAt", s.getStartedAt() != null
                 ? s.getStartedAt().format(DateTimeFormatter.ofPattern("HH:mm:ss")) : null);
