@@ -18,6 +18,7 @@ public interface RoomAllocationRepository extends JpaRepository<RoomAllocation, 
     // implicit inner join. room_id is NOT NULL and Room.building is non-optional, so counting
     // by the room's building name (== hostel, see RoomService#allocateStudent) is safe.
     long countByRoom_Building_Name(String hostel);
+    long countByRoom_Building_NameIn(List<String> hostels);
     void deleteByStudentEmail(String studentEmail);
     List<RoomAllocation> findByStudentNameContainingIgnoreCaseOrStudentRollNoContainingIgnoreCaseOrStudentDepartmentContainingIgnoreCase(
         String name, String rollNo, String department
