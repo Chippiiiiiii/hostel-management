@@ -31,11 +31,11 @@ class RoomServiceHostelOwnershipTest {
     @Mock private BuildingRepository buildingRepository;
     @Mock private RoomRepository roomRepository;
     @Mock private RoomAllocationRepository allocationRepository;
-    @Mock private RoomConfigRepository configRepository;
     @Mock private StudentRepository studentRepository;
     @Mock private FloorDepartmentRepository floorDepartmentRepository;
     @Mock private HostelEligibilityService hostelEligibilityService;
     @Mock private WardenRepository wardenRepository;
+    @Mock private BuildingConfigService buildingConfigService;
 
     private RoomService roomService;
 
@@ -48,8 +48,8 @@ class RoomServiceHostelOwnershipTest {
     @BeforeEach
     void setUp() {
         roomService = new RoomService(buildingRepository, roomRepository, allocationRepository,
-                configRepository, studentRepository, floorDepartmentRepository, hostelEligibilityService,
-                wardenRepository);
+                studentRepository, floorDepartmentRepository, hostelEligibilityService,
+                wardenRepository, buildingConfigService);
         hostelA = Building.builder().id(1L).name(HOSTEL_A).type("NORMAL").gender("BOY").build();
         hostelB = Building.builder().id(2L).name(HOSTEL_B).type("NORMAL").gender("BOY").build();
     }
@@ -67,7 +67,7 @@ class RoomServiceHostelOwnershipTest {
         when(roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(1L)).thenReturn(List.of());
         when(floorDepartmentRepository.findByBuildingId(1L)).thenReturn(List.of());
 
-        List<Map<String, Object>> result = roomService.getBuildings(HOSTEL_A);
+        List<Map<String, Object>> result = roomService.getBuildings(List.of(HOSTEL_A));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).get("name")).isEqualTo(HOSTEL_A);
@@ -95,7 +95,7 @@ class RoomServiceHostelOwnershipTest {
         when(wardenRepository.findByHostel(HOSTEL_A)).thenReturn(List.of());
         when(studentRepository.findByHostel(HOSTEL_A)).thenReturn(List.of());
 
-        roomService.renameBuilding(1L, "Hostel A Renamed", HOSTEL_A);
+        roomService.renameBuilding(1L, "Hostel A Renamed", List.of(HOSTEL_A));
 
         assertThat(hostelA.getName()).isEqualTo("Hostel A Renamed");
         verify(buildingRepository).save(hostelA);
@@ -116,7 +116,7 @@ class RoomServiceHostelOwnershipTest {
         when(wardenRepository.findByHostel(HOSTEL_A)).thenReturn(List.of(warden));
         when(studentRepository.findByHostel(HOSTEL_A)).thenReturn(List.of(student));
 
-        roomService.renameBuilding(1L, "Hostel A Renamed", HOSTEL_A);
+        roomService.renameBuilding(1L, "Hostel A Renamed", List.of(HOSTEL_A));
 
         assertThat(warden.getHostel()).isEqualTo("Hostel A Renamed");
         assertThat(student.getHostel()).isEqualTo("Hostel A Renamed");
@@ -130,7 +130,7 @@ class RoomServiceHostelOwnershipTest {
         when(roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(1L)).thenReturn(List.of());
         when(floorDepartmentRepository.findByBuildingId(1L)).thenReturn(List.of());
 
-        roomService.renameBuilding(1L, HOSTEL_A, HOSTEL_A);
+        roomService.renameBuilding(1L, HOSTEL_A, List.of(HOSTEL_A));
 
         verify(wardenRepository, never()).findByHostel(anyString());
         verify(studentRepository, never()).findByHostel(anyString());
@@ -140,7 +140,7 @@ class RoomServiceHostelOwnershipTest {
     void renameBuilding_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.renameBuilding(2L, "Hijacked", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.renameBuilding(2L, "Hijacked", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -164,7 +164,7 @@ class RoomServiceHostelOwnershipTest {
     void updateBuildingType_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.updateBuildingType(2L, "SPECIAL", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.updateBuildingType(2L, "SPECIAL", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -175,7 +175,7 @@ class RoomServiceHostelOwnershipTest {
     void updateBuildingGender_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.updateBuildingGender(2L, "GIRL", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.updateBuildingGender(2L, "GIRL", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -188,7 +188,7 @@ class RoomServiceHostelOwnershipTest {
     void removeBuilding_crossHostel_rejectedBeforeAllocationCheck() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.removeBuilding(2L, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.removeBuilding(2L, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -201,7 +201,7 @@ class RoomServiceHostelOwnershipTest {
         when(buildingRepository.findById(1L)).thenReturn(Optional.of(hostelA));
         when(allocationRepository.findAll()).thenReturn(List.of());
 
-        roomService.removeBuilding(1L, HOSTEL_A);
+        roomService.removeBuilding(1L, List.of(HOSTEL_A));
 
         verify(buildingRepository).deleteById(1L);
     }
@@ -212,7 +212,7 @@ class RoomServiceHostelOwnershipTest {
     void addFloor_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.addFloor(2L, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.addFloor(2L, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -223,9 +223,10 @@ class RoomServiceHostelOwnershipTest {
     void addFloor_sameHostel_succeeds() {
         when(buildingRepository.findById(1L)).thenReturn(Optional.of(hostelA));
         when(roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(1L)).thenReturn(List.of());
-        when(configRepository.findByConfigKey(anyString())).thenReturn(Optional.empty());
+        when(buildingConfigService.getConfigString(anyString(), anyLong(), anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
-        roomService.addFloor(1L, HOSTEL_A);
+        roomService.addFloor(1L, List.of(HOSTEL_A));
 
         verify(roomRepository).saveAll(any());
     }
@@ -234,7 +235,7 @@ class RoomServiceHostelOwnershipTest {
     void removeFloor_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.removeFloor(2L, 1, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.removeFloor(2L, 1, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -245,7 +246,7 @@ class RoomServiceHostelOwnershipTest {
     void addRoomToFloor_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.addRoomToFloor(2L, 1, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.addRoomToFloor(2L, 1, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -256,7 +257,7 @@ class RoomServiceHostelOwnershipTest {
     void removeLastRoomFromFloor_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.removeLastRoomFromFloor(2L, 1, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.removeLastRoomFromFloor(2L, 1, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -270,7 +271,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelA, 10L, 1, "101");
         when(roomRepository.findById(10L)).thenReturn(Optional.of(room));
 
-        roomService.updateRoomMaxMembers(10L, 8, HOSTEL_A);
+        roomService.updateRoomMaxMembers(10L, 8, List.of(HOSTEL_A));
 
         assertThat(room.getMaxMembers()).isEqualTo(8);
         verify(roomRepository).save(room);
@@ -281,7 +282,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelB, 20L, 1, "101");
         when(roomRepository.findById(20L)).thenReturn(Optional.of(room));
 
-        assertThatThrownBy(() -> roomService.updateRoomMaxMembers(20L, 8, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.updateRoomMaxMembers(20L, 8, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -309,7 +310,7 @@ class RoomServiceHostelOwnershipTest {
         when(allocationRepository.findByStudentEmail("ok@x.com")).thenReturn(Optional.empty());
         when(studentRepository.findByEmailForUpdate("ok@x.com")).thenReturn(Optional.empty());
 
-        roomService.allocateStudent(30L, "S", "R1", "CS", "ok@x.com", HOSTEL_A);
+        roomService.allocateStudent(30L, "S", "R1", "CS", "ok@x.com", List.of(HOSTEL_A));
 
         verify(allocationRepository).save(any(RoomAllocation.class));
     }
@@ -319,7 +320,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelB, 31L, 1, "101");
         when(roomRepository.findByIdForUpdate(31L)).thenReturn(Optional.of(room));
 
-        assertThatThrownBy(() -> roomService.allocateStudent(31L, "S", "R2", "CS", "bad@x.com", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.allocateStudent(31L, "S", "R2", "CS", "bad@x.com", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -349,7 +350,7 @@ class RoomServiceHostelOwnershipTest {
                 .studentName("S").studentEmail("s@x.com").build();
         when(allocationRepository.findByStudentEmail("s@x.com")).thenReturn(Optional.of(allocation));
 
-        roomService.removeAllocation("s@x.com", HOSTEL_A);
+        roomService.removeAllocation("s@x.com", List.of(HOSTEL_A));
 
         verify(allocationRepository).deleteByStudentEmail("s@x.com");
     }
@@ -361,7 +362,7 @@ class RoomServiceHostelOwnershipTest {
                 .studentName("S2").studentEmail("s2@x.com").build();
         when(allocationRepository.findByStudentEmail("s2@x.com")).thenReturn(Optional.of(allocation));
 
-        assertThatThrownBy(() -> roomService.removeAllocation("s2@x.com", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.removeAllocation("s2@x.com", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -372,7 +373,7 @@ class RoomServiceHostelOwnershipTest {
     void removeAllocation_noExistingAllocation_wardenScoped_isANoOpNotAnError() {
         when(allocationRepository.findByStudentEmail("ghost@x.com")).thenReturn(Optional.empty());
 
-        roomService.removeAllocation("ghost@x.com", HOSTEL_A);
+        roomService.removeAllocation("ghost@x.com", List.of(HOSTEL_A));
 
         verify(allocationRepository).deleteByStudentEmail("ghost@x.com");
     }
@@ -393,7 +394,7 @@ class RoomServiceHostelOwnershipTest {
     void setFloorDepartment_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.setFloorDepartment(2L, 1, "CS", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.setFloorDepartment(2L, 1, "CS", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -405,7 +406,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelB, 50L, 1, "101");
         when(roomRepository.findById(50L)).thenReturn(Optional.of(room));
 
-        assertThatThrownBy(() -> roomService.setRoomDepartmentOverride(50L, "CS", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.setRoomDepartmentOverride(50L, "CS", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -417,7 +418,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelB, 51L, 1, "101");
         when(roomRepository.findById(51L)).thenReturn(Optional.of(room));
 
-        assertThatThrownBy(() -> roomService.removeRoomDepartmentOverride(51L, HOSTEL_A))
+        assertThatThrownBy(() -> roomService.removeRoomDepartmentOverride(51L, List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -431,7 +432,7 @@ class RoomServiceHostelOwnershipTest {
         Room room = roomIn(hostelB, 60L, 1, "101");
         when(roomRepository.findById(60L)).thenReturn(Optional.of(room));
 
-        assertThatThrownBy(() -> roomService.updateRoomNumber(60L, "999", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.updateRoomNumber(60L, "999", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -445,7 +446,7 @@ class RoomServiceHostelOwnershipTest {
         when(roomRepository.findById(61L)).thenReturn(Optional.of(room));
         when(roomRepository.findByBuildingIdAndRoomNumber(1L, "999")).thenReturn(Optional.empty());
 
-        roomService.updateRoomNumber(61L, "999", HOSTEL_A);
+        roomService.updateRoomNumber(61L, "999", List.of(HOSTEL_A));
 
         assertThat(room.getRoomNumber()).isEqualTo("999");
     }
@@ -456,7 +457,7 @@ class RoomServiceHostelOwnershipTest {
     void bulkAllocate_crossHostel_rejected() {
         when(buildingRepository.findById(2L)).thenReturn(Optional.of(hostelB));
 
-        assertThatThrownBy(() -> roomService.bulkAllocate(2L, null, "warden@x.com", "WARDEN", HOSTEL_A))
+        assertThatThrownBy(() -> roomService.bulkAllocate(2L, null, "warden@x.com", "WARDEN", List.of(HOSTEL_A)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("own hostel");
 
@@ -469,7 +470,7 @@ class RoomServiceHostelOwnershipTest {
         when(roomRepository.findByBuildingIdOrderByFloorNumberAscRoomNumberAsc(1L)).thenReturn(List.of());
         when(studentRepository.findUnassignedByGender("BOY")).thenReturn(List.of());
 
-        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN", HOSTEL_A);
+        Map<String, Object> result = roomService.bulkAllocate(1L, null, "warden@x.com", "WARDEN", List.of(HOSTEL_A));
 
         assertThat(result.get("studentsProcessed")).isEqualTo(0);
     }
