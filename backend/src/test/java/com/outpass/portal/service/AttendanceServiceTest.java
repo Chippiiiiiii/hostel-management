@@ -2,14 +2,14 @@ package com.outpass.portal.service;
 
 import com.outpass.portal.model.entity.AttendanceRecord;
 import com.outpass.portal.model.entity.AttendanceSession;
-import com.outpass.portal.model.entity.RoomConfig;
+import com.outpass.portal.model.entity.Building;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.enums.AttendanceMethod;
 import com.outpass.portal.model.enums.AttendanceStatus;
 import com.outpass.portal.model.enums.SessionStatus;
 import com.outpass.portal.repository.AttendanceRecordRepository;
 import com.outpass.portal.repository.AttendanceSessionRepository;
-import com.outpass.portal.repository.RoomConfigRepository;
+import com.outpass.portal.repository.BuildingRepository;
 import com.outpass.portal.repository.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,29 +39,35 @@ class AttendanceServiceTest {
     @Mock private AttendanceSessionRepository sessionRepository;
     @Mock private AttendanceRecordRepository recordRepository;
     @Mock private StudentRepository studentRepository;
-    @Mock private RoomConfigRepository configRepository;
+    @Mock private BuildingRepository buildingRepository;
+    @Mock private BuildingConfigService buildingConfigService;
 
     private AttendanceService service;
 
+    private static final Long BUILDING_ID = 10L;
+    private static final String HOSTEL = "Hostel A";
+
     @BeforeEach
     void setUp() {
-        service = new AttendanceService(sessionRepository, recordRepository, studentRepository, configRepository);
+        service = new AttendanceService(sessionRepository, recordRepository, studentRepository, buildingRepository, buildingConfigService);
 
-        AttendanceSession session = AttendanceSession.builder().id(1L).status(SessionStatus.ACTIVE).build();
-        lenient().when(sessionRepository.findByStatus(SessionStatus.ACTIVE)).thenReturn(Optional.of(session));
-        lenient().when(recordRepository.findByStudentIdAndDate(any(), any())).thenReturn(Optional.empty());
+        Building building = Building.builder().id(BUILDING_ID).name(HOSTEL).build();
+        AttendanceSession session = AttendanceSession.builder().id(1L).building(building).status(SessionStatus.ACTIVE).build();
         lenient().when(studentRepository.findById(1L))
-                .thenReturn(Optional.of(Student.builder().id(1L).name("S").rollNo("R1").build()));
+                .thenReturn(Optional.of(Student.builder().id(1L).name("S").rollNo("R1").hostel(HOSTEL).build()));
+        lenient().when(buildingRepository.findByName(HOSTEL)).thenReturn(Optional.of(building));
+        lenient().when(sessionRepository.findByBuilding_IdAndStatus(BUILDING_ID, SessionStatus.ACTIVE)).thenReturn(Optional.of(session));
+        lenient().when(recordRepository.findByStudentIdAndDate(any(), any())).thenReturn(Optional.empty());
         lenient().when(recordRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        lenient().when(configRepository.findByConfigKey("wifi_allowed_subnets"))
-                .thenReturn(Optional.of(RoomConfig.builder().configKey("wifi_allowed_subnets").configValue("10.0.0.0/24").build()));
-        lenient().when(configRepository.findByConfigKey("hostel_latitude"))
-                .thenReturn(Optional.of(RoomConfig.builder().configKey("hostel_latitude").configValue("13.0000").build()));
-        lenient().when(configRepository.findByConfigKey("hostel_longitude"))
-                .thenReturn(Optional.of(RoomConfig.builder().configKey("hostel_longitude").configValue("80.0000").build()));
-        lenient().when(configRepository.findByConfigKey("hostel_radius"))
-                .thenReturn(Optional.of(RoomConfig.builder().configKey("hostel_radius").configValue("50").build()));
+        lenient().when(buildingConfigService.getConfigString("wifi_allowed_subnets", BUILDING_ID, ""))
+                .thenReturn("10.0.0.0/24");
+        lenient().when(buildingConfigService.getConfigString("hostel_latitude", BUILDING_ID, "0"))
+                .thenReturn("13.0000");
+        lenient().when(buildingConfigService.getConfigString("hostel_longitude", BUILDING_ID, "0"))
+                .thenReturn("80.0000");
+        lenient().when(buildingConfigService.getConfigString("hostel_radius", BUILDING_ID, "50"))
+                .thenReturn("50");
     }
 
     @Test
@@ -142,7 +148,7 @@ class AttendanceServiceTest {
         when(recordRepository.findBySessionIdOrderByMarkedAtDesc(5L))
                 .thenReturn(List.of(ownRecord, otherRecord));
 
-        List<Map<String, Object>> result = service.getSessionRecords(5L, "Hostel A");
+        List<Map<String, Object>> result = service.getSessionRecords(5L, List.of("Hostel A"));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).get("rollNo")).isEqualTo("R1");
