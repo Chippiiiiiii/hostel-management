@@ -127,7 +127,7 @@ class OutpassServiceTest {
         when(outpassRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(outpass));
         when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        OutpassResponse response = service.approveOutpass(1L, "H1", 99L, null);
+        OutpassResponse response = service.approveOutpass(1L, List.of("H1"), 99L, null);
 
         assertThat(response.getStatus()).isEqualTo(OutpassStatus.APPROVED);
         verify(outpassRepository, never()).findById(any());
