@@ -29,11 +29,11 @@ class RoomServiceTest {
     @Mock private BuildingRepository buildingRepository;
     @Mock private RoomRepository roomRepository;
     @Mock private RoomAllocationRepository allocationRepository;
-    @Mock private RoomConfigRepository configRepository;
     @Mock private StudentRepository studentRepository;
     @Mock private FloorDepartmentRepository floorDepartmentRepository;
     @Mock private HostelEligibilityService hostelEligibilityService;
     @Mock private WardenRepository wardenRepository;
+    @Mock private BuildingConfigService buildingConfigService;
 
     private RoomService roomService;
 
@@ -42,8 +42,8 @@ class RoomServiceTest {
     @BeforeEach
     void setUp() {
         roomService = new RoomService(buildingRepository, roomRepository, allocationRepository,
-                configRepository, studentRepository, floorDepartmentRepository, hostelEligibilityService,
-                wardenRepository);
+                studentRepository, floorDepartmentRepository, hostelEligibilityService,
+                wardenRepository, buildingConfigService);
         building = Building.builder().id(1L).name("Building A").type("NORMAL").gender("BOY").build();
     }
 
