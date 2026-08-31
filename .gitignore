@@ -31,3 +31,5 @@ target/
 *.log
 npm-debug.log*
 .serena/
+# Added by code-review-graph
+.code-review-graph/
