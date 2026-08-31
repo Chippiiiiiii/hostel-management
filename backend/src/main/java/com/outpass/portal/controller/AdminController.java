@@ -7,6 +7,7 @@ import com.outpass.portal.dto.response.SecurityGuardSummaryResponse;
 import com.outpass.portal.dto.response.WardenSummaryResponse;
 import com.outpass.portal.service.AdminService;
 import com.outpass.portal.service.HostelEligibilityService;
+import com.outpass.portal.service.WardenBuildingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final HostelEligibilityService hostelEligibilityService;
+    private final WardenBuildingService wardenBuildingService;
 
     @PostMapping("/wardens")
     public ResponseEntity<ApiResponse<WardenSummaryResponse>> createWarden(
@@ -46,6 +48,33 @@ public class AdminController {
         WardenSummaryResponse warden = adminService.setWardenEnabled(id, enabled);
         return ResponseEntity.ok(ApiResponse.success(
                 enabled ? "Warden enabled" : "Warden disabled", warden));
+    }
+
+    // ==================== Warden <-> Buildings ====================
+    // Admin-only by design (reaches only via "/admin/**", already ADMIN-only in
+    // SecurityConfig). Lets an admin assign a warden to more than one building while
+    // preserving Warden.hostel as the single "primary" hostel every existing warden-scoped
+    // endpoint reads (see WardenBuildingService).
+
+    @GetMapping("/wardens/{id}/buildings")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getWardenBuildings(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(wardenBuildingService.getBuildingsForWarden(id)));
+    }
+
+    @PostMapping("/wardens/{id}/buildings")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> assignWardenBuilding(
+            @PathVariable Long id, @RequestBody Map<String, Object> request) {
+        Long buildingId = ((Number) request.get("buildingId")).longValue();
+        List<Map<String, Object>> buildings = wardenBuildingService.assignBuilding(id, buildingId);
+        return ResponseEntity.ok(ApiResponse.success("Building assigned", buildings));
+    }
+
+    @DeleteMapping("/wardens/{id}/buildings/{buildingId}")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> unassignWardenBuilding(
+            @PathVariable Long id, @PathVariable Long buildingId) {
+        List<Map<String, Object>> buildings = wardenBuildingService.unassignBuilding(id, buildingId);
+        return ResponseEntity.ok(ApiResponse.success("Building removed from warden", buildings));
     }
 
     @PostMapping("/security-guards")
