@@ -29,12 +29,13 @@ class AdminServiceTest {
     @Mock private com.outpass.portal.repository.BuildingRepository buildingRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private EmailUniquenessService emailUniquenessService;
+    @Mock private WardenBuildingService wardenBuildingService;
 
     private AdminService adminService;
 
     @BeforeEach
     void setUp() {
-        adminService = new AdminService(wardenRepository, securityGuardRepository, buildingRepository, passwordEncoder, emailUniquenessService);
+        adminService = new AdminService(wardenRepository, securityGuardRepository, buildingRepository, passwordEncoder, emailUniquenessService, wardenBuildingService);
     }
 
     private AdminCreateWardenRequest wardenRequest(String email) {
