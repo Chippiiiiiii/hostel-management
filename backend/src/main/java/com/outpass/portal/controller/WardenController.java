@@ -28,6 +28,7 @@ import com.outpass.portal.service.AttendanceService;
 import com.outpass.portal.service.ComplaintService;
 import com.outpass.portal.service.OutpassService;
 import com.outpass.portal.service.RoomService;
+import com.outpass.portal.service.WardenBuildingService;
 
 import com.outpass.portal.model.entity.Announcement;
 import com.outpass.portal.repository.AnnouncementRepository;
@@ -50,19 +51,46 @@ public class WardenController {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final RoomAllocationRepository roomAllocationRepository;
     private final AnnouncementRepository announcementRepository;
+    private final WardenBuildingService wardenBuildingService;
+
+    // Every warden-scoped read/write below is confined to exactly the buildings an admin
+    // assigned via warden_buildings (see WardenBuildingService) -- a warden with N assigned
+    // buildings can operate across all N, not just Warden.hostel's single "primary". Always
+    // non-null for a WARDEN caller: an empty list correctly means "no buildings assigned,
+    // deny everything" rather than falling through to unrestricted (that's the ADMIN-only
+    // null sentinel used by resolveWardenHostels in the rooms section below).
+    private List<String> assignedHostelsOf(Long wardenId) {
+        return wardenBuildingService.getAssignedHostelNames(wardenId);
+    }
+
+    // Building.id equivalent of assignedHostelsOf, for the attendance session/config and
+    // room config endpoints below -- these target attendance_sessions/room_config, which
+    // are keyed by a real building_id FK rather than the free-text hostel-name string
+    // every other warden-scoped query uses. Same never-null-for-WARDEN contract.
+    private List<Long> assignedBuildingIdsOf(Long wardenId) {
+        return wardenBuildingService.getAssignedBuildingIds(wardenId);
+    }
+
+    // ADMIN equivalent of resolveWardenHostels (rooms section below), for the same
+    // building_id-based endpoints: null means unrestricted.
+    private List<Long> resolveWardenBuildingIds(UserPrincipal userPrincipal) {
+        if (userPrincipal.getRole() != Role.WARDEN) {
+            return null;
+        }
+        return assignedBuildingIdsOf(userPrincipal.getId());
+    }
 
     @GetMapping("/dashboard/stats")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardStats(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<String> hostels = assignedHostelsOf(userPrincipal.getId());
 
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("totalStudents", studentRepository.countByHostel(warden.getHostel()));
-        stats.put("allocatedStudents", roomAllocationRepository.countByRoom_Building_Name(warden.getHostel()));
-        stats.put("todayAttendance", attendanceRecordRepository.countByDateAndStudent_Hostel(
-                LocalDate.now(ZoneId.of("Asia/Kolkata")), warden.getHostel()));
-        Map<String, Object> complaintStats = complaintService.getStatsByHostel(warden.getHostel());
+        stats.put("totalStudents", studentRepository.countByHostelIn(hostels));
+        stats.put("allocatedStudents", roomAllocationRepository.countByRoom_Building_NameIn(hostels));
+        stats.put("todayAttendance", attendanceRecordRepository.countByDateAndStudent_HostelIn(
+                LocalDate.now(ZoneId.of("Asia/Kolkata")), hostels));
+        Map<String, Object> complaintStats = complaintService.getStatsByHostels(hostels);
         stats.put("pendingComplaints", complaintStats.getOrDefault("pending", 0));
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
@@ -70,10 +98,7 @@ public class WardenController {
     @GetMapping("/outpass/pending")
     public ResponseEntity<ApiResponse<List<OutpassResponse>>> getPendingOutpasses(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        
-        List<OutpassResponse> pending = outpassService.getPendingOutpassesByHostel(warden.getHostel());
+        List<OutpassResponse> pending = outpassService.getPendingOutpassesByHostels(assignedHostelsOf(userPrincipal.getId()));
         return ResponseEntity.ok(ApiResponse.success(pending));
     }
 
@@ -82,10 +107,8 @@ public class WardenController {
             @PathVariable Long id,
             @RequestBody(required = false) ApproveOutpassRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        
-        OutpassResponse approved = outpassService.approveOutpass(id, warden.getHostel(), warden.getId(), request);
+        OutpassResponse approved = outpassService.approveOutpass(
+                id, assignedHostelsOf(userPrincipal.getId()), userPrincipal.getId(), request);
         return ResponseEntity.ok(ApiResponse.success("Outpass approved successfully", approved));
     }
 
@@ -94,10 +117,8 @@ public class WardenController {
             @PathVariable Long id,
             @RequestBody DeclineOutpassRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        
-        OutpassResponse declined = outpassService.declineOutpass(id, warden.getHostel(), warden.getId(), request);
+        OutpassResponse declined = outpassService.declineOutpass(
+                id, assignedHostelsOf(userPrincipal.getId()), userPrincipal.getId(), request);
         return ResponseEntity.ok(ApiResponse.success("Outpass declined successfully", declined));
     }
 
@@ -105,15 +126,14 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> bulkApprove(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<String> hostels = assignedHostelsOf(userPrincipal.getId());
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) request.get("ids");
         int success = 0;
         int failed = 0;
         for (Number id : ids) {
             try {
-                outpassService.approveOutpass(id.longValue(), warden.getHostel(), warden.getId(), null);
+                outpassService.approveOutpass(id.longValue(), hostels, userPrincipal.getId(), null);
                 success++;
             } catch (Exception e) {
                 log.warn("Bulk approve failed for outpass {}: {}", id, e.getMessage());
@@ -129,8 +149,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> bulkDecline(
             @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<String> hostels = assignedHostelsOf(userPrincipal.getId());
         @SuppressWarnings("unchecked")
         List<Number> ids = (List<Number>) request.get("ids");
         String reason = (String) request.getOrDefault("reason", "Bulk declined");
@@ -140,7 +159,7 @@ public class WardenController {
         int failed = 0;
         for (Number id : ids) {
             try {
-                outpassService.declineOutpass(id.longValue(), warden.getHostel(), warden.getId(), declineReq);
+                outpassService.declineOutpass(id.longValue(), hostels, userPrincipal.getId(), declineReq);
                 success++;
             } catch (Exception e) {
                 log.warn("Bulk decline failed for outpass {}: {}", id, e.getMessage());
@@ -155,10 +174,7 @@ public class WardenController {
     @GetMapping("/outpass/history")
     public ResponseEntity<ApiResponse<List<OutpassResponse>>> getOutpassHistory(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        
-        List<OutpassResponse> history = outpassService.getAllOutpassesByHostel(warden.getHostel());
+        List<OutpassResponse> history = outpassService.getAllOutpassesByHostels(assignedHostelsOf(userPrincipal.getId()));
         return ResponseEntity.ok(ApiResponse.success(history));
     }
 
@@ -166,30 +182,51 @@ public class WardenController {
     public ResponseEntity<ApiResponse<StudentOutpassStatsResponse>> getStudentStats(
             @PathVariable Long studentId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        StudentOutpassStatsResponse stats = outpassService.getStudentStatistics(studentId, warden.getHostel());
+        StudentOutpassStatsResponse stats = outpassService.getStudentStatistics(
+                studentId, assignedHostelsOf(userPrincipal.getId()));
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     // ==================== Attendance ====================
 
+    // Every request below must name the building it targets -- there is no implicit
+    // "my hostel" for a warden who may now be assigned to several (see
+    // backend/AGENTS.md). A buildingId outside the caller's assigned set (or, for a
+    // WARDEN with zero assignments, any buildingId at all) is rejected by
+    // AttendanceService's ownership check, never silently ignored or widened.
+    private Long requireBuildingId(Map<String, Object> request) {
+        Object raw = request.get("buildingId");
+        if (raw == null) {
+            throw new RuntimeException("buildingId is required");
+        }
+        return ((Number) raw).longValue();
+    }
+
     @PostMapping("/attendance/start")
     public ResponseEntity<ApiResponse<Map<String, Object>>> startAttendance(
+            @RequestBody Map<String, Object> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Map<String, Object> session = attendanceService.startSession(userPrincipal.getId());
+        Long buildingId = requireBuildingId(request);
+        Map<String, Object> session = attendanceService.startSession(
+                userPrincipal.getId(), buildingId, resolveWardenBuildingIds(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Attendance session started", session));
     }
 
     @PostMapping("/attendance/stop")
-    public ResponseEntity<ApiResponse<Void>> stopAttendance() {
-        attendanceService.stopSession();
+    public ResponseEntity<ApiResponse<Void>> stopAttendance(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long buildingId = requireBuildingId(request);
+        attendanceService.stopSession(buildingId, resolveWardenBuildingIds(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Attendance session closed", null));
     }
 
     @GetMapping("/attendance/session")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getActiveSession() {
-        Map<String, Object> session = attendanceService.getActiveSession();
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getActiveSession(
+            @RequestParam Long buildingId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> session = attendanceService.getActiveSession(
+                buildingId, resolveWardenBuildingIds(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success(session));
     }
 
@@ -197,38 +234,55 @@ public class WardenController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSessionRecords(
             @PathVariable Long sessionId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        List<Map<String, Object>> records = attendanceService.getSessionRecords(sessionId, warden.getHostel());
+        List<Map<String, Object>> records = attendanceService.getSessionRecords(
+                sessionId, assignedHostelsOf(userPrincipal.getId()));
         return ResponseEntity.ok(ApiResponse.success(records));
     }
 
     @GetMapping("/attendance/config")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getAttendanceConfig() {
-        return ResponseEntity.ok(ApiResponse.success(attendanceService.getAttendanceConfig()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAttendanceConfig(
+            @RequestParam Long buildingId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> config = attendanceService.getAttendanceConfig(
+                buildingId, resolveWardenBuildingIds(userPrincipal));
+        return ResponseEntity.ok(ApiResponse.success(config));
     }
 
     @PutMapping("/attendance/config")
     public ResponseEntity<ApiResponse<Void>> updateAttendanceConfig(
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long buildingId = requireBuildingId(request);
         attendanceService.updateAttendanceConfig(
-                request.getOrDefault("wifiAllowedSubnets", ""),
-                request.getOrDefault("hostelLatitude", "0"),
-                request.getOrDefault("hostelLongitude", "0"),
-                request.getOrDefault("hostelRadius", "50"));
+                buildingId, resolveWardenBuildingIds(userPrincipal),
+                asString(request.get("wifiAllowedSubnets"), ""),
+                asString(request.get("hostelLatitude"), "0"),
+                asString(request.get("hostelLongitude"), "0"),
+                asString(request.get("hostelRadius"), "50"));
         return ResponseEntity.ok(ApiResponse.success("Attendance config updated", null));
+    }
+
+    // Request bodies here carry a mix of a numeric buildingId and plain-text config
+    // fields in one Map<String, Object> -- this normalizes whichever JSON type a field
+    // arrived as (String from a text input, Number if a client ever sends one) into the
+    // String every config value is stored as.
+    private String asString(Object value, String defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        String s = value.toString();
+        return s.isEmpty() ? defaultValue : s;
     }
 
     @GetMapping("/attendance/report")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAttendanceReport(
             @RequestParam String from, @RequestParam String to,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<String> hostels = assignedHostelsOf(userPrincipal.getId());
         LocalDate fromDate = LocalDate.parse(from);
         LocalDate toDate = LocalDate.parse(to);
         var records = attendanceRecordRepository.findByDateBetweenOrderByDateDescMarkedAtDesc(fromDate, toDate)
-                .stream().filter(r -> warden.getHostel().equals(r.getStudent().getHostel()))
+                .stream().filter(r -> hostels.contains(r.getStudent().getHostel()))
                 .collect(java.util.stream.Collectors.toList());
         List<Map<String, Object>> result = records.stream().map(r -> {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -249,28 +303,28 @@ public class WardenController {
     // Shared with Admin's Room Management page (see SecurityConfig: /warden/rooms/**
     // permits both WARDEN and ADMIN). A warden's "hostel" IS a Building's name (see
     // student.setHostel(room.getBuilding().getName()) in RoomService), so every
-    // building/floor/room/allocation mutation below must be confined to the calling
-    // warden's own building; null means unrestricted (Admin manages every hostel).
-    private String resolveWardenHostel(UserPrincipal userPrincipal) {
+    // building/floor/room/allocation mutation below must be confined to exactly the
+    // buildings assigned to the calling warden (warden_buildings, via assignedHostelsOf) --
+    // null means unrestricted (ADMIN manages every hostel; ADMIN is never scoped through
+    // warden_buildings, it simply has no Warden row to look one up for).
+    private List<String> resolveWardenHostels(UserPrincipal userPrincipal) {
         if (userPrincipal.getRole() != Role.WARDEN) {
             return null;
         }
-        return wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"))
-                .getHostel();
+        return assignedHostelsOf(userPrincipal.getId());
     }
 
     @GetMapping("/rooms/buildings")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBuildings(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings(resolveWardenHostel(userPrincipal))));
+        return ResponseEntity.ok(ApiResponse.success(roomService.getBuildings(resolveWardenHostels(userPrincipal))));
     }
 
     @PutMapping("/rooms/buildings/{id}/rename")
     public ResponseEntity<ApiResponse<Map<String, Object>>> renameBuilding(
             @PathVariable Long id, @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Map<String, Object> building = roomService.renameBuilding(id, request.get("name"), resolveWardenHostel(userPrincipal));
+        Map<String, Object> building = roomService.renameBuilding(id, request.get("name"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building renamed", building));
     }
 
@@ -278,7 +332,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateBuildingType(
             @PathVariable Long id, @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Map<String, Object> building = roomService.updateBuildingType(id, request.get("type"), resolveWardenHostel(userPrincipal));
+        Map<String, Object> building = roomService.updateBuildingType(id, request.get("type"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building type updated", building));
     }
 
@@ -286,7 +340,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateBuildingGender(
             @PathVariable Long id, @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Map<String, Object> building = roomService.updateBuildingGender(id, request.get("gender"), resolveWardenHostel(userPrincipal));
+        Map<String, Object> building = roomService.updateBuildingGender(id, request.get("gender"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building gender updated", building));
     }
 
@@ -311,22 +365,30 @@ public class WardenController {
     @DeleteMapping("/rooms/buildings/{id}")
     public ResponseEntity<ApiResponse<Void>> removeBuilding(
             @PathVariable Long id, @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.removeBuilding(id, resolveWardenHostel(userPrincipal));
+        roomService.removeBuilding(id, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Building removed", null));
     }
 
     @GetMapping("/rooms/config")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getConfig() {
-        return ResponseEntity.ok(ApiResponse.success(roomService.getConfig()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getConfig(
+            @RequestParam Long buildingId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                roomService.getConfig(buildingId, resolveWardenBuildingIds(userPrincipal))));
     }
 
     @PutMapping("/rooms/config")
-    public ResponseEntity<ApiResponse<Void>> updateConfig(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<ApiResponse<Void>> updateConfig(
+            @RequestBody Map<String, Object> request,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Long buildingId = requireBuildingId(request);
+        List<Long> wardenBuildingIds = resolveWardenBuildingIds(userPrincipal);
         roomService.updateConfig(
+                buildingId, wardenBuildingIds,
                 ((Number) request.getOrDefault("maxRoomsPerFloor", 10)).intValue(),
                 ((Number) request.getOrDefault("maxMembersPerRoom", 6)).intValue());
         if (request.containsKey("wifiAllowedSubnets")) {
-            roomService.updateWifiSubnets((String) request.get("wifiAllowedSubnets"));
+            roomService.updateWifiSubnets(buildingId, wardenBuildingIds, (String) request.get("wifiAllowedSubnets"));
         }
         return ResponseEntity.ok(ApiResponse.success("Config updated", null));
     }
@@ -335,14 +397,14 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> updateRoomMaxMembers(
             @PathVariable Long roomId, @RequestBody Map<String, Integer> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.updateRoomMaxMembers(roomId, request.get("maxMembers"), resolveWardenHostel(userPrincipal));
+        roomService.updateRoomMaxMembers(roomId, request.get("maxMembers"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room capacity updated", null));
     }
 
     @PostMapping("/rooms/buildings/{buildingId}/floors")
     public ResponseEntity<ApiResponse<Map<String, Object>>> addFloor(
             @PathVariable Long buildingId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Map<String, Object> floor = roomService.addFloor(buildingId, resolveWardenHostel(userPrincipal));
+        Map<String, Object> floor = roomService.addFloor(buildingId, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor added", floor));
     }
 
@@ -350,7 +412,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> removeFloor(
             @PathVariable Long buildingId, @PathVariable Integer floorNumber,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.removeFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
+        roomService.removeFloor(buildingId, floorNumber, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor removed", null));
     }
 
@@ -358,7 +420,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> addRoom(
             @PathVariable Long buildingId, @PathVariable Integer floorNumber,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.addRoomToFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
+        roomService.addRoomToFloor(buildingId, floorNumber, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room added", null));
     }
 
@@ -366,7 +428,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> removeLastRoom(
             @PathVariable Long buildingId, @PathVariable Integer floorNumber,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.removeLastRoomFromFloor(buildingId, floorNumber, resolveWardenHostel(userPrincipal));
+        roomService.removeLastRoomFromFloor(buildingId, floorNumber, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room removed", null));
     }
 
@@ -377,9 +439,7 @@ public class WardenController {
         // permits both WARDEN and ADMIN) — admins have no Warden row to scope by, and are
         // meant to see allocations across every hostel, so only narrow the result for wardens.
         List<Map<String, Object>> allocations = userPrincipal.getRole() == Role.WARDEN
-                ? roomService.getAllocationsByHostel(wardenRepository.findById(userPrincipal.getId())
-                        .orElseThrow(() -> new RuntimeException("Warden not found"))
-                        .getHostel())
+                ? roomService.getAllocationsByHostels(assignedHostelsOf(userPrincipal.getId()))
                 : roomService.getAllAllocations();
         return ResponseEntity.ok(ApiResponse.success(allocations));
     }
@@ -394,14 +454,14 @@ public class WardenController {
                 request.get("rollNo"),
                 request.get("department"),
                 request.get("email"),
-                resolveWardenHostel(userPrincipal));
+                resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Student allocated", allocation));
     }
 
     @DeleteMapping("/rooms/allocations/{email}")
     public ResponseEntity<ApiResponse<Void>> removeAllocation(
             @PathVariable String email, @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.removeAllocation(email, resolveWardenHostel(userPrincipal));
+        roomService.removeAllocation(email, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Student removed from room", null));
     }
 
@@ -411,7 +471,7 @@ public class WardenController {
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Map<String, Object> result = roomService.setFloorDepartment(
-                buildingId, floorNumber, request.get("department"), resolveWardenHostel(userPrincipal));
+                buildingId, floorNumber, request.get("department"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Floor department updated", result));
     }
 
@@ -419,14 +479,14 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> setRoomDepartmentOverride(
             @PathVariable Long roomId, @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.setRoomDepartmentOverride(roomId, request.get("department"), resolveWardenHostel(userPrincipal));
+        roomService.setRoomDepartmentOverride(roomId, request.get("department"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room department override set", null));
     }
 
     @DeleteMapping("/rooms/{roomId}/department")
     public ResponseEntity<ApiResponse<Void>> removeRoomDepartmentOverride(
             @PathVariable Long roomId, @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.removeRoomDepartmentOverride(roomId, resolveWardenHostel(userPrincipal));
+        roomService.removeRoomDepartmentOverride(roomId, resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room department override removed", null));
     }
 
@@ -434,7 +494,7 @@ public class WardenController {
     public ResponseEntity<ApiResponse<Void>> updateRoomNumber(
             @PathVariable Long roomId, @RequestBody Map<String, String> request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        roomService.updateRoomNumber(roomId, request.get("roomNumber"), resolveWardenHostel(userPrincipal));
+        roomService.updateRoomNumber(roomId, request.get("roomNumber"), resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Room number updated", null));
     }
 
@@ -445,7 +505,7 @@ public class WardenController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         Map<String, Object> result = roomService.bulkAllocate(
                 buildingId, floorNumber, userPrincipal.getEmail(), userPrincipal.getRole().name(),
-                resolveWardenHostel(userPrincipal));
+                resolveWardenHostels(userPrincipal));
         return ResponseEntity.ok(ApiResponse.success("Bulk allocation completed", result));
     }
 
@@ -456,9 +516,7 @@ public class WardenController {
         // permits both WARDEN and ADMIN) — admins have no Warden row to scope by, and are
         // meant to see students across every hostel, so only narrow the result for wardens.
         List<Student> students = userPrincipal.getRole() == Role.WARDEN
-                ? studentRepository.findByHostel(wardenRepository.findById(userPrincipal.getId())
-                        .orElseThrow(() -> new RuntimeException("Warden not found"))
-                        .getHostel())
+                ? studentRepository.findByHostelIn(assignedHostelsOf(userPrincipal.getId()))
                 : studentRepository.findAll();
         List<StudentSummaryResponse> response = students.stream()
                 .map(StudentSummaryResponse::from)
@@ -472,20 +530,18 @@ public class WardenController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllComplaints(
             @RequestParam(required = false) String status,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
+        List<String> hostels = assignedHostelsOf(userPrincipal.getId());
         List<Map<String, Object>> complaints = status != null && !status.isEmpty()
-                ? complaintService.getComplaintsByHostelAndStatus(warden.getHostel(), status)
-                : complaintService.getComplaintsByHostel(warden.getHostel());
+                ? complaintService.getComplaintsByHostelsAndStatus(hostels, status)
+                : complaintService.getComplaintsByHostels(hostels);
         return ResponseEntity.ok(ApiResponse.success(complaints));
     }
 
     @GetMapping("/complaints/stats")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getComplaintStats(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
-        return ResponseEntity.ok(ApiResponse.success(complaintService.getStatsByHostel(warden.getHostel())));
+        return ResponseEntity.ok(ApiResponse.success(
+                complaintService.getStatsByHostels(assignedHostelsOf(userPrincipal.getId()))));
     }
 
     @PutMapping("/complaints/{id}")
@@ -493,12 +549,10 @@ public class WardenController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestBody Map<String, String> request) {
-        Warden warden = wardenRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("Warden not found"));
         String status = request.get("status");
         String wardenResponse = request.get("wardenResponse");
         Map<String, Object> complaint = complaintService.updateComplaintStatus(
-                id, status, wardenResponse, userPrincipal.getId(), warden.getHostel());
+                id, status, wardenResponse, userPrincipal.getId(), assignedHostelsOf(userPrincipal.getId()));
         return ResponseEntity.ok(ApiResponse.success("Complaint updated", complaint));
     }
 
