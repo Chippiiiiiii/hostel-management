@@ -11,13 +11,16 @@ const roomService = {
     return { data: response.data.data || [] };
   },
 
-  getConfig: async () => {
-    const response = await api.get('/warden/rooms/config');
+  // buildingId is required -- room config is per-building now, not campus-wide (see
+  // backend/AGENTS.md). Callers must resolve a buildingId (e.g. the currently selected
+  // building in RoomManagementPanel) before calling either of these.
+  getConfig: async (buildingId) => {
+    const response = await api.get('/warden/rooms/config', { params: { buildingId } });
     return { data: response.data.data || { maxRoomsPerFloor: 10, maxMembersPerRoom: 6 } };
   },
 
-  updateConfig: async (config) => {
-    await api.put('/warden/rooms/config', config);
+  updateConfig: async (buildingId, config) => {
+    await api.put('/warden/rooms/config', { ...config, buildingId });
     return { data: config };
   },
 
