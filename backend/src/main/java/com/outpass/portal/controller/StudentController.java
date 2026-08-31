@@ -82,22 +82,30 @@ public class StudentController {
 
     // ==================== Attendance ====================
 
+    // Each of these three previously took no identity at all -- see backend/AGENTS.md.
+    // Now they resolve the calling student's OWN hostel (via Student.hostel ->
+    // Building.name, the same lookup RoomService.allocateForRegistration already uses)
+    // inside AttendanceService, rather than reading whichever building's config/session
+    // happened to be the sole global one.
     @GetMapping("/attendance/location")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getHostelLocation() {
-        return ResponseEntity.ok(ApiResponse.success(attendanceService.getHostelLocation()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getHostelLocation(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ResponseEntity.ok(ApiResponse.success(attendanceService.getHostelLocation(userPrincipal.getId())));
     }
 
     @GetMapping("/attendance/verify-wifi")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyWifi(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             jakarta.servlet.http.HttpServletRequest request) {
         String clientIp = getClientIp(request);
-        Map<String, Object> result = attendanceService.verifyWifi(clientIp);
+        Map<String, Object> result = attendanceService.verifyWifi(userPrincipal.getId(), clientIp);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @GetMapping("/attendance/session")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getActiveSession() {
-        Map<String, Object> session = attendanceService.getActiveSession();
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getActiveSession(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        Map<String, Object> session = attendanceService.getActiveSessionForStudent(userPrincipal.getId());
         return ResponseEntity.ok(ApiResponse.success(session));
     }
 
