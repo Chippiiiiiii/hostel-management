@@ -244,6 +244,28 @@ CREATE TABLE IF NOT EXISTS buildings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
+-- TABLE: warden_buildings
+-- Admin-configured: which buildings a warden is assigned to manage. A warden may be
+-- assigned to several buildings; wardens.hostel remains the single "primary" hostel every
+-- existing warden-scoped query reads (dashboard, outpass, attendance, complaints, room
+-- management). This table is the source of truth for the Admin "manage buildings" UI.
+-- =====================================================
+CREATE TABLE IF NOT EXISTS warden_buildings (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    warden_id BIGINT NOT NULL,
+    building_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_warden_building_warden FOREIGN KEY (warden_id)
+        REFERENCES wardens(id) ON DELETE CASCADE,
+    CONSTRAINT fk_warden_building_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE,
+    CONSTRAINT uk_warden_building UNIQUE (warden_id, building_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_warden_building_warden ON warden_buildings(warden_id);
+
+-- =====================================================
 -- TABLE: rooms
 -- =====================================================
 CREATE TABLE IF NOT EXISTS rooms (
@@ -328,18 +350,30 @@ CREATE INDEX idx_allocation_student ON room_allocations(student_id);
 -- =====================================================
 -- TABLE: attendance_sessions
 -- =====================================================
+-- building_id is nullable at the schema level to accommodate historical rows created
+-- before this column existed (see db/backfill-attendance-room-building.sql). Every new
+-- session created by AttendanceService.startSession is required, at the Java/service
+-- layer, to carry a real building -- see AttendanceSession.java. Tightening this column
+-- to NOT NULL is a deliberately separate follow-up migration, run only after the
+-- backfill's "unresolved sessions" report (in the backfill script) is empty or reviewed
+-- and accepted; this file intentionally does not include that follow-up migration.
 CREATE TABLE IF NOT EXISTS attendance_sessions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    building_id BIGINT NULL,
     started_by BIGINT NOT NULL,
     status ENUM('ACTIVE', 'CLOSED') NOT NULL DEFAULT 'ACTIVE',
     started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     stopped_at TIMESTAMP NULL,
 
     CONSTRAINT fk_session_warden FOREIGN KEY (started_by)
-        REFERENCES wardens(id) ON DELETE CASCADE
+        REFERENCES wardens(id) ON DELETE CASCADE,
+    -- RESTRICT (not CASCADE): removing a building must never silently delete the
+    -- historical attendance record of who was present while it existed.
+    CONSTRAINT fk_session_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_session_status ON attendance_sessions(status);
+CREATE INDEX idx_session_building_status ON attendance_sessions(building_id, status);
 CREATE INDEX idx_session_warden ON attendance_sessions(started_by);
 
 -- =====================================================
@@ -372,23 +406,54 @@ CREATE INDEX idx_record_date ON attendance_records(date);
 -- =====================================================
 -- TABLE: room_config
 -- =====================================================
+-- building_id NULL is the ADMIN-set campus-wide default template that
+-- BuildingConfigService/RoomService.addBuilding seed new buildings from -- it is read as
+-- a fallback but never written by a warden-facing endpoint (see backend/AGENTS.md). MySQL
+-- does not treat NULLs as equal within a composite unique index, so uk_config_key_building
+-- cannot by itself prevent a second NULL-building default row for the same key from being
+-- inserted (INSERT IGNORE does NOT dedupe on the nullable column here -- verified: 3x
+-- INSERT IGNORE against a NULL-building row inserts 3 rows, not 1). The seed below instead
+-- guards each default row with an explicit NOT EXISTS check on (config_key, building_id IS
+-- NULL) so re-running this file never creates a duplicate default row.
 CREATE TABLE IF NOT EXISTS room_config (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     config_key VARCHAR(50) NOT NULL,
     config_value VARCHAR(500) NOT NULL,
+    building_id BIGINT NULL,
 
-    CONSTRAINT uk_config_key UNIQUE (config_key)
+    CONSTRAINT uk_config_key_building UNIQUE (config_key, building_id),
+    CONSTRAINT fk_roomconfig_building FOREIGN KEY (building_id)
+        REFERENCES buildings(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO room_config (config_key, config_value) VALUES
-('max_rooms_per_floor', '10'),
-('max_members_per_room', '6'),
-('wifi_allowed_subnets', '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12'),
-('hostel_latitude', '12.8231'),
-('hostel_longitude', '80.0444'),
-('hostel_radius', '50');
+-- The campus-wide admin default template (building_id NULL). Guarded with an explicit
+-- NOT EXISTS (config_key, building_id IS NULL) check per row -- INSERT IGNORE alone does
+-- not dedupe NULL-building rows against the composite unique index (see comment above).
+INSERT INTO room_config (config_key, config_value, building_id)
+SELECT * FROM (
+    SELECT 'max_rooms_per_floor' AS config_key, '10' AS config_value, NULL AS building_id
+    UNION ALL SELECT 'max_members_per_room', '6', NULL
+    UNION ALL SELECT 'wifi_allowed_subnets', '192.168.0.0/16,10.0.0.0/8,172.16.0.0/12', NULL
+    UNION ALL SELECT 'hostel_latitude', '12.8231', NULL
+    UNION ALL SELECT 'hostel_longitude', '80.0444', NULL
+    UNION ALL SELECT 'hostel_radius', '50', NULL
+) AS defaults
+WHERE NOT EXISTS (
+    SELECT 1 FROM room_config rc
+    WHERE rc.config_key = defaults.config_key AND rc.building_id IS NULL
+);
 
 INSERT IGNORE INTO buildings (id, name, type) VALUES (1, 'Building A', 'NRI'), (2, 'Building B', 'NORMAL');
+
+-- Fresh-deploy seed buildings get their own per-building config rows too, matching what
+-- db/backfill-attendance-room-building.sql would produce for a pre-existing database --
+-- a brand-new local/dev setup should not need to run the backfill just to have working
+-- attendance/room config for the two demo buildings seeded above.
+INSERT IGNORE INTO room_config (config_key, config_value, building_id)
+SELECT rc.config_key, rc.config_value, b.id
+FROM room_config rc
+CROSS JOIN buildings b
+WHERE rc.building_id IS NULL AND b.id IN (1, 2);
 
 -- Building A (id=1): 3 floors, 10 rooms each
 INSERT IGNORE INTO rooms (building_id, floor_number, room_number, max_members) VALUES
