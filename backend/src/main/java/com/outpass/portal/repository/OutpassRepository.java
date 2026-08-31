@@ -20,6 +20,8 @@ public interface OutpassRepository extends JpaRepository<Outpass, Long> {
     List<Outpass> findByStatusOrderByCreatedAtDesc(OutpassStatus status);
     List<Outpass> findByHostelAndStatusOrderByCreatedAtDesc(String hostel, OutpassStatus status);
     List<Outpass> findByHostelOrderByCreatedAtDesc(String hostel);
+    List<Outpass> findByHostelInAndStatusOrderByCreatedAtDesc(List<String> hostels, OutpassStatus status);
+    List<Outpass> findByHostelInOrderByCreatedAtDesc(List<String> hostels);
     List<Outpass> findByDateBetween(LocalDateTime start, LocalDateTime end);
     List<Outpass> findByHostelAndDateBetween(String hostel, LocalDateTime start, LocalDateTime end);
     long countByStudentIdAndStatus(Long studentId, OutpassStatus status);
