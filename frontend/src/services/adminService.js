@@ -16,6 +16,23 @@ const adminService = {
     return { data: response.data.data };
   },
 
+  // ==================== Warden <-> buildings ====================
+
+  getWardenBuildings: async (wardenId) => {
+    const response = await api.get(`/admin/wardens/${wardenId}/buildings`);
+    return { data: response.data.data || [] };
+  },
+
+  assignWardenBuilding: async (wardenId, buildingId) => {
+    const response = await api.post(`/admin/wardens/${wardenId}/buildings`, { buildingId });
+    return { data: response.data.data || [] };
+  },
+
+  removeWardenBuilding: async (wardenId, buildingId) => {
+    const response = await api.delete(`/admin/wardens/${wardenId}/buildings/${buildingId}`);
+    return { data: response.data.data || [] };
+  },
+
   createSecurityGuard: async (guard) => {
     const response = await api.post('/admin/security-guards', guard);
     return { data: response.data.data };
