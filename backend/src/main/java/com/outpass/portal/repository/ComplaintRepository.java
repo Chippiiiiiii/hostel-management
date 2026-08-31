@@ -13,6 +13,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
 
     List<Complaint> findByHostelAndStatusOrderByCreatedAtDesc(String hostel, ComplaintStatus status);
 
+    List<Complaint> findByHostelInOrderByCreatedAtDesc(List<String> hostels);
+
+    List<Complaint> findByHostelInAndStatusOrderByCreatedAtDesc(List<String> hostels, ComplaintStatus status);
+
     long countByStatus(ComplaintStatus status);
 
     long countByStudentId(Long studentId);
@@ -20,4 +24,8 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     long countByHostel(String hostel);
 
     long countByHostelAndStatus(String hostel, ComplaintStatus status);
+
+    long countByHostelIn(List<String> hostels);
+
+    long countByHostelInAndStatus(List<String> hostels, ComplaintStatus status);
 }
