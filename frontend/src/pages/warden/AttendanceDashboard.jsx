@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import attendanceService from '../../services/attendanceService';
+import roomService from '../../services/roomService';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -29,12 +30,30 @@ const WardenAttendanceDashboard = () => {
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
 
+  // A warden may now be assigned to more than one building (see backend/AGENTS.md) --
+  // every attendance session/config action must name which one it targets.
+  const [buildings, setBuildings] = useState([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState(null);
+
   useEffect(() => {
     sessionRef.current = activeSession;
   }, [activeSession]);
 
   useEffect(() => {
-    fetchData();
+    roomService.getBuildings()
+      .then(({ data }) => {
+        setBuildings(data);
+        if (data.length > 0) {
+          setSelectedBuildingId(data[0].id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        toast.error('Failed to load your assigned hostels');
+        setLoading(false);
+      });
+
     pollRef.current = setInterval(() => {
       const session = sessionRef.current;
       if (!session?.id) return;
@@ -45,15 +64,24 @@ const WardenAttendanceDashboard = () => {
     return () => clearInterval(pollRef.current);
   }, []);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    if (selectedBuildingId) {
+      fetchData(selectedBuildingId);
+    }
+  }, [selectedBuildingId]);
+
+  const fetchData = async (buildingId) => {
+    setLoading(true);
     try {
-      const sessionRes = await attendanceService.getActiveSessionWarden();
+      const sessionRes = await attendanceService.getActiveSessionWarden(buildingId);
       setActiveSession(sessionRes.data);
       if (sessionRes.data?.id) {
         const recordsRes = await attendanceService.getSessionRecords(sessionRes.data.id);
         setMarkedStudents(recordsRes.data);
+      } else {
+        setMarkedStudents([]);
       }
-      const configRes = await attendanceService.getAttendanceConfig();
+      const configRes = await attendanceService.getAttendanceConfig(buildingId);
       if (configRes.data) {
         setAttendanceConfig(configRes.data);
       }
@@ -94,9 +122,10 @@ const WardenAttendanceDashboard = () => {
   };
 
   const handleSaveConfig = async () => {
+    if (!selectedBuildingId) return;
     setConfigLoading(true);
     try {
-      await attendanceService.updateAttendanceConfig({
+      await attendanceService.updateAttendanceConfig(selectedBuildingId, {
         wifiAllowedSubnets: attendanceConfig.wifiAllowedSubnets,
         hostelLatitude: attendanceConfig.hostelLatitude,
         hostelLongitude: attendanceConfig.hostelLongitude,
@@ -112,11 +141,13 @@ const WardenAttendanceDashboard = () => {
   };
 
   const handleStartAttendance = async () => {
+    if (!selectedBuildingId) return;
     try {
-      const res = await attendanceService.startSession();
+      const res = await attendanceService.startSession(selectedBuildingId);
       setActiveSession(res.data);
       setMarkedStudents([]);
-      attendanceService.notifySessionStart();
+      const buildingName = buildings.find(b => b.id === selectedBuildingId)?.name;
+      attendanceService.notifySessionStart(buildingName);
       toast.success('Attendance session started! Students have been notified.');
     } catch (error) {
       toast.error('Failed to start attendance session');
@@ -124,8 +155,9 @@ const WardenAttendanceDashboard = () => {
   };
 
   const handleStopAttendance = async () => {
+    if (!selectedBuildingId) return;
     try {
-      await attendanceService.stopSession();
+      await attendanceService.stopSession(selectedBuildingId);
       setActiveSession(null);
       toast.success('Attendance session closed.');
     } catch (error) {
@@ -190,13 +222,35 @@ const WardenAttendanceDashboard = () => {
                 </h2>
               </div>
             </div>
-            <button
-              className={`btn ${showConfig ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
-              onClick={() => setShowConfig(!showConfig)}
-            >
-              <FontAwesomeIcon icon={faCog} /> Settings
-            </button>
+            <div className="d-flex align-items-center gap-2">
+              {/* Only shown when the warden manages more than one hostel -- a
+                  single-building warden sees no selector at all, matching prior UX. */}
+              {buildings.length > 1 && (
+                <select
+                  className="form-select form-select-sm"
+                  style={{ width: 'auto' }}
+                  value={selectedBuildingId || ''}
+                  onChange={(e) => setSelectedBuildingId(Number(e.target.value))}
+                >
+                  {buildings.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                className={`btn ${showConfig ? 'btn-primary' : 'btn-outline-primary'} btn-sm`}
+                onClick={() => setShowConfig(!showConfig)}
+                disabled={!selectedBuildingId}
+              >
+                <FontAwesomeIcon icon={faCog} /> Settings
+              </button>
+            </div>
           </div>
+          {buildings.length === 0 && !loading && (
+            <div className="alert alert-warning">
+              You have no hostel assigned yet. Contact an admin to be assigned to a building.
+            </div>
+          )}
         </div>
       </div>
 
@@ -206,7 +260,14 @@ const WardenAttendanceDashboard = () => {
           <div className="col-12">
             <div className="card shadow-sm border-primary">
               <div className="card-header bg-primary text-white">
-                <h5 className="mb-0"><FontAwesomeIcon icon={faCog} /> Attendance Settings</h5>
+                <h5 className="mb-0">
+                  <FontAwesomeIcon icon={faCog} /> Attendance Settings
+                  {buildings.length > 1 && (
+                    <span className="fw-normal">
+                      {' '}— {buildings.find(b => b.id === selectedBuildingId)?.name}
+                    </span>
+                  )}
+                </h5>
               </div>
               <div className="card-body">
                 <div className="row g-3">
