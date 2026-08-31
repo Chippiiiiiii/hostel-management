@@ -106,30 +106,36 @@ public class OutpassService {
     }
 
     @Transactional(readOnly = true)
-    public List<OutpassResponse> getPendingOutpassesByHostel(String hostel) {
-        return outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, OutpassStatus.PENDING)
+    public List<OutpassResponse> getPendingOutpassesByHostels(List<String> hostels) {
+        if (hostels.isEmpty()) {
+            return List.of();
+        }
+        return outpassRepository.findByHostelInAndStatusOrderByCreatedAtDesc(hostels, OutpassStatus.PENDING)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<OutpassResponse> getAllOutpassesByHostel(String hostel) {
-        return outpassRepository.findByHostelOrderByCreatedAtDesc(hostel)
+    public List<OutpassResponse> getAllOutpassesByHostels(List<String> hostels) {
+        if (hostels.isEmpty()) {
+            return List.of();
+        }
+        return outpassRepository.findByHostelInOrderByCreatedAtDesc(hostels)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public OutpassResponse approveOutpass(Long outpassId, String wardenHostel, Long wardenId, ApproveOutpassRequest request) {
+    public OutpassResponse approveOutpass(Long outpassId, List<String> wardenHostels, Long wardenId, ApproveOutpassRequest request) {
         Outpass outpass = lockOutpass(outpassId);
 
         if (outpass.getStatus() != OutpassStatus.PENDING) {
             throw new RuntimeException("Only pending outpasses can be approved");
         }
 
-        if (!outpass.getHostel().equals(wardenHostel)) {
+        if (!wardenHostels.contains(outpass.getHostel())) {
             throw new RuntimeException("You can only approve outpasses from your own hostel");
         }
 
@@ -142,14 +148,14 @@ public class OutpassService {
     }
 
     @Transactional
-    public OutpassResponse declineOutpass(Long outpassId, String wardenHostel, Long wardenId, DeclineOutpassRequest request) {
+    public OutpassResponse declineOutpass(Long outpassId, List<String> wardenHostels, Long wardenId, DeclineOutpassRequest request) {
         Outpass outpass = lockOutpass(outpassId);
 
         if (outpass.getStatus() != OutpassStatus.PENDING) {
             throw new RuntimeException("Only pending outpasses can be declined");
         }
 
-        if (!outpass.getHostel().equals(wardenHostel)) {
+        if (!wardenHostels.contains(outpass.getHostel())) {
             throw new RuntimeException("You can only decline outpasses from your own hostel");
         }
 
@@ -324,11 +330,11 @@ public class OutpassService {
     }
 
     @Transactional(readOnly = true)
-    public StudentOutpassStatsResponse getStudentStatistics(Long studentId, String wardenHostel) {
+    public StudentOutpassStatsResponse getStudentStatistics(Long studentId, List<String> wardenHostels) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
-        if (wardenHostel != null && !wardenHostel.equals(student.getHostel())) {
+        if (wardenHostels != null && !wardenHostels.contains(student.getHostel())) {
             throw new RuntimeException("You can only view statistics for students in your own hostel");
         }
 
