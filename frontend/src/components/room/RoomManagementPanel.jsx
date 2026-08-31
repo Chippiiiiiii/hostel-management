@@ -66,14 +66,12 @@ const RoomManagementPanel = () => {
 
   const fetchData = async () => {
     try {
-      const [buildingsRes, allocationsRes, configRes] = await Promise.all([
+      const [buildingsRes, allocationsRes] = await Promise.all([
         roomService.getBuildings(),
         roomService.getAllocations(),
-        roomService.getConfig(),
       ]);
       setBuildings(buildingsRes.data);
       setAllocations(allocationsRes.data);
-      setConfig(configRes.data);
       if (!activeBuilding && buildingsRes.data.length > 0) {
         setActiveBuilding(buildingsRes.data[0].id);
       }
@@ -93,13 +91,31 @@ const RoomManagementPanel = () => {
   const getRoomOccupants = (roomId) => allocations.filter(a => a.roomId === roomId);
 
   const handleUpdateConfig = async () => {
+    if (!activeBuilding) return;
     try {
-      await roomService.updateConfig(config);
+      await roomService.updateConfig(activeBuilding, config);
       toast.success('Settings saved');
       setShowSettings(false);
     } catch {
       toast.error('Failed to save settings');
     }
+  };
+
+  // Config is per-building now (see backend/AGENTS.md) -- fetched lazily when the
+  // settings panel is opened for whichever building is currently selected, rather than
+  // once at page load before a building is even chosen.
+  const handleOpenSettings = async () => {
+    if (!activeBuilding) return;
+    if (!showSettings) {
+      try {
+        const { data } = await roomService.getConfig(activeBuilding);
+        setConfig(data);
+      } catch {
+        toast.error('Failed to load settings');
+        return;
+      }
+    }
+    setShowSettings(s => !s);
   };
 
   const handleAddFloor = async (buildingId) => {
@@ -405,7 +421,10 @@ const RoomManagementPanel = () => {
       {showSettings && (
         <div className="card shadow-sm border-primary mb-4">
           <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 className="mb-0"><FontAwesomeIcon icon={faCog} /> Room Settings</h5>
+            <h5 className="mb-0">
+              <FontAwesomeIcon icon={faCog} /> Room Settings
+              {currentBuilding && <span className="fw-normal"> — {currentBuilding.name}</span>}
+            </h5>
             <button className="btn btn-sm btn-outline-light" onClick={() => setShowSettings(false)}>
               <FontAwesomeIcon icon={faTimes} />
             </button>
@@ -768,7 +787,7 @@ const RoomManagementPanel = () => {
                   </button>
                   <button
                     className={`btn btn-sm ${showSettings ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => setShowSettings(!showSettings)}
+                    onClick={handleOpenSettings}
                   >
                     <FontAwesomeIcon icon={faCog} />
                   </button>
