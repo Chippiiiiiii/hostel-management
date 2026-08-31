@@ -5,7 +5,7 @@ import roomService from '../../services/roomService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faUserTie, faPlus, faCheck, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faUserTie, faPlus, faCheck, faBan, faBuilding, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 const emptyForm = { name: '', email: '', password: '', hostel: '', phone: '' };
 
@@ -16,6 +16,11 @@ const Wardens = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [managingWarden, setManagingWarden] = useState(null);
+  const [wardenBuildings, setWardenBuildings] = useState([]);
+  const [buildingsLoading, setBuildingsLoading] = useState(false);
+  const [buildingToAdd, setBuildingToAdd] = useState('');
+  const [buildingActionPending, setBuildingActionPending] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -63,6 +68,60 @@ const Wardens = () => {
       toast.error('Failed to update status');
     }
   };
+
+  const openBuildingsModal = async (warden) => {
+    setManagingWarden(warden);
+    setBuildingToAdd('');
+    setBuildingsLoading(true);
+    try {
+      const { data } = await adminService.getWardenBuildings(warden.id);
+      setWardenBuildings(data);
+    } catch {
+      toast.error('Failed to load assigned buildings');
+    } finally {
+      setBuildingsLoading(false);
+    }
+  };
+
+  const closeBuildingsModal = () => {
+    setManagingWarden(null);
+    setWardenBuildings([]);
+    setBuildingToAdd('');
+  };
+
+  const handleAddBuilding = async () => {
+    if (!buildingToAdd) return;
+    setBuildingActionPending(true);
+    try {
+      const { data } = await adminService.assignWardenBuilding(managingWarden.id, Number(buildingToAdd));
+      setWardenBuildings(data);
+      setBuildingToAdd('');
+      toast.success('Building assigned');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to assign building');
+    } finally {
+      setBuildingActionPending(false);
+    }
+  };
+
+  const handleRemoveBuilding = async (buildingId) => {
+    setBuildingActionPending(true);
+    try {
+      const { data } = await adminService.removeWardenBuilding(managingWarden.id, buildingId);
+      setWardenBuildings(data);
+      toast.success('Building removed');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to remove building');
+    } finally {
+      setBuildingActionPending(false);
+    }
+  };
+
+  const availableBuildingsToAdd = buildings.filter(
+    (b) => !wardenBuildings.some((wb) => wb.id === b.id)
+  );
 
   if (loading) return <LoadingSpinner />;
 
@@ -164,12 +223,20 @@ const Wardens = () => {
                           </span>
                         </td>
                         <td>
-                          <button
-                            className={`btn btn-sm ${w.enabled ? 'btn-outline-danger' : 'btn-outline-success'}`}
-                            onClick={() => handleToggleStatus(w)}
-                          >
-                            <FontAwesomeIcon icon={w.enabled ? faBan : faCheck} /> {w.enabled ? 'Disable' : 'Enable'}
-                          </button>
+                          <div className="d-flex gap-2">
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => openBuildingsModal(w)}
+                            >
+                              <FontAwesomeIcon icon={faBuilding} /> Buildings
+                            </button>
+                            <button
+                              className={`btn btn-sm ${w.enabled ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                              onClick={() => handleToggleStatus(w)}
+                            >
+                              <FontAwesomeIcon icon={w.enabled ? faBan : faCheck} /> {w.enabled ? 'Disable' : 'Enable'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -180,6 +247,74 @@ const Wardens = () => {
           </div>
         </div>
       </div>
+
+      {managingWarden && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <FontAwesomeIcon icon={faBuilding} className="me-2" />
+                  Buildings for {managingWarden.name}
+                </h5>
+                <button type="button" className="btn-close" onClick={closeBuildingsModal} />
+              </div>
+              <div className="modal-body">
+                {buildingsLoading ? (
+                  <LoadingSpinner />
+                ) : (
+                  <>
+                    {wardenBuildings.length === 0 ? (
+                      <p className="text-muted mb-3">No buildings assigned yet.</p>
+                    ) : (
+                      <ul className="list-group mb-3">
+                        {wardenBuildings.map((b) => (
+                          <li key={b.id} className="list-group-item d-flex justify-content-between align-items-center">
+                            {b.name}
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              disabled={buildingActionPending}
+                              onClick={() => handleRemoveBuilding(b.id)}
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="input-group">
+                      <select
+                        className="form-select"
+                        value={buildingToAdd}
+                        onChange={(e) => setBuildingToAdd(e.target.value)}
+                        disabled={buildingActionPending || availableBuildingsToAdd.length === 0}
+                      >
+                        <option value="">
+                          {availableBuildingsToAdd.length === 0 ? 'No more buildings to add' : 'Select a building to add'}
+                        </option>
+                        {availableBuildingsToAdd.map((b) => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn btn-primary"
+                        disabled={!buildingToAdd || buildingActionPending}
+                        onClick={handleAddBuilding}
+                      >
+                        <FontAwesomeIcon icon={faPlus} /> Add
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={closeBuildingsModal}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
