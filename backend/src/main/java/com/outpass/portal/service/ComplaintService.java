@@ -52,23 +52,29 @@ public class ComplaintService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getComplaintsByHostel(String hostel) {
-        return complaintRepository.findByHostelOrderByCreatedAtDesc(hostel)
+    public List<Map<String, Object>> getComplaintsByHostels(List<String> hostels) {
+        if (hostels.isEmpty()) {
+            return List.of();
+        }
+        return complaintRepository.findByHostelInOrderByCreatedAtDesc(hostels)
                 .stream().map(this::mapComplaint).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getComplaintsByHostelAndStatus(String hostel, String status) {
-        return complaintRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, ComplaintStatus.valueOf(status))
+    public List<Map<String, Object>> getComplaintsByHostelsAndStatus(List<String> hostels, String status) {
+        if (hostels.isEmpty()) {
+            return List.of();
+        }
+        return complaintRepository.findByHostelInAndStatusOrderByCreatedAtDesc(hostels, ComplaintStatus.valueOf(status))
                 .stream().map(this::mapComplaint).collect(Collectors.toList());
     }
 
     @Transactional
-    public Map<String, Object> updateComplaintStatus(Long complaintId, String status, String wardenResponse, Long wardenId, String wardenHostel) {
+    public Map<String, Object> updateComplaintStatus(Long complaintId, String status, String wardenResponse, Long wardenId, List<String> wardenHostels) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new RuntimeException("Complaint not found"));
 
-        if (!complaint.getHostel().equals(wardenHostel)) {
+        if (!wardenHostels.contains(complaint.getHostel())) {
             throw new RuntimeException("You can only respond to complaints from your own hostel");
         }
 
@@ -84,13 +90,21 @@ public class ComplaintService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getStatsByHostel(String hostel) {
+    public Map<String, Object> getStatsByHostels(List<String> hostels) {
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("total", complaintRepository.countByHostel(hostel));
-        stats.put("pending", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.PENDING));
-        stats.put("inProgress", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.IN_PROGRESS));
-        stats.put("resolved", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.RESOLVED));
-        stats.put("rejected", complaintRepository.countByHostelAndStatus(hostel, ComplaintStatus.REJECTED));
+        if (hostels.isEmpty()) {
+            stats.put("total", 0L);
+            stats.put("pending", 0L);
+            stats.put("inProgress", 0L);
+            stats.put("resolved", 0L);
+            stats.put("rejected", 0L);
+            return stats;
+        }
+        stats.put("total", complaintRepository.countByHostelIn(hostels));
+        stats.put("pending", complaintRepository.countByHostelInAndStatus(hostels, ComplaintStatus.PENDING));
+        stats.put("inProgress", complaintRepository.countByHostelInAndStatus(hostels, ComplaintStatus.IN_PROGRESS));
+        stats.put("resolved", complaintRepository.countByHostelInAndStatus(hostels, ComplaintStatus.RESOLVED));
+        stats.put("rejected", complaintRepository.countByHostelInAndStatus(hostels, ComplaintStatus.REJECTED));
         return stats;
     }
 
