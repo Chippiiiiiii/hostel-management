@@ -4,6 +4,7 @@ import com.outpass.portal.dto.request.AdminCreateSecurityGuardRequest;
 import com.outpass.portal.dto.request.AdminCreateWardenRequest;
 import com.outpass.portal.dto.response.SecurityGuardSummaryResponse;
 import com.outpass.portal.dto.response.WardenSummaryResponse;
+import com.outpass.portal.model.entity.Building;
 import com.outpass.portal.model.entity.SecurityGuard;
 import com.outpass.portal.model.entity.Warden;
 import com.outpass.portal.repository.BuildingRepository;
@@ -29,6 +30,7 @@ public class AdminService {
     private final BuildingRepository buildingRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailUniquenessService emailUniquenessService;
+    private final WardenBuildingService wardenBuildingService;
 
     @Transactional
     public WardenSummaryResponse createWarden(AdminCreateWardenRequest request) {
@@ -41,9 +43,8 @@ public class AdminService {
         // The entire hostel-scoping/authorization model relies on exact string equality
         // between Warden.hostel and Building.name (see Student.hostel/RoomService). A typo
         // here would silently create a warden who can never see or approve anything.
-        if (buildingRepository.findByName(request.getHostel()).isEmpty()) {
-            throw new RuntimeException("Hostel does not match any existing building");
-        }
+        Building building = buildingRepository.findByName(request.getHostel())
+                .orElseThrow(() -> new RuntimeException("Hostel does not match any existing building"));
         Warden warden = Warden.builder()
                 .name(request.getName())
                 .email(email)
@@ -53,6 +54,10 @@ public class AdminService {
                 .enabled(true)
                 .build();
         Warden saved = wardenRepository.save(warden);
+        // Keep the warden_buildings assignment table in sync with the hostel set at creation
+        // time, so the admin's "manage buildings" view for this warden isn't empty until they
+        // manually re-add the building they just assigned above.
+        wardenBuildingService.assignBuilding(saved.getId(), building.getId());
         log.info("Warden account created: id={} email={}", saved.getId(), saved.getEmail());
         return WardenSummaryResponse.from(saved);
     }
