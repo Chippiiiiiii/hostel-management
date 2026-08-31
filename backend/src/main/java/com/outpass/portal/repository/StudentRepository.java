@@ -18,6 +18,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     Optional<Student> findByRollNo(String rollNo);
     List<Student> findByHostel(String hostel);
     long countByHostel(String hostel);
+    List<Student> findByHostelIn(List<String> hostels);
+    long countByHostelIn(List<String> hostels);
     boolean existsByEmail(String email);
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByRollNo(String rollNo);
