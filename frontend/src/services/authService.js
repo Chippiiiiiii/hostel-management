@@ -56,10 +56,16 @@ const authService = {
   refreshToken: async () => {
     const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     const response = await api.post('/auth/refresh', { refreshToken });
-    
-    const { accessToken } = response.data.data;
+
+    // The backend rotates the refresh token on every use -- persist the newly issued one
+    // (see api.js's own refresh interceptor for the same requirement) or the next refresh
+    // attempt will replay the now-invalidated old token and be rejected.
+    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-    
+    if (newRefreshToken) {
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+    }
+
     return response.data;
   },
 };
