@@ -116,6 +116,153 @@ class RoomServiceTest {
         verify(allocationRepository, never()).save(any());
     }
 
+    // ---- Gender eligibility: server-side, cannot be bypassed by a client-supplied roomId ----
+    // Every allocation entry point funnels through performAllocation's checkGenderEligibility
+    // call, which compares the room's building gender against the authoritative Student.gender
+    // fetched server-side via findByEmailForUpdate -- never a client-supplied value. Each test
+    // below stubs findByEmailForUpdate to return a real Student (unlike most tests above, which
+    // rely on the default empty stub and so never exercise this check), and pairs a matching
+    // department + available capacity so gender is provably the reason for the rejection.
+
+    @Test
+    void allocateStudentAllowsSameGenderRoom() {
+        Room r = room(70L, 1, "101", 4, null); // building is BOY (see setUp)
+        when(roomRepository.findByIdForUpdate(70L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        when(allocationRepository.countByRoomId(70L)).thenReturn(0L);
+        when(allocationRepository.findByStudentEmail("boy@x.com")).thenReturn(Optional.empty());
+        Student boyStudent = student(300L, "Boy Student", "R300", "CT", "boy@x.com"); // gender BOY
+        when(studentRepository.findByEmailForUpdate("boy@x.com")).thenReturn(Optional.of(boyStudent));
+
+        roomService.allocateStudent(70L, "Boy Student", "R300", "CT", "boy@x.com", null);
+
+        verify(allocationRepository).save(any(RoomAllocation.class));
+    }
+
+    @Test
+    void allocateStudentRejectsOppositeGenderRoomEvenWithCapacityAndMatchingDepartment() {
+        Room r = room(71L, 1, "102", 4, null); // building is BOY (see setUp)
+        when(roomRepository.findByIdForUpdate(71L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        // Deliberately not stubbing countByRoomId/findByStudentEmail: the gender check must
+        // reject before either is ever consulted, capacity/department notwithstanding.
+        Student girlStudent = Student.builder().id(301L).name("Girl Student").rollNo("R301")
+                .department("CT").email("girl@x.com").gender("GIRL")
+                .hostel("Building A").roomNumber("101")
+                .contactNumber("9000000000").parentNumber("9000000001").build();
+        when(studentRepository.findByEmailForUpdate("girl@x.com")).thenReturn(Optional.of(girlStudent));
+
+        assertThatThrownBy(() -> roomService.allocateStudent(71L, "Girl Student", "R301", "CT", "girl@x.com", null))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("BOY");
+
+        verify(allocationRepository, never()).save(any());
+    }
+
+    @Test
+    void allocateStudentSelfServiceRejectsOppositeGenderRoom() {
+        Room r = room(72L, 1, "103", 4, null); // building is BOY (see setUp)
+        when(roomRepository.findByIdForUpdate(72L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        Student girlStudent = Student.builder().id(302L).name("Girl Self").rollNo("R302")
+                .department("CT").email("girlself@x.com").gender("GIRL")
+                .hostel("Building A").roomNumber("101")
+                .contactNumber("9000000000").parentNumber("9000000001").build();
+        when(studentRepository.findByEmailForUpdate("girlself@x.com")).thenReturn(Optional.of(girlStudent));
+
+        assertThatThrownBy(() -> roomService.allocateStudentSelfService(
+                72L, "Girl Self", "R302", "CT", "girlself@x.com"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("BOY");
+
+        verify(allocationRepository, never()).save(any());
+    }
+
+    @Test
+    void allocateForRegistrationRejectsOppositeGenderRoom() {
+        Room r = room(73L, 1, "104", 4, null); // building is BOY (see setUp)
+        Student girlStudent = Student.builder().id(303L).name("Girl Reg").rollNo("R303")
+                .department("CT").year(1).email("girlreg@x.com").gender("GIRL")
+                .hostel("Building A").roomNumber("104")
+                .contactNumber("9000000000").parentNumber("9000000001").build();
+
+        when(buildingRepository.findByName("Building A")).thenReturn(Optional.of(building));
+        when(roomRepository.findByBuildingIdAndRoomNumber(1L, "104")).thenReturn(Optional.of(r));
+        when(roomRepository.findByIdForUpdate(73L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        // findByEmailForUpdate is keyed by email, and performAllocation looks the just-
+        // "registered" student back up by the same email allocateForRegistration was called
+        // with -- simulating that the student row is already visible within the transaction.
+        when(studentRepository.findByEmailForUpdate("girlreg@x.com")).thenReturn(Optional.of(girlStudent));
+
+        assertThatThrownBy(() -> roomService.allocateForRegistration(girlStudent))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("BOY");
+
+        verify(allocationRepository, never()).save(any());
+    }
+
+    @Test
+    void allocateForRegistrationAllowsMatchingGenderRoom() {
+        Room r = room(74L, 1, "105", 4, null); // building is BOY (see setUp)
+        Student boyStudent = Student.builder().id(304L).name("Boy Reg").rollNo("R304")
+                .department("CT").year(1).email("boyreg@x.com").gender("BOY")
+                .hostel("Building A").roomNumber("105")
+                .contactNumber("9000000000").parentNumber("9000000001").build();
+
+        when(buildingRepository.findByName("Building A")).thenReturn(Optional.of(building));
+        when(roomRepository.findByBuildingIdAndRoomNumber(1L, "105")).thenReturn(Optional.of(r));
+        when(roomRepository.findByIdForUpdate(74L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        when(allocationRepository.countByRoomId(74L)).thenReturn(0L);
+        when(allocationRepository.findByStudentEmail("boyreg@x.com")).thenReturn(Optional.empty());
+        when(studentRepository.findByEmailForUpdate("boyreg@x.com")).thenReturn(Optional.of(boyStudent));
+
+        roomService.allocateForRegistration(boyStudent);
+
+        verify(allocationRepository).save(any(RoomAllocation.class));
+    }
+
+    @Test
+    void genderCheckIsSkippedWhenNoAuthoritativeStudentRecordExists() {
+        // Mirrors the convention checkDepartmentEligibility already follows: with nothing to
+        // validate against (findByEmailForUpdate returns empty, as in most tests above), the
+        // allocation proceeds rather than failing closed on missing data unrelated to gender.
+        Room r = room(75L, 1, "106", 4, null);
+        when(roomRepository.findByIdForUpdate(75L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(1L, 1)).thenReturn(Optional.empty());
+        when(allocationRepository.countByRoomId(75L)).thenReturn(0L);
+        when(allocationRepository.findByStudentEmail("nostudentrow@x.com")).thenReturn(Optional.empty());
+        when(studentRepository.findByEmailForUpdate("nostudentrow@x.com")).thenReturn(Optional.empty());
+
+        roomService.allocateStudent(75L, "No Row", "R305", "CT", "nostudentrow@x.com", null);
+
+        verify(allocationRepository).save(any(RoomAllocation.class));
+    }
+
+    @Test
+    void genderCheckIsSkippedWhenBuildingGenderIsBlankRatherThanNull() {
+        // Discovered during live-environment verification: the buildings table's gender
+        // column is NOT NULL, so an unset value is persisted as "" rather than SQL NULL.
+        // A blank string must be treated the same as a genuinely absent constraint --
+        // otherwise every allocation into a building with no gender configured yet would
+        // be wrongly rejected (blank never equals a real gender value).
+        Building blankGenderBuilding = Building.builder().id(9L).name("Building Blank")
+                .type("NORMAL").gender("").build();
+        Room r = room(76L, 1, "107", 4, null);
+        r.setBuilding(blankGenderBuilding);
+        when(roomRepository.findByIdForUpdate(76L)).thenReturn(Optional.of(r));
+        when(floorDepartmentRepository.findByBuildingIdAndFloorNumber(9L, 1)).thenReturn(Optional.empty());
+        when(allocationRepository.countByRoomId(76L)).thenReturn(0L);
+        when(allocationRepository.findByStudentEmail("anygender@x.com")).thenReturn(Optional.empty());
+        Student anyGenderStudent = student(306L, "Any Gender", "R306", "CT", "anygender@x.com");
+        when(studentRepository.findByEmailForUpdate("anygender@x.com")).thenReturn(Optional.of(anyGenderStudent));
+
+        roomService.allocateStudent(76L, "Any Gender", "R306", "CT", "anygender@x.com", null);
+
+        verify(allocationRepository).save(any(RoomAllocation.class));
+    }
+
     // ---- Room number editing never touches floor/building ----
 
     @Test
