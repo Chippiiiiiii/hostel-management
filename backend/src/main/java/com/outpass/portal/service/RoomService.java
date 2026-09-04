@@ -355,6 +355,32 @@ public class RoomService {
         }
     }
 
+    // Server-side gender segregation: every hostel Building has a gender ("BOY"/"GIRL"), and
+    // a student may only be allocated into a room whose building matches their own registered
+    // gender. The frontend building picker (Register.jsx) already filters by gender, but that
+    // is a UX convenience only -- without this check, any authenticated student (or a
+    // compromised warden request) could submit an arbitrary roomId belonging to an
+    // opposite-gender building directly against the API and the backend would accept it, since
+    // department/capacity were the only checks previously enforced. Skipped when no authoritative
+    // Student row is found for the email (e.g. a staff allocation targeting a not-yet-registered
+    // email) since there is then no gender to validate against -- the same "nothing to check
+    // against" convention checkDepartmentEligibility follows.
+    private void checkGenderEligibility(Room room, Student student) {
+        if (student == null) {
+            return;
+        }
+        String buildingGender = room.getBuilding().getGender();
+        String studentGender = student.getGender();
+        if (buildingGender == null || buildingGender.isBlank()
+                || studentGender == null || studentGender.isBlank()) {
+            return;
+        }
+        if (!buildingGender.trim().equalsIgnoreCase(studentGender.trim())) {
+            throw new RuntimeException("This hostel is reserved for " + buildingGender +
+                    " students; your registered gender (" + studentGender + ") is not eligible.");
+        }
+    }
+
     // Assumes the room is already locked (see lockRoom) and department eligibility already
     // checked. Shared by single-allocate, registration, self-service, and bulk-allocate so
     // capacity handling and the RoomAllocation/Student sync logic exist in exactly one
@@ -376,6 +402,7 @@ public class RoomService {
     private RoomAllocation performAllocation(Room room, String name, String rollNo, String department,
                                               String email, boolean rejectIfAlreadyAllocated) {
         Student student = studentRepository.findByEmailForUpdate(email).orElse(null);
+        checkGenderEligibility(room, student);
 
         RoomAllocation allocation = allocationRepository.findByStudentEmail(email).orElse(null);
         if (allocation != null && rejectIfAlreadyAllocated) {
