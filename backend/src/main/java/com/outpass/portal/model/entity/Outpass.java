@@ -77,7 +77,13 @@ public class Outpass {
     @Column(name = "num_of_days", nullable = false)
     private Integer noOfDays;
 
-    @Column(length = 50)
+    // Widened from 50 -> 500 to match OutpassRequest's @Size(max = 500) validation --
+    // see the ALTER TABLE migration in schema.sql/schema-managed.sql/schema-cloud.sql.
+    // At length 50, any DTO-valid reason over 50 characters passed validation but then
+    // threw a raw DataIntegrityViolationException at insert time (caught generically by
+    // GlobalExceptionHandler, so no internal detail leaked, but a legitimate request
+    // failed with a confusing "unexpected error" instead of clean validation feedback).
+    @Column(length = 500)
     private String reason;
 
     @NotBlank(message = "Place of visit is required")
