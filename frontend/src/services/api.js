@@ -48,8 +48,15 @@ api.interceptors.response.use(
           refreshToken,
         });
 
-        const { accessToken } = response.data.data;
+        // The backend rotates the refresh token on every use (old one is invalidated
+        // server-side the moment it's exchanged) -- the newly issued one below MUST be
+        // persisted here, or the next refresh will replay the now-deleted old token and
+        // fail with "Refresh token not found", forcing an unnecessary re-login.
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
         localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+        if (newRefreshToken) {
+          localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+        }
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
