@@ -19,6 +19,8 @@ import com.outpass.portal.model.enums.OutpassStatus;
 import com.outpass.portal.repository.OutpassRepository;
 import com.outpass.portal.repository.StudentRepository;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,16 +34,32 @@ public class OutpassService {
     // silently skew every date comparison below by the UTC-IST offset.
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
+    // A student may only ever have one PENDING/APPROVED/DEPARTED outpass at a time -- these
+    // are the statuses where the request is still "in flight" (awaiting a decision, or the
+    // student is literally out on this pass right now). DECLINED/COMPLETED/OVERDUE outpasses
+    // are resolved and never block a new request.
+    private static final List<OutpassStatus> ACTIVE_OUTPASS_STATUSES =
+            List.of(OutpassStatus.PENDING, OutpassStatus.APPROVED, OutpassStatus.DEPARTED);
+
     private final OutpassRepository outpassRepository;
     private final StudentRepository studentRepository;
 
+    // Locks the student row before the "does this student already have an active outpass"
+    // check, the same pattern RoomService.performAllocation uses for its own "already
+    // allocated" check -- so two concurrent creation requests from the same student
+    // serialize instead of both reading "no active outpass yet" before either commits.
     @Transactional
     public OutpassResponse createOutpass(Long studentId, OutpassRequest request) {
-        Student student = studentRepository.findById(studentId)
+        Student student = studentRepository.findByIdForUpdate(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         if (request.getReturnDate().isBefore(request.getDate())) {
             throw new RuntimeException("Return date must be after departure date");
+        }
+
+        if (outpassRepository.existsByStudentIdAndStatusIn(studentId, ACTIVE_OUTPASS_STATUSES)) {
+            throw new RuntimeException(
+                    "You already have an active outpass request. Cancel it or wait for it to be resolved before submitting a new one.");
         }
 
         Outpass outpass = Outpass.builder()
