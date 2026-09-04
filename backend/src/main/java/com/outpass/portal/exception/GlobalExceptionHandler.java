@@ -9,10 +9,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.outpass.portal.dto.response.ApiResponse;
 
@@ -45,10 +47,17 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Invalid email or password"));
     }
 
+    // SecurityConfig's DaoAuthenticationProvider has hideUserNotFoundExceptions=true, so
+    // in normal login this is already converted to BadCredentialsException before it can
+    // reach here. This handler is a defense-in-depth backstop only: if UsernameNotFoundException
+    // is ever thrown some other way, its message (which names the looked-up email/account
+    // as not found) must never reach the client -- that would let a login endpoint be used
+    // to enumerate which emails have accounts, same as a wrong password would look different
+    // from an unknown email.
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUsernameNotFound(UsernameNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error(ex.getMessage()));
+                .body(ApiResponse.error("Invalid email or password"));
     }
 
     @ExceptionHandler(DisabledException.class)
@@ -86,6 +95,28 @@ public class GlobalExceptionHandler {
         log.error("Data access exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
+    }
+
+    // Thrown when a path/query parameter can't be converted to its declared type (e.g.
+    // GET /student/outpass/abc where {id} is a Long). Its default message embeds the
+    // internal Java type name (e.g. "java.lang.Long") and the controller method's
+    // parameter name -- framework/binding internals, not a business-rule message, so it
+    // needs the same sanitization as IllegalArgumentException above rather than falling
+    // through to handleRuntimeException's raw ex.getMessage().
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Invalid value provided in request"));
+    }
+
+    // Thrown for unparseable request bodies (malformed JSON, wrong content type). Its
+    // default message includes the underlying parser's internal detail (e.g. Jackson's
+    // "JSON parse error: ..." with line/column info) -- framework internals, not a
+    // business-rule message.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Malformed request body"));
     }
 
     @ExceptionHandler(RuntimeException.class)
