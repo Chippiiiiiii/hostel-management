@@ -1,5 +1,6 @@
 package com.outpass.portal.service;
 
+import com.outpass.portal.dto.request.OutpassRequest;
 import com.outpass.portal.dto.response.OutpassResponse;
 import com.outpass.portal.model.entity.Outpass;
 import com.outpass.portal.model.entity.Student;
@@ -9,6 +10,8 @@ import com.outpass.portal.repository.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -18,7 +21,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -145,5 +151,67 @@ class OutpassServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(OutpassStatus.DEPARTED);
         verify(outpassRepository, never()).findById(any());
+    }
+
+    // ==================== createOutpass: single-active-outpass business rule ====================
+
+    private OutpassRequest validRequest() {
+        OutpassRequest request = new OutpassRequest();
+        request.setReason("Family function");
+        request.setPlaceOfVisit("Home");
+        request.setDate(LocalDateTime.now(IST).plusHours(1));
+        request.setReturnDate(LocalDateTime.now(IST).plusDays(1));
+        request.setNoOfDays(1);
+        request.setContactNumber("9000000000");
+        request.setParentNumber("9000000001");
+        return request;
+    }
+
+    @Test
+    void createOutpassLocksTheStudentRowBeforeCheckingForAnActiveOutpass() {
+        Student student = Student.builder().id(1L).name("S").rollNo("R1").department("D")
+                .hostel("H1").roomNumber("101").build();
+        when(studentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(student));
+        when(outpassRepository.existsByStudentIdAndStatusIn(eq(1L), anyList())).thenReturn(false);
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.createOutpass(1L, validRequest());
+
+        verify(studentRepository).findByIdForUpdate(1L);
+        verify(studentRepository, never()).findById(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OutpassStatus.class, names = {"PENDING", "APPROVED", "DEPARTED"})
+    void createOutpassRejectedWhileAnActiveOutpassExists(OutpassStatus activeStatus) {
+        Student student = Student.builder().id(1L).name("S").rollNo("R1").department("D")
+                .hostel("H1").roomNumber("101").build();
+        when(studentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(student));
+        when(outpassRepository.existsByStudentIdAndStatusIn(eq(1L),
+                eq(List.of(OutpassStatus.PENDING, OutpassStatus.APPROVED, OutpassStatus.DEPARTED))))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.createOutpass(1L, validRequest()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("already have an active outpass");
+
+        verify(outpassRepository, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = OutpassStatus.class, names = {"DECLINED", "COMPLETED", "OVERDUE"})
+    void createOutpassAllowedWhenOnlyResolvedOutpassesExist(OutpassStatus resolvedStatus) {
+        Student student = Student.builder().id(1L).name("S").rollNo("R1").department("D")
+                .hostel("H1").roomNumber("101").build();
+        when(studentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(student));
+        // No PENDING/APPROVED/DEPARTED outpass exists -- only a resolved one (of whichever
+        // status this run is parameterized with), which must never block a new request.
+        when(outpassRepository.existsByStudentIdAndStatusIn(eq(1L), anyList())).thenReturn(false);
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OutpassResponse response = service.createOutpass(1L, validRequest());
+
+        assertThat(response.getStatus()).isEqualTo(OutpassStatus.PENDING);
+        verify(outpassRepository).save(any());
     }
 }
