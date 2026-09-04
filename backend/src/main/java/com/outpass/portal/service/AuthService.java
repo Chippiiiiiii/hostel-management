@@ -15,11 +15,13 @@ import com.outpass.portal.repository.WardenRepository;
 import com.outpass.portal.security.JwtTokenProvider;
 import com.outpass.portal.security.UserPrincipal;
 import com.outpass.portal.util.EmailUtils;
+import com.outpass.portal.util.LoginAttemptService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -46,18 +48,40 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final RoomService roomService;
     private final EmailUniquenessService emailUniquenessService;
+    private final LoginAttemptService loginAttemptService;
 
     @Transactional
     public AuthResponse login(String email, String password, Role role) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, password)
-        );
+        // Keyed by normalized email only (never IP or role) so brute-forcing one account
+        // can't be spread across IPs or across the student/warden/security/admin login
+        // endpoints to dodge the per-account backoff -- see LoginAttemptService.
+        String normalizedEmail = EmailUtils.normalize(email);
+        loginAttemptService.checkNotBlocked(normalizedEmail);
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, password)
+            );
+        } catch (AuthenticationException ex) {
+            // Covers both a wrong password and an unknown email: SecurityConfig's
+            // DaoAuthenticationProvider has hideUserNotFoundExceptions=true, so both
+            // surface here as the same BadCredentialsException -- recording a failure
+            // never distinguishes "account doesn't exist" from "wrong password".
+            loginAttemptService.recordFailure(normalizedEmail);
+            throw ex;
+        }
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
 
         if (userPrincipal.getRole() != role) {
+            // Correct credentials for a different role counts as an unsuccessful attempt
+            // against this account too -- otherwise an attacker could brute-force a
+            // warden/admin account's password via the student login endpoint without
+            // ever tripping that account's backoff.
+            loginAttemptService.recordFailure(normalizedEmail);
             throw new RuntimeException("Invalid credentials for this user type");
         }
 
@@ -69,6 +93,8 @@ public class AuthService {
             }
         }
 
+        loginAttemptService.recordSuccess(normalizedEmail);
+
         String accessToken = tokenProvider.generateAccessToken(authentication);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(
                 userPrincipal.getId(), role.name());
@@ -78,22 +104,35 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refreshToken(String refreshTokenStr) {
-        return refreshTokenService.findByToken(refreshTokenStr)
-                .map(refreshTokenService::verifyExpiration)
-                .map(refreshToken -> {
-                    UserPrincipal userPrincipal = getUserPrincipalById(
-                            refreshToken.getUserId(),
-                            Role.valueOf(refreshToken.getUserType()));
-
-                    Authentication authentication = new UsernamePasswordAuthenticationToken(
-                            userPrincipal, null, userPrincipal.getAuthorities());
-
-                    String accessToken = tokenProvider.generateAccessToken(authentication);
-
-                    return new AuthResponse(accessToken, refreshToken.getToken(),
-                            userPrincipal.getEmail(), refreshToken.getUserType());
-                })
+        RefreshToken presented = refreshTokenService.findByToken(refreshTokenStr)
                 .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+        RefreshToken verified = refreshTokenService.verifyExpiration(presented);
+
+        // Rotate, atomically: the presented refresh token is single-use. Consume it via a
+        // single DELETE statement and check the affected-row count *before* doing anything
+        // else, rather than the old findByToken()-then-delete(entity) sequence -- that left a
+        // TOCTOU window where two concurrent requests presenting the identical token could
+        // both observe it as present and both go on to mint a new token pair. Consuming first
+        // means only the request whose DELETE actually removed the row (count == 1) may
+        // proceed; a losing concurrent request (or any later replay) sees 0 and is rejected
+        // identically to an unknown token, so at most one valid session is ever issued per
+        // presented token.
+        if (refreshTokenService.consumeToken(refreshTokenStr) != 1) {
+            throw new RuntimeException("Refresh token not found");
+        }
+
+        UserPrincipal userPrincipal = getUserPrincipalById(
+                verified.getUserId(), Role.valueOf(verified.getUserType()));
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userPrincipal, null, userPrincipal.getAuthorities());
+
+        String accessToken = tokenProvider.generateAccessToken(authentication);
+        RefreshToken rotated = refreshTokenService.createRefreshToken(
+                verified.getUserId(), verified.getUserType());
+
+        return new AuthResponse(accessToken, rotated.getToken(),
+                userPrincipal.getEmail(), verified.getUserType());
     }
 
     @Transactional
