@@ -145,6 +145,13 @@ CREATE TABLE IF NOT EXISTS outpasses (
     CONSTRAINT chk_outpass_parent CHECK (parent_number REGEXP '^[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- The `reason` column was never declared here (added ad hoc by ddl-auto=update on an
+-- already-existing outpasses table, at whatever length Hibernate picked up at the time --
+-- VARCHAR(50) in practice). OutpassRequest validates reason up to 500 characters; widen the
+-- column to match so a DTO-valid request can never fail at insert time with a raw
+-- data-truncation error. Re-runnable; a MODIFY to the same definition is a no-op.
+ALTER TABLE outpasses MODIFY COLUMN reason VARCHAR(500) NULL;
+
 -- =====================================================
 -- TABLE: refresh_tokens
 -- =====================================================
