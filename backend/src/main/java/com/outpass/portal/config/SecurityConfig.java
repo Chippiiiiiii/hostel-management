@@ -85,6 +85,11 @@ public class SecurityConfig {
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
+        // Explicit (this is also Spring Security's default): makes an unknown email and a
+        // wrong password indistinguishable to the client -- both surface as
+        // BadCredentialsException rather than leaking UsernameNotFoundException, so the
+        // login endpoints can't be used to enumerate which emails have accounts.
+        authProvider.setHideUserNotFoundExceptions(true);
         return authProvider;
     }
 
