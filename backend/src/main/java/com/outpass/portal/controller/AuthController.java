@@ -71,6 +71,21 @@ public class AuthController {
     @Value("${rate.limit.auth.verify-email:20}")
     private int verifyEmailLimit;
 
+    @Value("${rate.limit.auth.login:10}")
+    private int loginLimit;
+
+    // Higher ceiling than loginLimit: this bucket is IP-only (not IP+email), so it exists
+    // to catch a single IP sweeping through many different accounts (credential stuffing)
+    // rather than one account being targeted -- see enforceLoginRateLimit.
+    @Value("${rate.limit.auth.login-ip:30}")
+    private int loginIpLimit;
+
+    @Value("${rate.limit.auth.refresh:60}")
+    private int refreshLimit;
+
+    @Value("${rate.limit.auth.reset-password:10}")
+    private int resetPasswordLimit;
+
     @Value("${rate.limit.auth.window-seconds:3600}")
     private long authRateLimitWindowSeconds;
 
@@ -86,6 +101,23 @@ public class AuthController {
             throw new RateLimitExceededException(
                     "Too many requests. Please try again later.");
         }
+    }
+
+    // Two independent buckets, both checked before any of the four role-specific login
+    // methods below call AuthService.login:
+    //   - IP+email: bounds attempts against ONE targeted account.
+    //   - IP only (higher ceiling): bounds credential-stuffing sweeps across many
+    //     different accounts from one IP, which the IP+email bucket can't catch since
+    //     every new guessed email opens a fresh bucket there.
+    // Neither key includes the role/endpoint, so trying the same email across
+    // /auth/student/login, /auth/warden/login, /auth/security/login, and /auth/admin/login
+    // shares the same counters -- switching endpoints doesn't reset or bypass either limit.
+    // (AuthService.login's LoginAttemptService backoff is a third, account-only layer on
+    // top of these two IP-scoped buckets.)
+    private void enforceLoginRateLimit(String email, HttpServletRequest request) {
+        String ip = clientIp(request);
+        enforceRateLimit("authrl:login:ip:" + ip, loginIpLimit);
+        enforceRateLimit("authrl:login:" + ip + ":" + EmailUtils.normalize(email), loginLimit);
     }
 
     @GetMapping("/buildings")
@@ -129,7 +161,9 @@ public class AuthController {
     }
 
     @PostMapping("/student/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> loginStudent(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> loginStudent(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        enforceLoginRateLimit(request.getEmail(), httpRequest);
         AuthService.AuthResponse response = authService.login(request.getEmail(), request.getPassword(), Role.STUDENT);
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -144,7 +178,9 @@ public class AuthController {
     }
 
     @PostMapping("/warden/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> loginWarden(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWarden(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        enforceLoginRateLimit(request.getEmail(), httpRequest);
         AuthService.AuthResponse response = authService.login(request.getEmail(), request.getPassword(), Role.WARDEN);
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -159,7 +195,9 @@ public class AuthController {
     }
 
     @PostMapping("/security/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> loginSecurityGuard(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> loginSecurityGuard(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        enforceLoginRateLimit(request.getEmail(), httpRequest);
         AuthService.AuthResponse response = authService.login(request.getEmail(), request.getPassword(), Role.SECURITY_GUARD);
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -174,7 +212,9 @@ public class AuthController {
     }
 
     @PostMapping("/admin/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> loginAdmin(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> loginAdmin(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        enforceLoginRateLimit(request.getEmail(), httpRequest);
         AuthService.AuthResponse response = authService.login(request.getEmail(), request.getPassword(), Role.ADMIN);
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -189,7 +229,12 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        // No email to key on here (only an opaque refresh token) -- IP-keyed only, with a
+        // generous ceiling since legitimate clients call this automatically whenever an
+        // access token expires, possibly from several open tabs/devices at once.
+        enforceRateLimit("authrl:refresh:" + clientIp(httpRequest), refreshLimit);
         AuthService.AuthResponse response = authService.refreshToken(request.getRefreshToken());
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -271,7 +316,10 @@ public class AuthController {
 
     @Transactional
     @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
+        // No email to key on here either (only the reset token itself) -- IP-keyed only.
+        enforceRateLimit("authrl:reset-password:" + clientIp(httpRequest), resetPasswordLimit);
         String token = request.get("token");
         String newPassword = request.get("newPassword");
 
