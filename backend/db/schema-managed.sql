@@ -152,6 +152,13 @@ CREATE INDEX idx_outpass_date ON outpasses(date);
 CREATE INDEX idx_outpass_created ON outpasses(created_at);
 CREATE INDEX idx_outpass_hostel ON outpasses(hostel);
 
+-- The `reason` column was never declared here (added ad hoc by ddl-auto=update on an
+-- already-existing outpasses table, at whatever length Hibernate picked up at the time --
+-- VARCHAR(50) in practice). OutpassRequest validates reason up to 500 characters; widen the
+-- column to match so a DTO-valid request can never fail at insert time with a raw
+-- data-truncation error. Re-runnable; a MODIFY to the same definition is a no-op.
+ALTER TABLE outpasses MODIFY COLUMN reason VARCHAR(500) NULL;
+
 -- =====================================================
 -- TABLE: refresh_tokens
 -- =====================================================
