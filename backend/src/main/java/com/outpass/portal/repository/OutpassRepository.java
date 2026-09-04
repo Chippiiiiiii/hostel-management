@@ -25,6 +25,7 @@ public interface OutpassRepository extends JpaRepository<Outpass, Long> {
     List<Outpass> findByDateBetween(LocalDateTime start, LocalDateTime end);
     List<Outpass> findByHostelAndDateBetween(String hostel, LocalDateTime start, LocalDateTime end);
     long countByStudentIdAndStatus(Long studentId, OutpassStatus status);
+    boolean existsByStudentIdAndStatusIn(Long studentId, List<OutpassStatus> statuses);
 
     // Locks the outpass row for the duration of the enclosing transaction, so a status
     // check (e.g. "is it still PENDING/APPROVED/DEPARTED") followed by a status-transition
