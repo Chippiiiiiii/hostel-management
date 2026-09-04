@@ -36,5 +36,13 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Student s where s.email = :email")
     Optional<Student> findByEmailForUpdate(@Param("email") String email);
+
+    // Same locking contract as findByEmailForUpdate above, keyed by id. Used before deciding
+    // whether to create a new Outpass for this student, so two concurrent outpass-creation
+    // requests from the same student serialize instead of both passing the "no active
+    // outpass yet" check before either has committed.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Student s where s.id = :id")
+    Optional<Student> findByIdForUpdate(@Param("id") Long id);
 }
 
