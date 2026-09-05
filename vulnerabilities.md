@@ -377,4 +377,102 @@ Security regression tests: PASS (7/7 categories in §8.3 table, all backed by de
 Concurrency tests:        RefreshTokenRepositoryConcurrencyTest 20/20, OutpassCreationConcurrencyTest 15/15
 ```
 
+## 9. Low-Severity Remediation Pass (CSP, 400-vs-403, photo size cap, migration re-verification)
+
+This section closes out the four Low-severity items carried forward from §7.5/§7.8/§8.5. Nothing in §1–§8 is superseded; findings below reference the original discovery in those sections and record the fix/verification.
+
+### 9.1 CSP header
+
+- **Finding:** No `Content-Security-Policy` header on API responses (§7.5).
+- **Root cause:** `SecurityConfig`'s `HttpSecurity` chain never configured `.headers(...)`, so Spring Security's defaults (which don't include a CSP directive) applied.
+- **Investigation before fixing:** Checked what the frontend actually loads — `frontend/index.html` has no external `<script>`/`<link>` tags, no CDN/Google Fonts/analytics references (`grep` for `googleapis`, `gstatic`, `cdn.`, `unpkg`, `jsdelivr` across `frontend/src` and `frontend/index.html` returned nothing); all UI dependencies (Bootstrap, FontAwesome, lucide-react) are bundled via npm/Vite, not loaded from a CDN at runtime. The backend itself never serves HTML/JS/CSS of its own — it's a pure JSON API; the React frontend is a separate Vercel deployment.
+- **Remediation:** Added `.headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'; base-uri 'none'")))` to `SecurityConfig.securityFilterChain`. Since the backend never returns a document for a browser to render, `default-src 'none'` (the strictest possible policy — no `unsafe-eval`, no broad `*`) is safe and doesn't touch existing `X-Content-Type-Options`/`X-Frame-Options` defaults, which Spring Security still emits unchanged.
+- **Regression test:** `SecurityConfigHeadersTest` (`config` package) — a `@WebMvcTest` bringing up the *real* `SecurityConfig` filter chain (not a mocked/inspected config object) against `/health`, asserting the exact CSP header value is emitted, and that `X-Content-Type-Options`/`X-Frame-Options` are still present.
+- **Live verification:** `curl -D - http://localhost:8080/api/health` → `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'` present alongside the pre-existing `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`.
+- **Status:** Fixed, tested (automated + live), no functional regression (frontend build unaffected, `npm run build` still passes).
+
+### 9.2 400 vs 403 semantics
+
+- **Finding:** `400` used instead of `403` for authorization-denial responses (§7.5/§7.8) — ownership/hostel-scope checks (`RoomService`, `AttendanceService`, `OutpassService`, `ComplaintService`, `WardenController.deleteAnnouncement`) threw plain `RuntimeException`, which `GlobalExceptionHandler.handleRuntimeException` maps to 400. Separately (found during this pass's investigation, not previously documented): every unauthenticated request — no token, expired token, tampered token — was *also* returning 403, not 401, because Spring Security's `AnonymousAuthenticationFilter` always installs an anonymous principal, so `hasRole(...)` checks against a missing token raise `AccessDeniedException` (403) rather than an `AuthenticationException` (401); this is why §7's live JWT-tampering/privilege-escalation tables recorded "all returned 403" for both "no token" and "wrong role" cases.
+- **Root cause:** (a) Ownership-check code used generic `RuntimeException`, indistinguishable from a validation-failure `RuntimeException` once it reached `GlobalExceptionHandler`. (b) `SecurityConfig` never configured a custom `AuthenticationEntryPoint`/`AccessDeniedHandler`, so Spring's default behavior (403 for both unauthenticated and under-authorized requests, via the anonymous-principal mechanism above) was left in place.
+- **Remediation:**
+  - Added `ForbiddenOperationException` (`exception` package) and a dedicated `@ExceptionHandler` mapping it to `403 Forbidden`. Replaced all 14 ownership/authorization-denial `throw new RuntimeException(...)` call sites (`RoomService` ×4, `AttendanceService` ×1, `OutpassService` ×8, `ComplaintService` ×1, `WardenController` ×1) with `ForbiddenOperationException`, preserving every existing message string unchanged. Business-validation `RuntimeException`s (e.g. "Room is full", "Only pending outpasses can be approved") were left as-is — still 400, correctly.
+  - Added a custom `AccessDeniedHandler` bean in `SecurityConfig`: inspects whether the current `Authentication` is null/unauthenticated/an `AnonymousAuthenticationToken` — if so, responds 401 ("Authentication required"); otherwise (a real authenticated principal with an insufficient role) responds 403 ("Access denied"). Added a matching `AuthenticationEntryPoint` bean (401) for the narrower set of cases Spring routes there directly. Wired both via `.exceptionHandling(...)`. This changes *only* the response status/body for denied requests — it does not touch which requests are allowed through; every case that was blocked before (no token, wrong role, tampered JWT) is still blocked, just now with correct 401-vs-403 semantics instead of both collapsing to 403.
+- **Regression tests:**
+  - `GlobalExceptionHandlerTest.handleForbiddenOperation_returns403NotBadRequest` — confirms 403, not 400.
+  - `SecurityConfigAccessDeniedTest` (4 tests) — exercises the real `accessDeniedHandler()`/`authenticationEntryPoint()` beans directly: anonymous principal → 401, no `Authentication` at all → 401, authenticated-with-wrong-role → 403, entry point → always 401.
+  - Existing `RoomServiceHostelOwnershipTest` (33 tests, `isInstanceOf(RuntimeException.class)` assertions) continue to pass unchanged, since `ForbiddenOperationException extends RuntimeException`.
+- **Live verification (real running server, real DB-backed login):**
+  - No token, `GET /api/student/profile` → `401 {"success":false,"message":"Authentication required"}`.
+  - Valid STUDENT token, `GET /api/warden/outpasses/pending` → `403 {"success":false,"message":"Access denied"}`.
+  - Malformed JSON, `POST /api/auth/student/login` → `400 {"success":false,"message":"Malformed request body"}` (unchanged from §7 FINDING-2 fix).
+- **Status:** Fixed, tested (automated + live). No existing security control weakened — every previously-blocked request is still blocked; only the status code/body changed to match real HTTP semantics.
+
+### 9.3 Photo upload size cap
+
+- **Finding:** No explicit application-level size cap on base64 photo fields (`StudentProfileUpdateRequest.profilePicture`, `StudentRegistrationRequest.profilePicture`, and `Complaint.photo` via `ComplaintService.createComplaint`) — relied only on the frontend's client-side 2MB check (`frontend/src/pages/student/EditProfile.jsx`), trivially bypassed by calling the API directly (§7.5).
+- **Investigation:** Traced the full upload path — the frontend never does a real multipart file upload; it reads the file via `FileReader.readAsDataURL()` and sends the resulting base64 data URI as a plain JSON string field on `PUT /student/profile` (profile), `POST /auth/student/register` (registration, **unauthenticated**), and `POST /student/complaints` (complaint photo, via an unvalidated `Map<String,Object>` body, not a DTO). Confirmed no `MultipartFile`/`spring.servlet.multipart.*` config exists anywhere in the codebase (`grep -rn "MultipartFile"` → no matches) — this really is a JSON-body-size problem, not a classic multipart-upload one. Confirmed no server-side body-size limit existed at any layer (`server.tomcat.max-*` properties absent; Tomcat's `maxPostSize` only bounds `application/x-www-form-urlencoded` parsing, not raw JSON request bodies read via `InputStream`).
+- **Remediation (three layers, matching where each payload enters the app):**
+  1. `@Size(max = 2_800_000)` added to `profilePicture` on both `StudentProfileUpdateRequest` and `StudentRegistrationRequest` (2.8M characters comfortably covers a 2MB image's base64 expansion, matching the frontend's own 2MB intent) — rejected cleanly via the existing `MethodArgumentNotValidException` → 400 handler, with a specific field-level message.
+  2. Explicit length check added directly in `ComplaintService.createComplaint` (no DTO exists for the raw-`Map` complaint-photo field to attach `@Size` to) — same 2.8M-character limit, throwing a plain `RuntimeException` (business-rule message, safe to echo verbatim) → 400.
+  3. New `MaxRequestBodySizeFilter` (`security` package, `@Component`, applied to `/auth/student/register`, `/student/profile`, `/student/complaints`): a hard 4MB request-body cap enforced *before* Jackson/the controller ever sees the body — not just via `Content-Length` (a client can omit or lie about it with chunked transfer-encoding). The filter first fast-rejects an honestly-declared oversized `Content-Length` (413, body never read at all), then for everything else reads the body itself bounded at 4MB + one 8KB buffer before handing a replayable, already-bounded copy to the rest of the chain — so an attacker sending an unbounded/never-ending chunked body can force at most ~4MB of buffering, never more. (An earlier version of this filter tried to enforce the bound via a byte-counting wrapper around the stream Jackson reads from mid-parse; live testing showed Jackson catches and rewraps *any* exception thrown from the underlying reader — checked or not — into a generic `HttpMessageNotReadableException`/400, so the dedicated 413 never survived. Reading the body inside the filter itself, before dispatch, avoids that entirely.)
+- **Regression tests:**
+  - `StudentProfileUpdateRequestValidationTest`, `StudentRegistrationRequestProfilePictureValidationTest` — at-limit accepted, over-limit rejected.
+  - `ComplaintServiceTest` — within-limit accepted and persisted, over-limit rejected *before* touching either repository (`verifyNoInteractions`), no-photo case unaffected.
+  - `MaxRequestBodySizeFilterTest` (4 tests) — unprotected path passes through untouched; declared-oversized `Content-Length` rejected with 413 before `chain.doFilter()` is ever called (`verifyNoInteractions(chain)`); understated/missing `Content-Length` with an oversized actual body rejected with 413, chain never invoked; understated `Content-Length` with a body *within* the limit reaches the chain with the full body intact (proves the replay wrapper doesn't corrupt legitimate small requests).
+- **Live verification (real running server):**
+  - 2.8M+1-character `profilePicture` via `PUT /student/profile` → `400 {"success":false,"message":"Validation failed","data":{"profilePicture":"Profile picture is too large (max 2MB)"}}`.
+  - 4.5MB body with an honest `Content-Length` → `413 {"success":false,"message":"Request body exceeds the maximum allowed size (4MB)"}`, confirmed via server log that `chain.doFilter()`/Jackson was never reached.
+  - 4.5MB body sent with `Transfer-Encoding: chunked` (no declared `Content-Length`) → `413`, same message — confirms the fast-path `Content-Length` check alone isn't what's carrying this.
+  - Normal-size photo update (100KB) → `200`, photo persisted and returned in the profile response.
+- **Status:** Fixed, tested (automated + live). Frontend's existing 2MB client-side check is unchanged (still a good UX fast-fail) but is no longer the only line of defense.
+
+### 9.4 Production DB migration re-verification
+
+- **Finding carried forward:** `backend/db/migrate-outpass-reason-length.sql` (added in §8.1) still needs to be applied to the production (Aiven) database — this was never in question this pass, just re-confirmed.
+- **Re-verification this pass:** Re-ran the migration script twice in a row against the local database (`mysql outpass_portal < backend/db/migrate-outpass-reason-length.sql`) — confirmed idempotent (`ALTER TABLE ... MODIFY COLUMN` to an identical definition is a no-op on the second run), confirmed `reason` is still `VARCHAR(500)`, confirmed all 4 pre-existing `outpasses` rows are untouched (`SELECT COUNT(*)` unchanged before/after). Re-confirmed `schema.sql`, `schema-cloud.sql`, and `db/schema-managed.sql` all still carry the matching inline `ALTER TABLE outpasses MODIFY COLUMN reason VARCHAR(500) NULL;` for fresh deployments (unchanged since §8.1 — no drift introduced this pass). No new database changes were introduced; the existing migration was correct and versioned, so nothing new was invented here per this pass's brief.
+- **Production status: `PRODUCTION DATABASE MIGRATION STILL REQUIRED`.** The assistant did not connect to or modify the production database in this pass either — no production credentials were used or requested. Operator action required: run `backend/db/migrate-outpass-reason-length.sql` (or the single statement `ALTER TABLE outpasses MODIFY COLUMN reason VARCHAR(500) NULL;`) against the production Aiven database once. Safe, idempotent, no data loss, no downtime.
+
+### 9.5 Full verification suite (this pass)
+
+```
+Backend tests:          201/201 pass (mvn test; 182 at the start of this pass, +19 new regression
+                        tests: 2 GlobalExceptionHandlerTest, 4 SecurityConfigAccessDeniedTest,
+                        2 SecurityConfigHeadersTest, 3 StudentProfileUpdateRequestValidationTest,
+                        2 StudentRegistrationRequestProfilePictureValidationTest,
+                        3 ComplaintServiceTest, 4 MaxRequestBodySizeFilterTest — net across two
+                        iterations of the photo-size-cap design, see §9.3)
+Backend package:        PASS (mvn package -DskipTests -> target/portal-0.0.1-SNAPSHOT.jar)
+Frontend build:         PASS (npm run build; pre-existing >500kB single-chunk warning, unrelated
+                        to security, unchanged from §7.7/§8.3)
+Security regression:    All 7 categories from §8.3's table re-confirmed unaffected (no test in
+                        those categories was touched this pass); the new 401-vs-403 split was
+                        specifically checked against brute-force/JWT/privilege-escalation live
+                        scenarios above to confirm blocking behavior is unchanged, only status
+                        codes corrected.
+```
+
+No security control was weakened or removed this pass. Functional changes: `default-src 'none'` CSP header (additive, backend serves no HTML so nothing to break), `ForbiddenOperationException`/`AccessDeniedHandler`/`AuthenticationEntryPoint` (status-code-only change, same requests blocked as before), `@Size` + `MaxRequestBodySizeFilter` (additive server-side validation, does not affect any request that was already within the frontend's own 2MB assumption).
+
+### 9.6 Git diff review (this pass)
+
+Reviewed the diff for: debug code, temporary test accounts/credentials, passwords, JWT secrets, API keys, hardcoded production URLs, console logging left in, commented-out security code, accidental frontend changes, accidental DB data, unrelated refactoring. None found — every changed file maps directly to one of the four findings above. No `target/`, `node_modules/`, or `dist/` build artifacts staged. Test-account password reset (`test-student-a@test.local`) performed directly against the local dev database for live verification only, using a placeholder bcrypt hash — not part of any commit, no credentials appear in source.
+
+### 9.7 Final status (this pass)
+
+```
+Critical: 0
+High:     0
+Medium:   0
+Low:      1 (production DB migration still outstanding -- §9.4; the other three Low items from
+             §7.5/§8.5 are now Fixed, see below)
+```
+
+- CSP header — **Fixed** (§9.1).
+- 400-vs-403 semantics (including the previously-undocumented unauthenticated-should-be-401 case) — **Fixed** (§9.2).
+- Photo upload size cap — **Fixed** (§9.3).
+- Production DB migration — **Requires production migration** (§9.4), unchanged from §8.5. Not something code/tests can close from this side; the single remaining deployment action is running the existing, already-verified migration script against the production database.
+
+**Remaining risks (unchanged from §7.8/§8.5):** single-instance deployment assumption for in-memory rate-limit/backoff state; stateless-JWT window (access tokens valid until natural expiry even after logout/revocation); the outstanding production migration above. No new risks were introduced in this pass.
+
 **Remaining risks:** identical to §7.8 — single-instance deployment assumption (rate-limit/backoff state correctness depends on Render staying single-instance), stateless-JWT access-token validity window (30 min) after logout/revocation, and the still-outstanding production database migration above. No new risks were introduced in this pass.
