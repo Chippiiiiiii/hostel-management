@@ -148,11 +148,13 @@ hostel-management/
 │   │   │   ├── entity/                # JPA entities (20 tables)
 │   │   │   └── enums/                 # Role (incl. ADMIN), OutpassStatus, ComplaintCategory, etc.
 │   │   ├── repository/                # Spring Data JPA repositories
-│   │   ├── security/                  # JWT provider, auth filter, UserPrincipal
+│   │   ├── security/                  # JWT provider, auth filter, UserPrincipal,
+│   │   │                              #   MaxRequestBodySizeFilter (photo-upload size cap)
 │   │   ├── service/                   # Business logic layer (RoomService, AdminService,
 │   │   │                              #   EmailUniquenessService, HostelEligibilityService, etc.)
 │   │   ├── interceptor/               # Rate limit interceptor
-│   │   ├── exception/                 # Global exception handler
+│   │   ├── exception/                 # GlobalExceptionHandler, ForbiddenOperationException
+│   │   │                              #   (403 for ownership/authorization denials)
 │   │   └── util/                      # Rate limiter, subnet utils, EmailUtils (email normalization)
 │   ├── src/main/resources/
 │   │   ├── application.properties     # App config with env-var overrides
@@ -164,8 +166,10 @@ hostel-management/
 │   │   ├── schema-managed.sql         # Managed MySQL schema with indexes
 │   │   ├── backfill-room-allocations.sql # Manual, one-time: link pre-existing students'
 │   │   │                                 #   hostel/room strings to real RoomAllocation rows
-│   │   └── backfill-student-year.sql  # Optional manual aid: derive students.year from
-│   │                                   #   roll_no where possible (never guesses)
+│   │   ├── backfill-student-year.sql  # Optional manual aid: derive students.year from
+│   │   │                               #   roll_no where possible (never guesses)
+│   │   └── migrate-outpass-reason-length.sql # Pending: widen outpasses.reason to VARCHAR(500)
+│   │                                          #   in production (see SQL Files Reference below)
 │   └── Dockerfile                     # Multi-stage Docker build
 │
 ├── render.yaml                        # Render deployment blueprint
@@ -448,6 +452,9 @@ The app uses JWT-based authentication with access + refresh token flow:
 - **Email Verification** — New student registrations must verify via an emailed link (24h expiry, single-use) before they can log in; pre-existing/seeded accounts are treated as already verified
 - **Password Reset** — Token-based password reset flow via email (15-minute expiry, single-use); a successful reset revokes all of that account's refresh tokens immediately, so any other logged-in session is forced to re-authenticate once its current access token expires
 - **Session revocation limits** — Because access tokens are stateless JWTs, an access token issued *before* a password reset remains valid for up to its remaining ≤24h lifetime even after the reset (this is distinct from the disable-lockout above, which *is* checked per-request). Only the ability to mint *new* access tokens (via refresh) is cut off immediately by a password reset.
+- **401 vs. 403 semantics** — A request with no/invalid token gets `401 Unauthorized`; a request from an authenticated user who lacks the required role or ownership (e.g. a Warden acting on another Warden's hostel) gets `403 Forbidden`. Enforced by custom `AccessDeniedHandler`/`AuthenticationEntryPoint` beans in `SecurityConfig` (Spring Security's default `AnonymousAuthenticationFilter` behavior would otherwise return 403 for both cases) and, at the service layer, by throwing `ForbiddenOperationException` (→403) instead of a plain `RuntimeException` (→400) for ownership/authorization denials.
+- **Content-Security-Policy** — Every response carries `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`, set in `SecurityConfig`, as defense-in-depth against XSS/clickjacking on top of the API's existing input validation.
+- **Upload size limits** — Base64-encoded photo fields (`profilePicture` on registration/profile-update, complaint photos) are capped at ~2MB decoded (`@Size`-validated at the DTO/service layer, →400 with a field error if exceeded). Independently, `MaxRequestBodySizeFilter` hard-caps the entire request body at 4MB on `/auth/student/register`, `/student/profile`, and `/student/complaints` (→413), so a client can't force unbounded server-side buffering by omitting or understating `Content-Length`.
 
 ## 📲 Attendance System
 
@@ -612,6 +619,7 @@ java -jar target/portal-0.0.1-SNAPSHOT.jar
 | `backend/src/main/resources/seed-cloud.sql` | Sample data for cloud, including the commented Admin bootstrap template |
 | `backend/db/backfill-room-allocations.sql` | Manual, one-time, idempotent: creates `RoomAllocation` rows for existing students whose `hostel`/`room_number` exactly match a real building/room, so they become "locked" like new registrations. Never writes `students.hostel`/`room_number`; unmatched students are reported for manual reconciliation, not guessed. Not auto-run. |
 | `backend/db/backfill-student-year.sql` | Optional manual aid: attempts to derive `students.year` from a 4-digit admission-year prefix in `roll_no`. Explicitly caveated as unverified against real roll-number formats — preview before running; never guess-clamps an out-of-range result. Not auto-run. |
+| `backend/db/migrate-outpass-reason-length.sql` | **Pending production migration.** Widens `outpasses.reason` from `VARCHAR(50)` (an artifact of an old `ddl-auto=update` run) to `VARCHAR(500)` to match `OutpassRequest`'s validated length — without it, a DTO-valid reason over 50 characters fails at insert time with a raw truncation error. Idempotent (`MODIFY COLUMN` to an identical definition is a no-op) and non-destructive (no data is dropped or truncated). Already captured in `schema.sql`/`schema-cloud.sql`/`schema-managed.sql` for fresh deployments — this script is only needed to bring an existing production database in line. Not auto-run; requires explicit execution against production. |
 | `backend/src/main/resources/quick-start.sql` | Drop and recreate database (destructive) |
 | `backend/src/main/resources/reset.sql` | Drop database entirely (destructive) |
 
