@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import com.outpass.portal.exception.ForbiddenOperationException;
 import com.outpass.portal.dto.request.ApproveOutpassRequest;
 import com.outpass.portal.dto.request.DeclineOutpassRequest;
 import com.outpass.portal.dto.response.ApiResponse;
@@ -587,7 +588,7 @@ public class WardenController {
         Announcement announcement = announcementRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Announcement not found"));
         if (!announcement.getPostedBy().equals(userPrincipal.getId())) {
-            throw new RuntimeException("You can only delete your own announcements");
+            throw new ForbiddenOperationException("You can only delete your own announcements");
         }
         announcementRepository.deleteById(id);
         return ResponseEntity.ok(ApiResponse.success("Announcement deleted", null));
