@@ -4,6 +4,7 @@ import com.outpass.portal.dto.request.StudentProfileUpdateRequest;
 import com.outpass.portal.dto.response.StudentProfileResponse;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.repository.StudentRepository;
+import com.outpass.portal.util.ImagePhotoValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class StudentService {
                 .contactNumber(student.getContactNumber())
                 .parentNumber(student.getParentNumber())
                 .profilePicture(student.getProfilePicture())
+                .idCardPhoto(student.getIdCardPhoto())
                 .build();
     }
 
@@ -55,6 +57,22 @@ public class StudentService {
             student.setProfilePicture(updateRequest.getProfilePicture());
         }
 
+        Student updated = studentRepository.save(student);
+        return getProfile(updated.getId());
+    }
+
+    // Dedicated, controlled endpoint (see StudentController) rather than folding this into
+    // updateProfile: keeps the id-card upload/replace path separate from the freely-editable
+    // profilePicture field, and self-scoped via studentId taken from the authenticated caller
+    // only -- there is no parameter here through which one student could target another's row.
+    @Transactional
+    public StudentProfileResponse updateIdCardPhoto(Long studentId, String idCardPhoto) {
+        ImagePhotoValidator.validate(idCardPhoto);
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        student.setIdCardPhoto(idCardPhoto);
         Student updated = studentRepository.save(student);
         return getProfile(updated.getId());
     }

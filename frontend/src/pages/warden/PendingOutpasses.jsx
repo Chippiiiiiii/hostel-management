@@ -4,6 +4,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import DeclineReasonModal from '../../components/common/DeclineReasonModal';
 import ApproveCommentsModal from '../../components/common/ApproveCommentsModal';
 import StudentStatsCard from '../../components/common/StudentStatsCard';
+import IdCardPhotoViewer from '../../components/common/IdCardPhotoViewer';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -243,7 +244,10 @@ const PendingOutpasses = () => {
                         </button>
                       </div>
                       <div className="card-body">
-                        <h5 className="card-title">{outpass.name}</h5>
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <h5 className="card-title mb-0">{outpass.name}</h5>
+                          <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} />
+                        </div>
                         <hr />
                         <p className="mb-1"><strong>Roll No:</strong> {outpass.rollNo}</p>
                         <p className="mb-1"><strong>Department:</strong> {outpass.department}</p>

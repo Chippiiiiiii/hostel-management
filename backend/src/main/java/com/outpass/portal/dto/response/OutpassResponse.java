@@ -16,6 +16,10 @@ import lombok.NoArgsConstructor;
 public class OutpassResponse {
     private Long id;
     private Long studentId;
+    // Only populated for Warden/Security-facing responses (see
+    // OutpassService.mapToResponse(Outpass, boolean)) -- never included in Student-facing
+    // outpass responses, since a student viewing their own outpass has no need for it there.
+    private String studentIdCardPhoto;
     private String name;
     private String rollNo;
     private String department;

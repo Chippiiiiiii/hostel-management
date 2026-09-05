@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import IdCardPhotoViewer from '../../components/common/IdCardPhotoViewer';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -180,6 +181,7 @@ const SecurityDashboard = () => {
                   <table className="table table-hover">
                     <thead className="table-light">
                       <tr>
+                        <th>ID Card</th>
                         <th>Student</th>
                         <th>Roll No</th>
                         <th>Hostel/Room</th>
@@ -193,6 +195,9 @@ const SecurityDashboard = () => {
                     <tbody>
                       {displayOutpasses.map((outpass) => (
                         <tr key={outpass.id}>
+                          <td>
+                            <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} size={50} />
+                          </td>
                           <td>
                             <strong>{outpass.name}</strong>
                             <br />

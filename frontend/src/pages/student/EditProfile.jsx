@@ -5,7 +5,7 @@ import roomService from '../../services/roomService';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faLock, faArrowLeft, faBuilding, faLayerGroup, faDoorOpen, faCamera } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faLock, faArrowLeft, faBuilding, faLayerGroup, faDoorOpen, faCamera, faIdCard } from '@fortawesome/free-solid-svg-icons';
 
 const EditProfile = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +19,9 @@ const EditProfile = () => {
   const [submitting, setSubmitting] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [newPhoto, setNewPhoto] = useState(null);
+  const [idCardPreview, setIdCardPreview] = useState(null);
+  const [newIdCard, setNewIdCard] = useState(null);
+  const [idCardSubmitting, setIdCardSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const [buildings, setBuildings] = useState([]);
@@ -45,6 +48,7 @@ const EditProfile = () => {
       const data = profileRes.data;
       setProfile(data);
       setPhotoPreview(data.profilePicture || null);
+      setIdCardPreview(data.idCardPhoto || null);
       setFormData({
         hostel: data.hostel,
         roomNumber: data.roomNumber,
@@ -133,6 +137,39 @@ const EditProfile = () => {
       setNewPhoto(reader.result);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleIdCardUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('ID card photo must be under 2MB');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setIdCardPreview(reader.result);
+      setNewIdCard(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleIdCardSubmit = async () => {
+    if (!newIdCard) return;
+    setIdCardSubmitting(true);
+    try {
+      await outpassService.updateIdCardPhoto(newIdCard);
+      setNewIdCard(null);
+      toast.success('Student ID card updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update ID card photo');
+    } finally {
+      setIdCardSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -234,6 +271,66 @@ const EditProfile = () => {
                   </div>
                 </div>
                 <small className="text-muted">These fields cannot be edited</small>
+              </div>
+
+              {/* Student ID Card - separate from the profile photo above; used by Wardens/Security
+                  to verify identity when reviewing outpasses */}
+              <div className="card mb-4">
+                <div className="card-body">
+                  <h6 className="fw-bold mb-3"><FontAwesomeIcon icon={faIdCard} /> Student ID Card</h6>
+                  <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-3">
+                    <div
+                      style={{
+                        width: '140px', height: '90px', borderRadius: '8px',
+                        border: '2px dashed var(--color-accent)', overflow: 'hidden', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: 'var(--color-bg-tertiary)', flexShrink: 0,
+                      }}
+                      onClick={() => document.getElementById('idCardPhotoInput').click()}
+                    >
+                      {idCardPreview ? (
+                        <img src={idCardPreview} alt="Student ID Card" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div className="text-center text-muted">
+                          <FontAwesomeIcon icon={faIdCard} style={{ fontSize: '1.3rem' }} />
+                          <div style={{ fontSize: '0.65rem', marginTop: '4px' }}>ID card not uploaded</div>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      id="idCardPhotoInput"
+                      accept="image/*"
+                      onChange={handleIdCardUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <div>
+                      <p className="text-muted mb-2" style={{ fontSize: '0.85rem' }}>
+                        Upload a clear photo of your college/student ID card. Wardens and Security use this to verify
+                        your identity when reviewing your outpass.
+                      </p>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => document.getElementById('idCardPhotoInput').click()}
+                        >
+                          {idCardPreview ? 'Change Photo' : 'Upload Photo'}
+                        </button>
+                        {newIdCard && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={handleIdCardSubmit}
+                            disabled={idCardSubmitting}
+                          >
+                            {idCardSubmitting ? 'Saving...' : 'Save ID Card'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <form onSubmit={handleSubmit}>

@@ -1,5 +1,6 @@
 package com.outpass.portal.controller;
 
+import com.outpass.portal.dto.request.IdCardPhotoUpdateRequest;
 import com.outpass.portal.dto.request.OutpassRequest;
 import com.outpass.portal.dto.request.StudentProfileUpdateRequest;
 import com.outpass.portal.dto.response.ApiResponse;
@@ -47,6 +48,18 @@ public class StudentController {
             @Valid @RequestBody StudentProfileUpdateRequest updateRequest) {
         StudentProfileResponse updated = studentService.updateProfile(userPrincipal.getId(), updateRequest);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+    }
+
+    // Dedicated, controlled endpoint for the student ID-card photo -- kept separate from
+    // updateProfile/profilePicture (see backend spec: idCardPhoto must not be silently
+    // bundled with routine profile edits). Self-scoped via userPrincipal.getId() only, so a
+    // student can never target another student's ID-card photo through this endpoint.
+    @PutMapping("/profile/id-card-photo")
+    public ResponseEntity<ApiResponse<StudentProfileResponse>> updateIdCardPhoto(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody IdCardPhotoUpdateRequest request) {
+        StudentProfileResponse updated = studentService.updateIdCardPhoto(userPrincipal.getId(), request.getIdCardPhoto());
+        return ResponseEntity.ok(ApiResponse.success("ID card photo updated successfully", updated));
     }
 
     @PostMapping("/outpass")

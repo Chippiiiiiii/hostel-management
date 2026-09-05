@@ -17,6 +17,11 @@ const outpassService = {
     return response.data;
   },
 
+  updateIdCardPhoto: async (idCardPhoto) => {
+    const response = await api.put('/student/profile/id-card-photo', { idCardPhoto });
+    return response.data;
+  },
+
   getOutpassHistory: async () => {
     const response = await api.get('/student/outpass/history');
     return response.data;

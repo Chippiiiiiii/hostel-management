@@ -56,6 +56,12 @@ public class Student {
     @Column(name = "profile_picture", columnDefinition = "LONGTEXT")
     private String profilePicture;
 
+    // Separate from profilePicture: uploaded once (see StudentService.updateIdCardPhoto)
+    // and referenced from every outpass response shown to Warden/Security, rather than
+    // being duplicated onto each Outpass row.
+    @Column(name = "id_card_photo", columnDefinition = "LONGTEXT")
+    private String idCardPhoto;
+
     @Column(nullable = false, length = 10)
     @Builder.Default
     private String gender = "BOY";

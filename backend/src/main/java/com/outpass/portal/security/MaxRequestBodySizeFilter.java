@@ -41,7 +41,8 @@ public class MaxRequestBodySizeFilter extends OncePerRequestFilter {
     static final long MAX_BODY_BYTES = 4L * 1024 * 1024;
 
     private static final Set<String> PROTECTED_PATHS =
-            Set.of("/auth/student/register", "/student/profile", "/student/complaints");
+            Set.of("/auth/student/register", "/student/profile", "/student/complaints",
+                    "/student/profile/id-card-photo");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,

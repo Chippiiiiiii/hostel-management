@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS students (
     contact_number VARCHAR(15) NOT NULL,
     parent_number VARCHAR(15) NOT NULL,
     profile_picture LONGTEXT NULL,
+    id_card_photo LONGTEXT NULL,
     email_verified BOOLEAN NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS students (
     contact_number VARCHAR(15) NOT NULL,
     parent_number VARCHAR(15) NOT NULL,
     profile_picture LONGTEXT NULL,
+    id_card_photo LONGTEXT NULL,
     gender VARCHAR(10) NOT NULL DEFAULT 'BOY',
     email_verified BOOLEAN NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS students (
 -- Backfills the columns for an already-existing `students` table. Requires MySQL 8.0.29+.
 ALTER TABLE students ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NULL;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS year INT NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS id_card_photo LONGTEXT NULL;
 
 CREATE TABLE IF NOT EXISTS wardens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

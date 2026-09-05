@@ -20,5 +20,6 @@ public class StudentProfileResponse {
     private String contactNumber;
     private String parentNumber;
     private String profilePicture;
+    private String idCardPhoto;
 }
 

@@ -131,7 +131,7 @@ public class OutpassService {
         }
         return outpassRepository.findByHostelInAndStatusOrderByCreatedAtDesc(hostels, OutpassStatus.PENDING)
                 .stream()
-                .map(this::mapToResponse)
+                .map(o -> mapToResponse(o, true))
                 .collect(Collectors.toList());
     }
 
@@ -142,7 +142,7 @@ public class OutpassService {
         }
         return outpassRepository.findByHostelInOrderByCreatedAtDesc(hostels)
                 .stream()
-                .map(this::mapToResponse)
+                .map(o -> mapToResponse(o, true))
                 .collect(Collectors.toList());
     }
 
@@ -163,7 +163,7 @@ public class OutpassService {
         outpass.setProcessedBy(wardenId);
         outpass.setProcessedAt(LocalDateTime.now(IST));
         Outpass updated = outpassRepository.save(outpass);
-        return mapToResponse(updated);
+        return mapToResponse(updated, true);
     }
 
     @Transactional
@@ -184,7 +184,7 @@ public class OutpassService {
         outpass.setProcessedBy(wardenId);
         outpass.setProcessedAt(LocalDateTime.now(IST));
         Outpass updated = outpassRepository.save(outpass);
-        return mapToResponse(updated);
+        return mapToResponse(updated, true);
     }
 
     @Transactional(readOnly = true)
@@ -203,7 +203,7 @@ public class OutpassService {
         return outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, OutpassStatus.APPROVED)
                 .stream()
                 .filter(o -> o.getDate().isBefore(now) && o.getReturnDate().isAfter(now))
-                .map(this::mapToResponse)
+                .map(o -> mapToResponse(o, true))
                 .collect(Collectors.toList());
     }
 
@@ -227,7 +227,7 @@ public class OutpassService {
         return outpassRepository.findByHostelAndDateBetween(hostel, startOfDay, endOfDay)
                 .stream()
                 .filter(o -> o.getStatus() == OutpassStatus.APPROVED)
-                .map(this::mapToResponse)
+                .map(o -> mapToResponse(o, true))
                 .collect(Collectors.toList());
     }
 
@@ -239,8 +239,8 @@ public class OutpassService {
         if (hostel != null && !outpass.getHostel().equals(hostel)) {
             throw new ForbiddenOperationException("You can only view outpasses from your own hostel");
         }
-        
-        return mapToResponse(outpass);
+
+        return mapToResponse(outpass, true);
     }
 
     // Locks the outpass row before any check-then-act status transition, preventing
@@ -252,9 +252,18 @@ public class OutpassService {
     }
 
     private OutpassResponse mapToResponse(Outpass outpass) {
+        return mapToResponse(outpass, false);
+    }
+
+    // includeIdCardPhoto is true only for Warden/Security-facing call sites below -- the ID
+    // card is sensitive and must not appear in Student-facing outpass responses. Always
+    // read from the authoritative Student record (outpass.getStudent(), EAGER-fetched)
+    // rather than duplicating the photo onto the Outpass row itself.
+    private OutpassResponse mapToResponse(Outpass outpass, boolean includeIdCardPhoto) {
         return OutpassResponse.builder()
                 .id(outpass.getId())
                 .studentId(outpass.getStudent().getId())
+                .studentIdCardPhoto(includeIdCardPhoto ? outpass.getStudent().getIdCardPhoto() : null)
                 .name(outpass.getName())
                 .rollNo(outpass.getRollNo())
                 .department(outpass.getDepartment())
@@ -304,7 +313,7 @@ public class OutpassService {
         outpass.setStatus(OutpassStatus.DEPARTED);
 
         Outpass updated = outpassRepository.save(outpass);
-        return mapToResponse(updated);
+        return mapToResponse(updated, true);
     }
 
     @Transactional
@@ -337,14 +346,14 @@ public class OutpassService {
         }
 
         Outpass updated = outpassRepository.save(outpass);
-        return mapToResponse(updated);
+        return mapToResponse(updated, true);
     }
 
     @Transactional(readOnly = true)
     public List<OutpassResponse> getDepartedOutpassesByHostel(String hostel) {
         return outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc(hostel, OutpassStatus.DEPARTED)
                 .stream()
-                .map(this::mapToResponse)
+                .map(o -> mapToResponse(o, true))
                 .collect(Collectors.toList());
     }
 

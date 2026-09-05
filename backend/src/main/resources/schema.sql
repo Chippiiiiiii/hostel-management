@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS students (
     contact_number VARCHAR(15) NOT NULL,
     parent_number VARCHAR(15) NOT NULL,
     profile_picture LONGTEXT NULL,
+    -- Separate from profile_picture: uploaded once via PUT /student/profile/id-card-photo
+    -- and referenced from every outpass response shown to Warden/Security, rather than
+    -- duplicated onto each outpass row.
+    id_card_photo LONGTEXT NULL,
     gender VARCHAR(10) NOT NULL DEFAULT 'BOY',
     -- NULL = pre-existing/seed account (treated as verified for login purposes).
     -- FALSE = newly self-registered, unverified. TRUE = verified via emailed link.
@@ -47,6 +51,7 @@ CREATE TABLE IF NOT EXISTS students (
 -- already get them from the CREATE TABLE above). Requires MySQL 8.0.29+.
 ALTER TABLE students ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NULL;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS year INT NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS id_card_photo LONGTEXT NULL;
 
 -- =====================================================
 -- TABLE: wardens

@@ -214,4 +214,198 @@ class OutpassServiceTest {
         assertThat(response.getStatus()).isEqualTo(OutpassStatus.PENDING);
         verify(outpassRepository).save(any());
     }
+
+    // ==================== studentIdCardPhoto: Warden/Security-only inclusion ====================
+
+    private Student studentWithIdCard() {
+        return Student.builder().id(1L).idCardPhoto("data:image/png;base64,idcard").build();
+    }
+
+    private Outpass outpassForStudent(Student student, OutpassStatus status) {
+        return Outpass.builder()
+                .id(1L)
+                .student(student)
+                .name("S").rollNo("R1").department("D").hostel("H1").roomNumber("101")
+                .date(LocalDateTime.now(IST).minusHours(1))
+                .returnDate(LocalDateTime.now(IST).plusHours(1))
+                .noOfDays(1)
+                .placeOfVisit("Home")
+                .contactNumber("9999999999")
+                .parentNumber("9999999999")
+                .status(status)
+                .build();
+    }
+
+    @Test
+    void wardenPendingOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.PENDING);
+        when(outpassRepository.findByHostelInAndStatusOrderByCreatedAtDesc(List.of("H1"), OutpassStatus.PENDING))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getPendingOutpassesByHostels(List.of("H1"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void wardenHistoryResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.COMPLETED);
+        when(outpassRepository.findByHostelInOrderByCreatedAtDesc(List.of("H1")))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getAllOutpassesByHostels(List.of("H1"));
+
+        assertThat(result.get(0).getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void approveOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.PENDING);
+        outpass.setHostel("H1");
+        when(outpassRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(outpass));
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OutpassResponse response = service.approveOutpass(1L, List.of("H1"), 99L, null);
+
+        assertThat(response.getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void declineOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.PENDING);
+        outpass.setHostel("H1");
+        when(outpassRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(outpass));
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        com.outpass.portal.dto.request.DeclineOutpassRequest request = new com.outpass.portal.dto.request.DeclineOutpassRequest();
+        request.setDeclineReason("No reason");
+        OutpassResponse response = service.declineOutpass(1L, List.of("H1"), 99L, request);
+
+        assertThat(response.getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void securityActiveOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.APPROVED);
+        outpass.setHostel("H1");
+        when(outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc("H1", OutpassStatus.APPROVED))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getActiveOutpassesByHostel("H1");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void securityTodayOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.APPROVED);
+        outpass.setHostel("H1");
+        outpass.setDate(LocalDateTime.now(IST));
+        when(outpassRepository.findByHostelAndDateBetween(eq("H1"), any(), any()))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getTodayOutpassesByHostel("H1");
+
+        assertThat(result.get(0).getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void securityOutpassByIdResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.APPROVED);
+        outpass.setHostel("H1");
+        when(outpassRepository.findById(1L)).thenReturn(Optional.of(outpass));
+
+        OutpassResponse result = service.getOutpassByIdAndHostel(1L, "H1");
+
+        assertThat(result.getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void markDepartureResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.APPROVED);
+        outpass.setHostel("H1");
+        when(outpassRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(outpass));
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OutpassResponse response = service.markDeparture(1L, 99L, "H1");
+
+        assertThat(response.getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void markReturnResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.DEPARTED);
+        outpass.setHostel("H1");
+        outpass.setReturnDate(LocalDateTime.now(IST).plusHours(1));
+        when(outpassRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(outpass));
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OutpassResponse response = service.markReturn(1L, 99L, "H1");
+
+        assertThat(response.getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    @Test
+    void securityDepartedOutpassResponseIncludesStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.DEPARTED);
+        outpass.setHostel("H1");
+        when(outpassRepository.findByHostelAndStatusOrderByCreatedAtDesc("H1", OutpassStatus.DEPARTED))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getDepartedOutpassesByHostel("H1");
+
+        assertThat(result.get(0).getStudentIdCardPhoto()).isEqualTo("data:image/png;base64,idcard");
+    }
+
+    // ==================== studentIdCardPhoto: never leaked to Student-facing responses ====================
+
+    @Test
+    void createOutpassResponseDoesNotIncludeStudentIdCardPhoto() {
+        Student student = Student.builder().id(1L).name("S").rollNo("R1").department("D")
+                .hostel("H1").roomNumber("101").idCardPhoto("data:image/png;base64,idcard").build();
+        when(studentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(student));
+        when(outpassRepository.existsByStudentIdAndStatusIn(eq(1L), anyList())).thenReturn(false);
+        when(outpassRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OutpassResponse response = service.createOutpass(1L, validRequest());
+
+        assertThat(response.getStudentIdCardPhoto()).isNull();
+    }
+
+    @Test
+    void studentOwnOutpassLookupDoesNotIncludeStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.PENDING);
+        when(outpassRepository.findById(1L)).thenReturn(Optional.of(outpass));
+
+        OutpassResponse response = service.getOutpassById(1L, 1L);
+
+        assertThat(response.getStudentIdCardPhoto()).isNull();
+    }
+
+    @Test
+    void studentOutpassHistoryDoesNotIncludeStudentIdCardPhoto() {
+        Outpass outpass = outpassForStudent(studentWithIdCard(), OutpassStatus.COMPLETED);
+        when(outpassRepository.findByStudentIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getStudentOutpasses(1L);
+
+        assertThat(result.get(0).getStudentIdCardPhoto()).isNull();
+    }
+
+    // A student with no ID card uploaded (idCardPhoto == null on the Student record) must
+    // not break the Warden/Security response -- it simply comes through as null, letting
+    // the frontend render "ID card not uploaded" rather than erroring.
+    @Test
+    void missingIdCardPhotoIsHandledGracefullyInWardenResponse() {
+        Student studentWithoutIdCard = Student.builder().id(1L).build();
+        Outpass outpass = outpassForStudent(studentWithoutIdCard, OutpassStatus.PENDING);
+        when(outpassRepository.findByHostelInAndStatusOrderByCreatedAtDesc(List.of("H1"), OutpassStatus.PENDING))
+                .thenReturn(List.of(outpass));
+
+        List<OutpassResponse> result = service.getPendingOutpassesByHostels(List.of("H1"));
+
+        assertThat(result.get(0).getStudentIdCardPhoto()).isNull();
+    }
 }
