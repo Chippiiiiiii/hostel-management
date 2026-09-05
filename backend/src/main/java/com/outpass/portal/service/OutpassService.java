@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.outpass.portal.exception.ForbiddenOperationException;
 import com.outpass.portal.dto.request.ApproveOutpassRequest;
 import com.outpass.portal.dto.request.DeclineOutpassRequest;
 import com.outpass.portal.dto.request.OutpassRequest;
@@ -87,7 +88,7 @@ public class OutpassService {
     public void cancelOutpass(Long outpassId, Long studentId) {
         Outpass outpass = lockOutpass(outpassId);
         if (!outpass.getStudent().getId().equals(studentId)) {
-            throw new RuntimeException("Access denied");
+            throw new ForbiddenOperationException("Access denied");
         }
         if (outpass.getStatus() != OutpassStatus.PENDING) {
             throw new RuntimeException("Only pending outpasses can be cancelled");
@@ -101,7 +102,7 @@ public class OutpassService {
                 .orElseThrow(() -> new RuntimeException("Outpass not found"));
 
         if (studentId != null && !outpass.getStudent().getId().equals(studentId)) {
-            throw new RuntimeException("Access denied");
+            throw new ForbiddenOperationException("Access denied");
         }
 
         return mapToResponse(outpass);
@@ -154,7 +155,7 @@ public class OutpassService {
         }
 
         if (!wardenHostels.contains(outpass.getHostel())) {
-            throw new RuntimeException("You can only approve outpasses from your own hostel");
+            throw new ForbiddenOperationException("You can only approve outpasses from your own hostel");
         }
 
         outpass.setStatus(OutpassStatus.APPROVED);
@@ -174,7 +175,7 @@ public class OutpassService {
         }
 
         if (!wardenHostels.contains(outpass.getHostel())) {
-            throw new RuntimeException("You can only decline outpasses from your own hostel");
+            throw new ForbiddenOperationException("You can only decline outpasses from your own hostel");
         }
 
         outpass.setStatus(OutpassStatus.DECLINED);
@@ -236,7 +237,7 @@ public class OutpassService {
                 .orElseThrow(() -> new RuntimeException("Outpass not found"));
         
         if (hostel != null && !outpass.getHostel().equals(hostel)) {
-            throw new RuntimeException("You can only view outpasses from your own hostel");
+            throw new ForbiddenOperationException("You can only view outpasses from your own hostel");
         }
         
         return mapToResponse(outpass);
@@ -286,7 +287,7 @@ public class OutpassService {
         Outpass outpass = lockOutpass(outpassId);
 
         if (!outpass.getHostel().equals(hostel)) {
-            throw new RuntimeException("You can only verify outpasses from your own hostel");
+            throw new ForbiddenOperationException("You can only verify outpasses from your own hostel");
         }
 
         if (outpass.getStatus() != OutpassStatus.APPROVED) {
@@ -311,7 +312,7 @@ public class OutpassService {
         Outpass outpass = lockOutpass(outpassId);
 
         if (!outpass.getHostel().equals(hostel)) {
-            throw new RuntimeException("You can only verify outpasses from your own hostel");
+            throw new ForbiddenOperationException("You can only verify outpasses from your own hostel");
         }
 
         if (outpass.getStatus() != OutpassStatus.DEPARTED) {
@@ -353,7 +354,7 @@ public class OutpassService {
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         if (wardenHostels != null && !wardenHostels.contains(student.getHostel())) {
-            throw new RuntimeException("You can only view statistics for students in your own hostel");
+            throw new ForbiddenOperationException("You can only view statistics for students in your own hostel");
         }
 
         List<Outpass> allOutpasses = outpassRepository.findByStudentIdOrderByCreatedAtDesc(studentId);
