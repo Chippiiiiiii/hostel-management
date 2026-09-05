@@ -54,6 +54,12 @@ public class StudentRegistrationRequest {
     @Pattern(regexp = "^[0-9]{10}$", message = "Parent number must be 10 digits")
     private String parentNumber;
 
+    // Frontend sends the full data: URI (base64), capped client-side at a 2MB raw file --
+    // base64 inflates that by ~4/3, plus a short "data:image/...;base64," prefix, so 2.8M
+    // characters comfortably covers a legitimate 2MB photo while still bounding the field.
+    // This is a defense-in-depth check on top of MaxRequestBodySizeFilter, which rejects an
+    // oversized request before it's even fully read into memory.
+    @Size(max = 2_800_000, message = "Profile picture is too large (max 2MB)")
     private String profilePicture;
 
     private String gender;
