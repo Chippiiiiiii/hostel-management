@@ -2,6 +2,7 @@ package com.outpass.portal.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,5 +30,7 @@ public class StudentProfileUpdateRequest {
     @Pattern(regexp = "^[0-9]{10}$", message = "Parent number must be 10 digits")
     private String parentNumber;
 
+    // See StudentRegistrationRequest.profilePicture for how this limit was derived.
+    @Size(max = 2_800_000, message = "Profile picture is too large (max 2MB)")
     private String profilePicture;
 }
