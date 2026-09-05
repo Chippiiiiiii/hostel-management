@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import outpassService from '../../services/outpassService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserTie, faHourglass, faCheckCircle, faTimesCircle, faClipboardList } from '@fortawesome/free-solid-svg-icons';
+import {
+  faUserTie, faHourglass, faCheckCircle, faTimesCircle, faClipboardList,
+  faArrowRight, faCalendarCheck, faUsers, faExclamationTriangle,
+} from '@fortawesome/free-solid-svg-icons';
 
 const WardenDashboard = () => {
   const [stats, setStats] = useState({ pending: 0, total: 0, approved: 0, declined: 0 });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
@@ -35,6 +40,10 @@ const WardenDashboard = () => {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  const pendingHeadline = stats.pending === 0
+    ? 'No requests are waiting'
+    : `${stats.pending} ${stats.pending === 1 ? 'request is' : 'requests are'} waiting`;
 
   return (
     <div className="container-lg mt-5 mb-5" style={{ maxWidth: '1200px' }}>
@@ -82,6 +91,69 @@ const WardenDashboard = () => {
               <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '2rem', color: 'var(--accent-red)', marginBottom: '0.75rem' }} />
               <p className="text-muted mb-1" style={{ fontSize: '0.95rem' }}>Declined</p>
               <h2 className="mb-0 fw-bold" style={{ color: 'var(--accent-red)', fontSize: '2.5rem' }}>{stats.declined}</h2>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Needs Your Attention + Daily Operations */}
+      <div className="row g-4">
+        <div className="col-12 col-lg-8">
+          <div
+            className="card shadow h-100"
+            style={{ backgroundColor: 'var(--color-primary-dark)', border: 'none' }}
+          >
+            <div className="card-body p-4 d-flex flex-column">
+              <p
+                className="mb-2 fw-bold"
+                style={{ color: 'var(--accent-yellow)', fontSize: '0.8rem', letterSpacing: '0.08em' }}
+              >
+                NEEDS YOUR ATTENTION
+              </p>
+              <h3 className="mb-3 fw-bold" style={{ color: '#fff' }}>
+                {pendingHeadline}
+              </h3>
+              <p className="mb-4" style={{ color: 'rgba(255,255,255,0.8)', fontSize: '1rem' }}>
+                Open the queue to check dates, contact details, and the student history before deciding.
+              </p>
+              <div className="mt-auto text-end">
+                <button
+                  className="btn fw-semibold"
+                  style={{ backgroundColor: 'var(--accent-yellow)', color: 'var(--color-primary-dark)' }}
+                  onClick={() => navigate('/warden/pending')}
+                >
+                  Open review queue <FontAwesomeIcon icon={faArrowRight} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-lg-4">
+          <div className="card shadow h-100">
+            <div className="card-header fw-bold">Daily operations</div>
+            <div className="list-group list-group-flush">
+              <Link
+                to="/warden/attendance"
+                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+              >
+                <span><FontAwesomeIcon icon={faCalendarCheck} className="me-2" style={{ color: 'var(--color-info)' }} /> Attendance session</span>
+                <FontAwesomeIcon icon={faArrowRight} className="text-muted" />
+              </Link>
+              <Link
+                to="/warden/students"
+                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+              >
+                <span><FontAwesomeIcon icon={faUsers} className="me-2" style={{ color: 'var(--color-info)' }} /> Find a student</span>
+                <FontAwesomeIcon icon={faArrowRight} className="text-muted" />
+              </Link>
+              <Link
+                to="/warden/complaints"
+                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+              >
+                <span><FontAwesomeIcon icon={faExclamationTriangle} className="me-2" style={{ color: 'var(--color-info)' }} /> Open complaints</span>
+                <FontAwesomeIcon icon={faArrowRight} className="text-muted" />
+              </Link>
             </div>
           </div>
         </div>
