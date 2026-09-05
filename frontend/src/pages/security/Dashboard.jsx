@@ -196,7 +196,7 @@ const SecurityDashboard = () => {
                       {displayOutpasses.map((outpass) => (
                         <tr key={outpass.id}>
                           <td>
-                            <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} size={50} />
+                            <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} size={120} />
                           </td>
                           <td>
                             <strong>{outpass.name}</strong>

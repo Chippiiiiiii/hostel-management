@@ -244,10 +244,8 @@ const PendingOutpasses = () => {
                         </button>
                       </div>
                       <div className="card-body">
-                        <div className="d-flex justify-content-between align-items-start gap-2">
-                          <h5 className="card-title mb-0">{outpass.name}</h5>
-                          <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} />
-                        </div>
+                        <IdCardPhotoViewer photo={outpass.studentIdCardPhoto} mode="large" />
+                        <h5 className="card-title">{outpass.name}</h5>
                         <hr />
                         <p className="mb-1"><strong>Roll No:</strong> {outpass.rollNo}</p>
                         <p className="mb-1"><strong>Department:</strong> {outpass.department}</p>
