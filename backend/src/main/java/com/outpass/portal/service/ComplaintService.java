@@ -1,5 +1,6 @@
 package com.outpass.portal.service;
 
+import com.outpass.portal.exception.ForbiddenOperationException;
 import com.outpass.portal.model.entity.Complaint;
 import com.outpass.portal.model.entity.Student;
 import com.outpass.portal.model.enums.ComplaintCategory;
@@ -22,11 +23,24 @@ public class ComplaintService {
 
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
 
+    // Complaint.photo has no DTO/@Size to lean on -- the controller passes it through as a
+    // raw Map value -- so the same 2.8M-character cap used for profilePicture (see
+    // StudentRegistrationRequest.profilePicture) is enforced explicitly here instead.
+    private static final int MAX_PHOTO_BASE64_LENGTH = 2_800_000;
+
     private final ComplaintRepository complaintRepository;
     private final StudentRepository studentRepository;
 
     @Transactional
     public Map<String, Object> createComplaint(Long studentId, String category, String description, String photo) {
+        // Plain RuntimeException (not IllegalArgumentException): this message is a safe,
+        // intentional business-rule string meant to reach the client verbatim, unlike
+        // IllegalArgumentException's use elsewhere for framework-internal messages that
+        // GlobalExceptionHandler deliberately replaces with a generic one.
+        if (photo != null && photo.length() > MAX_PHOTO_BASE64_LENGTH) {
+            throw new RuntimeException("Photo is too large (max 2MB)");
+        }
+
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
@@ -75,7 +89,7 @@ public class ComplaintService {
                 .orElseThrow(() -> new RuntimeException("Complaint not found"));
 
         if (!wardenHostels.contains(complaint.getHostel())) {
-            throw new RuntimeException("You can only respond to complaints from your own hostel");
+            throw new ForbiddenOperationException("You can only respond to complaints from your own hostel");
         }
 
         complaint.setStatus(ComplaintStatus.valueOf(status));
