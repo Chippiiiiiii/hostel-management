@@ -83,4 +83,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getMessage()).isEqualTo("Only pending outpasses can be approved");
     }
+
+    // 400-vs-403 semantics fix: a genuine ownership/authorization denial (e.g. "You can only
+    // manage your own hostel") must be 403, not fall through to handleRuntimeException's 400
+    // -- functionally still blocked either way, but 400 implies malformed client input, which
+    // this isn't.
+    @Test
+    void handleForbiddenOperation_returns403NotBadRequest() {
+        ForbiddenOperationException ex = new ForbiddenOperationException("You can only manage your own hostel");
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleForbiddenOperation(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody().getMessage()).isEqualTo("You can only manage your own hostel");
+    }
 }
