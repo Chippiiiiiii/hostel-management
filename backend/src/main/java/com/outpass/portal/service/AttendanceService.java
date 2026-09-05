@@ -1,5 +1,6 @@
 package com.outpass.portal.service;
 
+import com.outpass.portal.exception.ForbiddenOperationException;
 import com.outpass.portal.model.entity.AttendanceRecord;
 import com.outpass.portal.model.entity.AttendanceSession;
 import com.outpass.portal.model.entity.Building;
@@ -46,7 +47,7 @@ public class AttendanceService {
     // to the calling warden. Mirrors RoomService.verifyBuildingOwnership exactly.
     private void verifyBuildingOwnership(Long buildingId, List<Long> wardenBuildingIds) {
         if (wardenBuildingIds != null && !wardenBuildingIds.contains(buildingId)) {
-            throw new RuntimeException("You can only manage your own hostel");
+            throw new ForbiddenOperationException("You can only manage your own hostel");
         }
     }
 
