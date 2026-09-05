@@ -1,5 +1,6 @@
 package com.outpass.portal.service;
 
+import com.outpass.portal.exception.ForbiddenOperationException;
 import com.outpass.portal.model.entity.*;
 import com.outpass.portal.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class RoomService {
     // backend/AGENTS.md's contract for the FK-based config tables.
     private void verifyBuildingOwnershipById(Long buildingId, List<Long> wardenBuildingIds) {
         if (wardenBuildingIds != null && !wardenBuildingIds.contains(buildingId)) {
-            throw new RuntimeException("You can only manage your own hostel");
+            throw new ForbiddenOperationException("You can only manage your own hostel");
         }
     }
 
@@ -52,13 +53,13 @@ public class RoomService {
 
     private void verifyBuildingOwnership(Building building, List<String> wardenHostels) {
         if (wardenHostels != null && !wardenHostels.contains(building.getName())) {
-            throw new RuntimeException("You can only manage your own hostel");
+            throw new ForbiddenOperationException("You can only manage your own hostel");
         }
     }
 
     private void verifyRoomOwnership(Room room, List<String> wardenHostels) {
         if (wardenHostels != null && !wardenHostels.contains(room.getBuilding().getName())) {
-            throw new RuntimeException("You can only manage rooms in your own hostel");
+            throw new ForbiddenOperationException("You can only manage rooms in your own hostel");
         }
     }
 
@@ -448,7 +449,7 @@ public class RoomService {
         if (wardenHostels != null) {
             allocationRepository.findByStudentEmail(studentEmail).ifPresent(allocation -> {
                 if (!wardenHostels.contains(allocation.getRoom().getBuilding().getName())) {
-                    throw new RuntimeException("You can only manage allocations in your own hostel");
+                    throw new ForbiddenOperationException("You can only manage allocations in your own hostel");
                 }
             });
         }
