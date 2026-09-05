@@ -99,10 +99,7 @@ const WardenDashboard = () => {
       {/* Needs Your Attention + Daily Operations */}
       <div className="row g-4">
         <div className="col-12 col-lg-8">
-          <div
-            className="card shadow h-100"
-            style={{ backgroundColor: 'var(--color-primary-dark)', border: 'none' }}
-          >
+          <div className="card shadow h-100">
             <div className="card-body p-4 d-flex flex-column">
               <p
                 className="mb-2 fw-bold"
@@ -110,10 +107,10 @@ const WardenDashboard = () => {
               >
                 NEEDS YOUR ATTENTION
               </p>
-              <h3 className="mb-3 fw-bold" style={{ color: '#fff' }}>
+              <h3 className="mb-3 fw-bold" style={{ color: 'var(--color-primary)' }}>
                 {pendingHeadline}
               </h3>
-              <p className="mb-4" style={{ color: 'rgba(255,255,255,0.8)', fontSize: '1rem' }}>
+              <p className="mb-4 text-muted" style={{ fontSize: '1rem' }}>
                 Open the queue to check dates, contact details, and the student history before deciding.
               </p>
               <div className="mt-auto text-end">
