@@ -72,6 +72,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    // Genuine authorization denials (ownership/hostel-scope checks etc.) previously fell
+    // through to handleRuntimeException below and returned 400 -- functionally still
+    // blocked, but the wrong HTTP semantics (400 implies bad client input; this is a
+    // correctly-formed request the caller simply isn't allowed to make). Must be declared
+    // before the RuntimeException handler since Spring picks the most specific match anyway,
+    // but ordering here documents the relationship.
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleForbiddenOperation(ForbiddenOperationException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+
     // IllegalArgumentException is what Enum.valueOf() throws for an invalid client-supplied
     // string (e.g. an unknown complaint category/status or attendance method); its default
     // message embeds the enum's fully-qualified internal class name (e.g. "No enum constant
